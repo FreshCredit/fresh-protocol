@@ -2,7 +2,7 @@
 
 use anyhow::Result;
 use freshcredit_types::{CreditReport, UserId, FreshCreditResult};
-use tracing::info;
+use tracing::{info, warn};
 
 /// Cloud LibSQL database client for Turso
 pub struct CloudClient {
@@ -22,66 +22,30 @@ impl CloudClient {
         Ok(Self { connection })
     }
 
-    /// Initialize cloud database schema
+    /// Initialize cloud database schema (production schema already exists in Turso)
     pub async fn initialize_schema(&self) -> Result<()> {
-        info!("Initializing cloud database schema");
-        
-        // Create production tables in Turso
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS credit_reports (
-                id TEXT PRIMARY KEY,
-                user_id TEXT NOT NULL,
-                score INTEGER,
-                data TEXT NOT NULL,
-                generated_at TEXT NOT NULL,
-                blockchain_hash TEXT,
-                synced_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-            )",
-            (),
-        ).await?;
+        info!("Verifying cloud database schema (production schema should already exist)");
 
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS accounts (
-                id TEXT PRIMARY KEY,
-                user_id TEXT NOT NULL,
-                account_type TEXT NOT NULL,
-                balance REAL,
-                currency TEXT NOT NULL,
-                institution_name TEXT NOT NULL,
-                created_at TEXT NOT NULL,
-                synced_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-            )",
-            (),
-        ).await?;
+        // The production Turso database already has the complete schema
+        // This method now just verifies connectivity and schema existence
 
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS transactions (
-                id TEXT PRIMARY KEY,
-                account_id TEXT NOT NULL,
-                amount REAL NOT NULL,
-                currency TEXT NOT NULL,
-                description TEXT NOT NULL,
-                category TEXT,
-                date TEXT NOT NULL,
-                merchant_name TEXT,
-                synced_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-            )",
-            (),
-        ).await?;
+        // Check if key production tables exist
+        let key_tables = vec!["user_profile", "accounts", "transactions", "reports"];
 
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS blockchain_audit_trails (
-                id TEXT PRIMARY KEY,
-                user_id TEXT NOT NULL,
-                data_hash TEXT NOT NULL,
-                blockchain_hash TEXT NOT NULL,
-                transaction_id TEXT,
-                created_at TEXT NOT NULL,
-                synced_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-            )",
-            (),
-        ).await?;
+        for table in &key_tables {
+            let mut rows = self.connection.query(
+                &format!("SELECT name FROM sqlite_master WHERE type='table' AND name='{}'", table),
+                ()
+            ).await?;
 
+            if rows.next().await?.is_some() {
+                info!("Verified production table exists: {}", table);
+            } else {
+                warn!("Production table missing: {}", table);
+            }
+        }
+
+        info!("Cloud database schema verification completed");
         Ok(())
     }
 
