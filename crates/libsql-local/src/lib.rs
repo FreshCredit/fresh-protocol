@@ -67,44 +67,14 @@ impl LocalClient {
         &self.connection
     }
 
-    /// Initialize database schema using simplified schema for testing
+    /// Initialize database schema using production schema
     pub async fn initialize_schema(&self) -> Result<()> {
-        info!("Initializing local database schema");
+        info!("Initializing local database schema with production schema");
 
         // Enable foreign key constraints first
         self.connection.execute("PRAGMA foreign_keys = ON", ()).await?;
 
-        // Create simplified accounts table that matches our Account struct
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS accounts (
-                id TEXT PRIMARY KEY,
-                user_id TEXT NOT NULL,
-                account_type TEXT NOT NULL,
-                balance REAL,
-                currency TEXT NOT NULL,
-                institution_name TEXT NOT NULL,
-                created_at TEXT NOT NULL
-            )",
-            (),
-        ).await?;
-
-        // Create simplified transactions table that matches our Transaction struct
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS transactions (
-                id TEXT PRIMARY KEY,
-                account_id TEXT NOT NULL,
-                amount REAL NOT NULL,
-                currency TEXT NOT NULL,
-                description TEXT NOT NULL,
-                category TEXT,
-                date TEXT NOT NULL,
-                merchant_name TEXT,
-                FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE
-            )",
-            (),
-        ).await?;
-
-        // Create user_profile table for user data
+        // Create user_profile table first (referenced by other tables)
         self.connection.execute(
             "CREATE TABLE IF NOT EXISTS user_profile (
                 id TEXT PRIMARY KEY,
@@ -138,6 +108,110 @@ impl LocalClient {
             (),
         ).await?;
 
+        // Create accounts table that matches production schema
+        self.connection.execute(
+            "CREATE TABLE IF NOT EXISTS accounts (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                plaid_account_id TEXT NOT NULL,
+                plaid_access_token TEXT,
+                account_id TEXT UNIQUE,
+                institution_id TEXT,
+                account_name TEXT NOT NULL,
+                account_type TEXT NOT NULL,
+                account_subtype TEXT,
+                balance_available REAL,
+                balance_current REAL,
+                balance_limit REAL,
+                currency_code TEXT DEFAULT 'USD',
+                is_funding_source BOOLEAN DEFAULT FALSE,
+                date_opened DATE,
+                credit_limit DECIMAL(12,2),
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
+            )",
+            (),
+        ).await?;
+
+        // Create transactions table that matches production schema
+        self.connection.execute(
+            "CREATE TABLE IF NOT EXISTS transactions (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                account_id TEXT NOT NULL,
+                plaid_transaction_id TEXT UNIQUE,
+                amount REAL NOT NULL,
+                iso_currency_code TEXT DEFAULT 'USD',
+                unofficial_currency_code TEXT,
+                category TEXT,
+                subcategory TEXT,
+                transaction_type TEXT,
+                name TEXT NOT NULL,
+                merchant_name TEXT,
+                pending BOOLEAN DEFAULT FALSE,
+                account_owner TEXT,
+                date DATE NOT NULL,
+                authorized_date DATE,
+                location_address TEXT,
+                location_city TEXT,
+                location_region TEXT,
+                location_postal_code TEXT,
+                location_country TEXT,
+                location_lat REAL,
+                location_lon REAL,
+                payment_channel TEXT,
+                raw_transaction_data TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
+                FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE
+            )",
+            (),
+        ).await?;
+
+        // Create auth table for account authentication data
+        self.connection.execute(
+            "CREATE TABLE IF NOT EXISTS auth (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                account_id TEXT NOT NULL UNIQUE,
+                account_number TEXT,
+                routing_number TEXT,
+                wire_routing_number TEXT,
+                verification_status TEXT,
+                raw_auth_data TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
+                FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE
+            )",
+            (),
+        ).await?;
+
+        // Create identities table for identity verification data
+        self.connection.execute(
+            "CREATE TABLE IF NOT EXISTS identities (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                account_id TEXT NOT NULL,
+                name TEXT,
+                email TEXT,
+                phone_number TEXT,
+                address_street TEXT,
+                address_city TEXT,
+                address_region TEXT,
+                address_postal_code TEXT,
+                address_country TEXT,
+                raw_identity_data TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
+                FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE
+            )",
+            (),
+        ).await?;
+
         // Create credit_reports table
         self.connection.execute(
             "CREATE TABLE IF NOT EXISTS credit_reports (
@@ -146,7 +220,8 @@ impl LocalClient {
                 score INTEGER,
                 data TEXT NOT NULL,
                 generated_at TEXT NOT NULL,
-                blockchain_hash TEXT
+                blockchain_hash TEXT,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
             )",
             (),
         ).await?;
