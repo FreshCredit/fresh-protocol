@@ -1,7 +1,7 @@
 //! Cloud LibSQL (Turso) database operations for FreshCredit
 
 use anyhow::Result;
-use freshcredit_types::{CreditReport, UserId, FreshCreditResult};
+use freshcredit_types::{CreditReport, UserId, FreshCreditResult, Account, Transaction};
 use tracing::{info, warn};
 
 /// Cloud LibSQL database client for Turso
@@ -147,5 +147,79 @@ impl CloudClient {
         }
         
         Ok(audit_trail)
+    }
+
+    /// Sync account data to cloud
+    pub async fn sync_account(&self, account: &Account) -> FreshCreditResult<()> {
+        info!("Syncing account {} to cloud for user: {}", account.id, account.user_id);
+
+        self.connection.execute(
+            "INSERT OR REPLACE INTO accounts (id, user_id, account_type, balance, currency, institution_name, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?)",
+            libsql::params![
+                account.id.clone(),
+                account.user_id.clone(),
+                format!("{:?}", account.account_type), // Convert enum to string
+                account.balance,
+                account.currency.clone(),
+                account.institution_name.clone(),
+                account.created_at.to_rfc3339(),
+            ],
+        ).await
+        .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?;
+
+        Ok(())
+    }
+
+    /// Sync transaction data to cloud
+    pub async fn sync_transaction(&self, transaction: &Transaction) -> FreshCreditResult<()> {
+        info!("Syncing transaction {} to cloud for account: {}", transaction.id, transaction.account_id);
+
+        self.connection.execute(
+            "INSERT OR REPLACE INTO transactions (id, account_id, amount, currency, description, category, date, merchant_name)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            libsql::params![
+                transaction.id.clone(),
+                transaction.account_id.clone(),
+                transaction.amount,
+                transaction.currency.clone(),
+                transaction.description.clone(),
+                transaction.category.clone().unwrap_or_default(),
+                transaction.date.to_rfc3339(),
+                transaction.merchant_name.clone().unwrap_or_default(),
+            ],
+        ).await
+        .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?;
+
+        Ok(())
+    }
+
+    /// Sync user profile to cloud
+    pub async fn sync_user_profile(&self, profile: &freshcredit_libsql_local::UserProfile) -> FreshCreditResult<()> {
+        info!("Syncing user profile {} to cloud", profile.platform_user_id);
+
+        self.connection.execute(
+            "INSERT OR REPLACE INTO user_profile (
+                platform_user_id, email, display_name, given_name, surname,
+                object_id, verified_id_credential_id, verified_id_status,
+                verified_id_issued_at, created_at, updated_at
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            libsql::params![
+                profile.platform_user_id.clone(),
+                profile.email.clone(),
+                profile.display_name.clone(),
+                profile.given_name.clone(),
+                profile.surname.clone(),
+                profile.object_id.clone(),
+                profile.verified_id_credential_id.clone(),
+                profile.verified_id_status.clone(),
+                profile.verified_id_issued_at.clone(),
+                profile.created_at.clone(),
+                profile.updated_at.clone(),
+            ],
+        ).await
+        .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?;
+
+        Ok(())
     }
 }

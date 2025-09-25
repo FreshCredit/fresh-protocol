@@ -14,3 +14,4 @@ chrono = { workspace = true }
 
 # Internal dependencies
 freshcredit-types = { path = "../../../core/types" }
+freshcredit-libsql-local = { path = "../local" }

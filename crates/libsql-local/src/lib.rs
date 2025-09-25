@@ -2,7 +2,7 @@
 
 use anyhow::Result;
 use freshcredit_types::{CreditReport, UserId, FreshCreditResult};
-use tracing::{info, warn};
+use tracing::info;
 use serde::{Deserialize, Serialize};
 
 /// User profile for database storage (matches production schema)
@@ -67,53 +67,91 @@ impl LocalClient {
         &self.connection
     }
 
-    /// Initialize database schema using production schema
+    /// Initialize database schema using simplified schema for testing
     pub async fn initialize_schema(&self) -> Result<()> {
-        info!("Initializing local database schema with production schema");
+        info!("Initializing local database schema");
 
         // Enable foreign key constraints first
         self.connection.execute("PRAGMA foreign_keys = ON", ()).await?;
 
-        // Copy schema from the production database by attaching it
-        self.connection.execute("ATTACH DATABASE 'user_database.db' AS prod", ()).await?;
-
-        // Get all table names from production
-        let mut rows = self.connection.query(
-            "SELECT name FROM prod.sqlite_master WHERE type='table' ORDER BY name",
-            ()
+        // Create simplified accounts table that matches our Account struct
+        self.connection.execute(
+            "CREATE TABLE IF NOT EXISTS accounts (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                account_type TEXT NOT NULL,
+                balance REAL,
+                currency TEXT NOT NULL,
+                institution_name TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )",
+            (),
         ).await?;
 
-        let mut table_names = Vec::new();
-        while let Some(row) = rows.next().await? {
-            if let Ok(name) = row.get::<String>(0) {
-                table_names.push(name);
-            }
-        }
+        // Create simplified transactions table that matches our Transaction struct
+        self.connection.execute(
+            "CREATE TABLE IF NOT EXISTS transactions (
+                id TEXT PRIMARY KEY,
+                account_id TEXT NOT NULL,
+                amount REAL NOT NULL,
+                currency TEXT NOT NULL,
+                description TEXT NOT NULL,
+                category TEXT,
+                date TEXT NOT NULL,
+                merchant_name TEXT,
+                FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE
+            )",
+            (),
+        ).await?;
 
-        // Copy each table schema from production
-        for table_name in table_names {
-            let mut schema_rows = self.connection.query(
-                &format!("SELECT sql FROM prod.sqlite_master WHERE type='table' AND name='{}'", table_name),
-                ()
-            ).await?;
+        // Create user_profile table for user data
+        self.connection.execute(
+            "CREATE TABLE IF NOT EXISTS user_profile (
+                id TEXT PRIMARY KEY,
+                platform_user_id TEXT NOT NULL,
+                azure_id TEXT NOT NULL,
+                email TEXT NOT NULL,
+                display_name TEXT NOT NULL,
+                given_name TEXT,
+                family_name TEXT,
+                surname TEXT,
+                mobile_phone TEXT,
+                job_title TEXT,
+                street_address TEXT,
+                city TEXT,
+                state_province TEXT,
+                postal_code TEXT,
+                country_region TEXT,
+                date_of_birth TEXT,
+                ssn_last_four TEXT,
+                employment_status TEXT,
+                annual_income INTEGER,
+                role TEXT DEFAULT 'consumer',
+                tenant_id TEXT NOT NULL,
+                object_id TEXT NOT NULL,
+                verified_id_credential_id TEXT,
+                verified_id_status TEXT DEFAULT 'pending',
+                verified_id_issued_at TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )",
+            (),
+        ).await?;
 
-            if let Some(schema_row) = schema_rows.next().await? {
-                if let Ok(sql) = schema_row.get::<String>(0) {
-                    // Replace CREATE TABLE with CREATE TABLE IF NOT EXISTS
-                    let modified_sql = sql.replace("CREATE TABLE", "CREATE TABLE IF NOT EXISTS");
+        // Create credit_reports table
+        self.connection.execute(
+            "CREATE TABLE IF NOT EXISTS credit_reports (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                score INTEGER,
+                data TEXT NOT NULL,
+                generated_at TEXT NOT NULL,
+                blockchain_hash TEXT
+            )",
+            (),
+        ).await?;
 
-                    match self.connection.execute(&modified_sql, ()).await {
-                        Ok(_) => info!("Created table: {}", table_name),
-                        Err(e) => warn!("Failed to create table {}: {}", table_name, e),
-                    }
-                }
-            }
-        }
-
-        // Detach production database
-        self.connection.execute("DETACH DATABASE prod", ()).await?;
-
-        info!("Production schema initialization completed");
+        info!("Local database schema initialization completed");
         Ok(())
     }
 
