@@ -2,7 +2,7 @@
 
 use anyhow::Result;
 use freshcredit_types::{CreditReport, UserId, FreshCreditResult, Account, Transaction};
-use tracing::{info, warn};
+use tracing::info;
 
 /// Cloud LibSQL database client for Turso
 pub struct CloudClient {
@@ -22,15 +22,13 @@ impl CloudClient {
         Ok(Self { connection })
     }
 
-    /// Initialize cloud database schema (production schema already exists in Turso)
+    /// Initialize cloud database schema (create if missing)
     pub async fn initialize_schema(&self) -> Result<()> {
-        info!("Verifying cloud database schema (production schema should already exist)");
+        info!("Initializing cloud database schema");
 
-        // The production Turso database already has the complete schema
-        // This method now just verifies connectivity and schema existence
-
-        // Check if key production tables exist
+        // Check if key production tables exist and create them if missing
         let key_tables = vec!["user_profile", "accounts", "transactions", "reports"];
+        let mut missing_tables = Vec::new();
 
         for table in &key_tables {
             let mut rows = self.connection.query(
@@ -41,11 +39,108 @@ impl CloudClient {
             if rows.next().await?.is_some() {
                 info!("Verified production table exists: {}", table);
             } else {
-                warn!("Production table missing: {}", table);
+                info!("Production table missing: {} - will create", table);
+                missing_tables.push(table);
             }
         }
 
-        info!("Cloud database schema verification completed");
+        // Create missing tables using the same schema as local databases
+        if !missing_tables.is_empty() {
+            info!("Creating missing production tables in cloud database");
+            self.create_production_schema().await?;
+        }
+
+        info!("Cloud database schema initialization completed");
+        Ok(())
+    }
+
+    /// Create production schema tables in cloud database
+    async fn create_production_schema(&self) -> Result<()> {
+        info!("Creating production schema in cloud database");
+
+        // Enable foreign key constraints
+        self.connection.execute("PRAGMA foreign_keys = ON", ()).await?;
+
+        // Create user_profile table first (referenced by other tables)
+        self.connection.execute(
+            "CREATE TABLE IF NOT EXISTS user_profile (
+                id TEXT PRIMARY KEY,
+                platform_user_id TEXT NOT NULL,
+                azure_id TEXT NOT NULL,
+                email TEXT NOT NULL,
+                display_name TEXT NOT NULL,
+                given_name TEXT,
+                family_name TEXT,
+                surname TEXT,
+                mobile_phone TEXT,
+                job_title TEXT,
+                street_address TEXT,
+                city TEXT,
+                state_province TEXT,
+                postal_code TEXT,
+                country_region TEXT,
+                date_of_birth TEXT,
+                ssn_last_four TEXT,
+                employment_status TEXT,
+                annual_income INTEGER,
+                role TEXT DEFAULT 'consumer',
+                tenant_id TEXT NOT NULL,
+                object_id TEXT NOT NULL,
+                verified_id_credential_id TEXT,
+                verified_id_status TEXT DEFAULT 'pending',
+                verified_id_issued_at TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )",
+            (),
+        ).await?;
+
+        // Create accounts table
+        self.connection.execute(
+            "CREATE TABLE IF NOT EXISTS accounts (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                account_type TEXT NOT NULL,
+                balance REAL,
+                currency TEXT DEFAULT 'USD',
+                institution_name TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
+            )",
+            (),
+        ).await?;
+
+        // Create transactions table
+        self.connection.execute(
+            "CREATE TABLE IF NOT EXISTS transactions (
+                id TEXT PRIMARY KEY,
+                account_id TEXT NOT NULL,
+                amount REAL NOT NULL,
+                currency TEXT DEFAULT 'USD',
+                description TEXT,
+                category TEXT,
+                date TEXT NOT NULL,
+                merchant_name TEXT,
+                FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE
+            )",
+            (),
+        ).await?;
+
+        // Create reports table
+        self.connection.execute(
+            "CREATE TABLE IF NOT EXISTS reports (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                report_type TEXT NOT NULL,
+                data TEXT NOT NULL,
+                generated_at TEXT NOT NULL,
+                blockchain_hash TEXT,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
+            )",
+            (),
+        ).await?;
+
+        info!("Production schema created successfully in cloud database");
         Ok(())
     }
 
