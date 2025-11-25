@@ -226,6 +226,33 @@ impl LocalClient {
             (),
         ).await?;
 
+        // Create workflows table for Windmill integration
+        self.connection.execute(
+            "CREATE TABLE IF NOT EXISTS workflows (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                description TEXT,
+                definition TEXT NOT NULL,
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL,
+                windmill_path TEXT,
+                last_synced_at INTEGER,
+                sync_status TEXT DEFAULT 'pending' CHECK (sync_status IN ('pending', 'synced', 'error'))
+            )",
+            (),
+        ).await?;
+
+        // Create indexes for workflows table
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_workflows_updated ON workflows(updated_at DESC)",
+            (),
+        ).await?;
+
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_workflows_sync_status ON workflows(sync_status)",
+            (),
+        ).await?;
+
         info!("Local database schema initialization completed");
         Ok(())
     }
