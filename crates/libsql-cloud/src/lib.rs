@@ -144,6 +144,7 @@ impl CloudClient {
         self.connection.execute(
             "CREATE TABLE IF NOT EXISTS workflows (
                 id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
                 name TEXT NOT NULL,
                 description TEXT,
                 definition TEXT NOT NULL,
@@ -157,6 +158,11 @@ impl CloudClient {
         ).await?;
 
         // Create indexes for workflows table
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_workflows_user_id ON workflows(user_id)",
+            (),
+        ).await?;
+
         self.connection.execute(
             "CREATE INDEX IF NOT EXISTS idx_workflows_updated ON workflows(updated_at DESC)",
             (),
