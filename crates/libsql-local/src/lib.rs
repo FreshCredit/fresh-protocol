@@ -46,6 +46,19 @@ pub struct SchemaValidationResult {
     pub checked_at: String,
 }
 
+/// User preferences for toggle states
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UserPreferences {
+    pub ai_agent_enabled: Option<bool>,
+    pub ai_feedback_enabled: Option<bool>,
+    pub ai_offers_enabled: Option<bool>,
+    pub ai_lenders_enabled: Option<bool>,
+    pub cloud_sync_enabled: Option<bool>,
+    pub blockchain_enabled: Option<bool>,
+    pub email_notifications_enabled: Option<bool>,
+    pub kilt_did_enabled: Option<bool>,
+}
+
 /// Local LibSQL database client
 pub struct LocalClient {
     connection: libsql::Connection,
@@ -256,6 +269,54 @@ impl LocalClient {
 
         self.connection.execute(
             "CREATE INDEX IF NOT EXISTS idx_workflows_sync_status ON workflows(sync_status)",
+            (),
+        ).await?;
+
+        // Create user_preferences table
+        self.connection.execute(
+            "CREATE TABLE IF NOT EXISTS user_preferences (
+                id TEXT PRIMARY KEY,
+                user_email TEXT NOT NULL UNIQUE,
+                ai_agent_enabled BOOLEAN DEFAULT FALSE,
+                ai_feedback_enabled BOOLEAN DEFAULT FALSE,
+                ai_offers_enabled BOOLEAN DEFAULT FALSE,
+                ai_lenders_enabled BOOLEAN DEFAULT FALSE,
+                cloud_sync_enabled BOOLEAN DEFAULT TRUE,
+                blockchain_enabled BOOLEAN DEFAULT TRUE,
+                email_notifications_enabled BOOLEAN DEFAULT TRUE,
+                kilt_did_enabled BOOLEAN DEFAULT FALSE,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )",
+            (),
+        ).await?;
+
+        // Create api_keys table for API key management
+        self.connection.execute(
+            "CREATE TABLE IF NOT EXISTS api_keys (
+                id TEXT PRIMARY KEY,
+                user_email TEXT NOT NULL,
+                name TEXT NOT NULL,
+                key_prefix TEXT NOT NULL,
+                key_hash TEXT NOT NULL,
+                permissions TEXT NOT NULL DEFAULT 'read',
+                last_used_at DATETIME,
+                expires_at DATETIME,
+                is_revoked BOOLEAN DEFAULT FALSE,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )",
+            (),
+        ).await?;
+
+        // Create index for api_keys lookup
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_api_keys_user_email ON api_keys(user_email)",
+            (),
+        ).await?;
+
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_api_keys_key_prefix ON api_keys(key_prefix)",
             (),
         ).await?;
 
@@ -637,5 +698,83 @@ impl LocalClient {
         }
 
         Ok(transactions)
+    }
+
+    /// Get user preferences
+    pub async fn get_user_preferences(&self, user_email: &str) -> Result<Option<UserPreferences>> {
+        info!("Getting preferences for user: {user_email}");
+
+        let mut rows = self.connection.query(
+            "SELECT ai_agent_enabled, ai_feedback_enabled, ai_offers_enabled, ai_lenders_enabled,
+                    cloud_sync_enabled, blockchain_enabled, email_notifications_enabled, kilt_did_enabled
+             FROM user_preferences WHERE user_email = ?",
+            libsql::params![user_email],
+        ).await?;
+
+        if let Some(row) = rows.next().await? {
+            Ok(Some(UserPreferences {
+                ai_agent_enabled: Some(row.get::<i64>(0)? != 0),
+                ai_feedback_enabled: Some(row.get::<i64>(1)? != 0),
+                ai_offers_enabled: Some(row.get::<i64>(2)? != 0),
+                ai_lenders_enabled: Some(row.get::<i64>(3)? != 0),
+                cloud_sync_enabled: Some(row.get::<i64>(4)? != 0),
+                blockchain_enabled: Some(row.get::<i64>(5)? != 0),
+                email_notifications_enabled: Some(row.get::<i64>(6)? != 0),
+                kilt_did_enabled: Some(row.get::<i64>(7)? != 0),
+            }))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Save user preferences
+    pub async fn save_user_preferences(&self, user_email: &str, prefs: &UserPreferences) -> Result<()> {
+        info!("Saving preferences for user: {user_email}");
+
+        let id = uuid::Uuid::new_v4().to_string();
+        let now = chrono::Utc::now().to_rfc3339();
+
+        self.connection.execute(
+            "INSERT INTO user_preferences (id, user_email, ai_agent_enabled, ai_feedback_enabled,
+                ai_offers_enabled, ai_lenders_enabled, cloud_sync_enabled, blockchain_enabled,
+                email_notifications_enabled, kilt_did_enabled, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             ON CONFLICT(user_email) DO UPDATE SET
+                ai_agent_enabled = excluded.ai_agent_enabled,
+                ai_feedback_enabled = excluded.ai_feedback_enabled,
+                ai_offers_enabled = excluded.ai_offers_enabled,
+                ai_lenders_enabled = excluded.ai_lenders_enabled,
+                cloud_sync_enabled = excluded.cloud_sync_enabled,
+                blockchain_enabled = excluded.blockchain_enabled,
+                email_notifications_enabled = excluded.email_notifications_enabled,
+                kilt_did_enabled = excluded.kilt_did_enabled,
+                updated_at = excluded.updated_at",
+            libsql::params![
+                id,
+                user_email,
+                prefs.ai_agent_enabled.unwrap_or(false) as i64,
+                prefs.ai_feedback_enabled.unwrap_or(false) as i64,
+                prefs.ai_offers_enabled.unwrap_or(false) as i64,
+                prefs.ai_lenders_enabled.unwrap_or(false) as i64,
+                prefs.cloud_sync_enabled.unwrap_or(true) as i64,
+                prefs.blockchain_enabled.unwrap_or(true) as i64,
+                prefs.email_notifications_enabled.unwrap_or(true) as i64,
+                prefs.kilt_did_enabled.unwrap_or(false) as i64,
+                now.clone(),
+                now
+            ],
+        ).await?;
+
+        Ok(())
+    }
+
+    /// Execute a raw SQL query and return rows
+    pub async fn query(&self, sql: &str, params: Vec<libsql::Value>) -> Result<libsql::Rows> {
+        self.connection.query(sql, params).await.map_err(|e| anyhow::anyhow!("{}", e))
+    }
+
+    /// Execute a raw SQL statement and return affected rows count
+    pub async fn execute(&self, sql: &str, params: Vec<libsql::Value>) -> Result<u64> {
+        self.connection.execute(sql, params).await.map_err(|e| anyhow::anyhow!("{}", e))
     }
 }
