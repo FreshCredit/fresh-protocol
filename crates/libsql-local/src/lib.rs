@@ -320,6 +320,27 @@ impl LocalClient {
             (),
         ).await?;
 
+        // Create kilt_dids table for KILT Protocol DID storage
+        self.connection.execute(
+            "CREATE TABLE IF NOT EXISTS kilt_dids (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                did_uri TEXT NOT NULL UNIQUE,
+                network TEXT NOT NULL CHECK (network IN ('peregrine', 'spiritnet')),
+                did_type TEXT NOT NULL CHECK (did_type IN ('light', 'full')),
+                web3name TEXT,
+                encrypted_keypair TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )",
+            (),
+        ).await?;
+
+        // Create index for kilt_dids lookup
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_kilt_dids_did_uri ON kilt_dids(did_uri)",
+            (),
+        ).await?;
+
         info!("Local database schema initialization completed");
         Ok(())
     }
