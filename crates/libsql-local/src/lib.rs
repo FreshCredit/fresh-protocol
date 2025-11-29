@@ -57,6 +57,29 @@ pub struct UserPreferences {
     pub blockchain_enabled: Option<bool>,
     pub email_notifications_enabled: Option<bool>,
     pub kilt_did_enabled: Option<bool>,
+    /// AI mode preference: "auto" (default), "cloud", or "local"
+    pub ai_mode: Option<String>,
+}
+
+/// Uploaded file for AI multimodal input
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UploadedFile {
+    pub id: String,
+    pub user_email: String,
+    pub filename: String,
+    pub mime_type: String,
+    pub file_size: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub file_data: Option<Vec<u8>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text_content: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ai_analysis: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub conversation_id: Option<String>,
+    pub created_at: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<String>,
 }
 
 /// Local LibSQL database client
@@ -285,11 +308,18 @@ impl LocalClient {
                 blockchain_enabled BOOLEAN DEFAULT TRUE,
                 email_notifications_enabled BOOLEAN DEFAULT TRUE,
                 kilt_did_enabled BOOLEAN DEFAULT FALSE,
+                ai_mode TEXT DEFAULT 'auto',
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )",
             (),
         ).await?;
+
+        // Add ai_mode column if it doesn't exist (migration for existing databases)
+        let _ = self.connection.execute(
+            "ALTER TABLE user_preferences ADD COLUMN ai_mode TEXT DEFAULT 'auto'",
+            (),
+        ).await;
 
         // Create api_keys table for API key management
         self.connection.execute(
@@ -338,6 +368,75 @@ impl LocalClient {
         // Create index for kilt_dids lookup
         self.connection.execute(
             "CREATE INDEX IF NOT EXISTS idx_kilt_dids_did_uri ON kilt_dids(did_uri)",
+            (),
+        ).await?;
+
+        // Create uploaded_files table for AI multimodal input
+        self.connection.execute(
+            "CREATE TABLE IF NOT EXISTS uploaded_files (
+                id TEXT PRIMARY KEY,
+                user_email TEXT NOT NULL,
+                filename TEXT NOT NULL,
+                mime_type TEXT NOT NULL,
+                file_size INTEGER NOT NULL,
+                file_data BLOB,
+                text_content TEXT,
+                ai_analysis TEXT,
+                conversation_id TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                expires_at DATETIME
+            )",
+            (),
+        ).await?;
+
+        // Create index for uploaded_files lookup
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_uploaded_files_user ON uploaded_files(user_email)",
+            (),
+        ).await?;
+
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_uploaded_files_conversation ON uploaded_files(conversation_id)",
+            (),
+        ).await?;
+
+        // Create ai_conversations table for conversation memory
+        self.connection.execute(
+            "CREATE TABLE IF NOT EXISTS ai_conversations (
+                id TEXT PRIMARY KEY,
+                user_email TEXT NOT NULL,
+                title TEXT,
+                context TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )",
+            (),
+        ).await?;
+
+        // Create ai_messages table for conversation history
+        self.connection.execute(
+            "CREATE TABLE IF NOT EXISTS ai_messages (
+                id TEXT PRIMARY KEY,
+                conversation_id TEXT NOT NULL,
+                role TEXT NOT NULL,
+                content TEXT NOT NULL,
+                file_attachment_id TEXT,
+                tokens_used INTEGER,
+                model TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (conversation_id) REFERENCES ai_conversations(id) ON DELETE CASCADE
+            )",
+            (),
+        ).await?;
+
+        // Create indexes for ai_conversations
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_ai_conversations_user ON ai_conversations(user_email)",
+            (),
+        ).await?;
+
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_ai_messages_conversation ON ai_messages(conversation_id)",
             (),
         ).await?;
 
@@ -727,7 +826,8 @@ impl LocalClient {
 
         let mut rows = self.connection.query(
             "SELECT ai_agent_enabled, ai_feedback_enabled, ai_offers_enabled, ai_lenders_enabled,
-                    cloud_sync_enabled, blockchain_enabled, email_notifications_enabled, kilt_did_enabled
+                    cloud_sync_enabled, blockchain_enabled, email_notifications_enabled, kilt_did_enabled,
+                    COALESCE(ai_mode, 'auto') as ai_mode
              FROM user_preferences WHERE user_email = ?",
             libsql::params![user_email],
         ).await?;
@@ -742,6 +842,7 @@ impl LocalClient {
                 blockchain_enabled: Some(row.get::<i64>(5)? != 0),
                 email_notifications_enabled: Some(row.get::<i64>(6)? != 0),
                 kilt_did_enabled: Some(row.get::<i64>(7)? != 0),
+                ai_mode: Some(row.get::<String>(8)?),
             }))
         } else {
             Ok(None)
@@ -758,8 +859,8 @@ impl LocalClient {
         self.connection.execute(
             "INSERT INTO user_preferences (id, user_email, ai_agent_enabled, ai_feedback_enabled,
                 ai_offers_enabled, ai_lenders_enabled, cloud_sync_enabled, blockchain_enabled,
-                email_notifications_enabled, kilt_did_enabled, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                email_notifications_enabled, kilt_did_enabled, ai_mode, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT(user_email) DO UPDATE SET
                 ai_agent_enabled = excluded.ai_agent_enabled,
                 ai_feedback_enabled = excluded.ai_feedback_enabled,
@@ -769,6 +870,7 @@ impl LocalClient {
                 blockchain_enabled = excluded.blockchain_enabled,
                 email_notifications_enabled = excluded.email_notifications_enabled,
                 kilt_did_enabled = excluded.kilt_did_enabled,
+                ai_mode = excluded.ai_mode,
                 updated_at = excluded.updated_at",
             libsql::params![
                 id,
@@ -781,11 +883,263 @@ impl LocalClient {
                 prefs.blockchain_enabled.unwrap_or(true) as i64,
                 prefs.email_notifications_enabled.unwrap_or(true) as i64,
                 prefs.kilt_did_enabled.unwrap_or(false) as i64,
+                prefs.ai_mode.clone().unwrap_or_else(|| "auto".to_string()),
                 now.clone(),
                 now
             ],
         ).await?;
 
+        Ok(())
+    }
+
+    /// Save an uploaded file for AI analysis
+    pub async fn save_uploaded_file(
+        &self,
+        user_email: &str,
+        filename: &str,
+        mime_type: &str,
+        file_size: i64,
+        file_data: Option<Vec<u8>>,
+        text_content: Option<&str>,
+        conversation_id: Option<&str>,
+    ) -> Result<String> {
+        let id = uuid::Uuid::new_v4().to_string();
+        let now = chrono::Utc::now().to_rfc3339();
+        // Files expire after 24 hours
+        let expires_at = (chrono::Utc::now() + chrono::Duration::hours(24)).to_rfc3339();
+
+        self.connection.execute(
+            "INSERT INTO uploaded_files (id, user_email, filename, mime_type, file_size, file_data, text_content, conversation_id, created_at, expires_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            libsql::params![
+                id.clone(),
+                user_email,
+                filename,
+                mime_type,
+                file_size,
+                file_data.map(|d| libsql::Value::Blob(d)).unwrap_or(libsql::Value::Null),
+                text_content.map(|s| s.to_string()),
+                conversation_id.map(|s| s.to_string()),
+                now,
+                expires_at
+            ],
+        ).await?;
+
+        Ok(id)
+    }
+
+    /// Get an uploaded file by ID
+    pub async fn get_uploaded_file(&self, file_id: &str) -> Result<Option<UploadedFile>> {
+        let mut rows = self.connection.query(
+            "SELECT id, user_email, filename, mime_type, file_size, file_data, text_content, ai_analysis, conversation_id, created_at, expires_at
+             FROM uploaded_files WHERE id = ?",
+            libsql::params![file_id],
+        ).await?;
+
+        if let Some(row) = rows.next().await? {
+            Ok(Some(UploadedFile {
+                id: row.get(0)?,
+                user_email: row.get(1)?,
+                filename: row.get(2)?,
+                mime_type: row.get(3)?,
+                file_size: row.get(4)?,
+                file_data: row.get::<Option<Vec<u8>>>(5)?,
+                text_content: row.get(6)?,
+                ai_analysis: row.get(7)?,
+                conversation_id: row.get(8)?,
+                created_at: row.get(9)?,
+                expires_at: row.get(10)?,
+            }))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Update AI analysis for an uploaded file
+    pub async fn update_file_ai_analysis(&self, file_id: &str, analysis: &str) -> Result<()> {
+        self.connection.execute(
+            "UPDATE uploaded_files SET ai_analysis = ? WHERE id = ?",
+            libsql::params![analysis, file_id],
+        ).await?;
+        Ok(())
+    }
+
+    /// Delete expired files
+    pub async fn cleanup_expired_files(&self) -> Result<u64> {
+        let now = chrono::Utc::now().to_rfc3339();
+        let affected = self.connection.execute(
+            "DELETE FROM uploaded_files WHERE expires_at < ?",
+            libsql::params![now],
+        ).await?;
+        Ok(affected)
+    }
+
+    // ========================================================================
+    // AI Conversation Memory Functions
+    // ========================================================================
+
+    /// Create a new conversation
+    pub async fn create_conversation(
+        &self,
+        user_email: &str,
+        title: Option<&str>,
+        context: Option<&str>,
+    ) -> Result<String> {
+        let id = uuid::Uuid::new_v4().to_string();
+        let now = chrono::Utc::now().to_rfc3339();
+
+        self.connection.execute(
+            "INSERT INTO ai_conversations (id, user_email, title, context, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?)",
+            libsql::params![id.clone(), user_email, title, context, now.clone(), now],
+        ).await?;
+
+        Ok(id)
+    }
+
+    /// Get conversation by ID
+    pub async fn get_conversation(&self, conversation_id: &str) -> Result<Option<AiConversation>> {
+        let mut rows = self.connection.query(
+            "SELECT id, user_email, title, context, created_at, updated_at
+             FROM ai_conversations WHERE id = ?",
+            libsql::params![conversation_id],
+        ).await?;
+
+        if let Some(row) = rows.next().await? {
+            Ok(Some(AiConversation {
+                id: row.get(0)?,
+                user_email: row.get(1)?,
+                title: row.get(2)?,
+                context: row.get(3)?,
+                created_at: row.get(4)?,
+                updated_at: row.get(5)?,
+            }))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Get recent conversations for a user
+    pub async fn get_user_conversations(
+        &self,
+        user_email: &str,
+        limit: u32,
+    ) -> Result<Vec<AiConversation>> {
+        let mut rows = self.connection.query(
+            "SELECT id, user_email, title, context, created_at, updated_at
+             FROM ai_conversations WHERE user_email = ?
+             ORDER BY updated_at DESC LIMIT ?",
+            libsql::params![user_email, limit as i64],
+        ).await?;
+
+        let mut conversations = Vec::new();
+        while let Some(row) = rows.next().await? {
+            conversations.push(AiConversation {
+                id: row.get(0)?,
+                user_email: row.get(1)?,
+                title: row.get(2)?,
+                context: row.get(3)?,
+                created_at: row.get(4)?,
+                updated_at: row.get(5)?,
+            });
+        }
+        Ok(conversations)
+    }
+
+    /// Add a message to a conversation
+    pub async fn add_conversation_message(
+        &self,
+        conversation_id: &str,
+        role: &str,
+        content: &str,
+        file_attachment_id: Option<&str>,
+        tokens_used: Option<u32>,
+        model: Option<&str>,
+    ) -> Result<String> {
+        let id = uuid::Uuid::new_v4().to_string();
+        let now = chrono::Utc::now().to_rfc3339();
+
+        self.connection.execute(
+            "INSERT INTO ai_messages (id, conversation_id, role, content, file_attachment_id, tokens_used, model, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            libsql::params![
+                id.clone(),
+                conversation_id,
+                role,
+                content,
+                file_attachment_id,
+                tokens_used.map(|t| t as i64),
+                model,
+                now.clone()
+            ],
+        ).await?;
+
+        // Update conversation's updated_at timestamp
+        self.connection.execute(
+            "UPDATE ai_conversations SET updated_at = ? WHERE id = ?",
+            libsql::params![now, conversation_id],
+        ).await?;
+
+        Ok(id)
+    }
+
+    /// Get messages for a conversation
+    pub async fn get_conversation_messages(
+        &self,
+        conversation_id: &str,
+        limit: Option<u32>,
+    ) -> Result<Vec<AiMessage>> {
+        let query = if let Some(lim) = limit {
+            format!(
+                "SELECT id, conversation_id, role, content, file_attachment_id, tokens_used, model, created_at
+                 FROM ai_messages WHERE conversation_id = ?
+                 ORDER BY created_at ASC LIMIT {}",
+                lim
+            )
+        } else {
+            "SELECT id, conversation_id, role, content, file_attachment_id, tokens_used, model, created_at
+             FROM ai_messages WHERE conversation_id = ?
+             ORDER BY created_at ASC".to_string()
+        };
+
+        let mut rows = self.connection.query(&query, libsql::params![conversation_id]).await?;
+
+        let mut messages = Vec::new();
+        while let Some(row) = rows.next().await? {
+            messages.push(AiMessage {
+                id: row.get(0)?,
+                conversation_id: row.get(1)?,
+                role: row.get(2)?,
+                content: row.get(3)?,
+                file_attachment_id: row.get(4)?,
+                tokens_used: row.get::<Option<i64>>(5)?.map(|t| t as u32),
+                model: row.get(6)?,
+                created_at: row.get(7)?,
+            });
+        }
+        Ok(messages)
+    }
+
+    /// Delete a conversation and all its messages
+    pub async fn delete_conversation(&self, conversation_id: &str) -> Result<()> {
+        self.connection.execute(
+            "DELETE FROM ai_conversations WHERE id = ?",
+            libsql::params![conversation_id],
+        ).await?;
+        Ok(())
+    }
+
+    /// Update conversation title (auto-generated from first message)
+    pub async fn update_conversation_title(
+        &self,
+        conversation_id: &str,
+        title: &str,
+    ) -> Result<()> {
+        let now = chrono::Utc::now().to_rfc3339();
+        self.connection.execute(
+            "UPDATE ai_conversations SET title = ?, updated_at = ? WHERE id = ?",
+            libsql::params![title, now, conversation_id],
+        ).await?;
         Ok(())
     }
 
@@ -798,4 +1152,32 @@ impl LocalClient {
     pub async fn execute(&self, sql: &str, params: Vec<libsql::Value>) -> Result<u64> {
         self.connection.execute(sql, params).await.map_err(|e| anyhow::anyhow!("{}", e))
     }
+}
+
+// ============================================================================
+// AI Conversation Memory Structs
+// ============================================================================
+
+/// AI Conversation record
+#[derive(Debug, Clone)]
+pub struct AiConversation {
+    pub id: String,
+    pub user_email: String,
+    pub title: Option<String>,
+    pub context: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+/// AI Message record
+#[derive(Debug, Clone)]
+pub struct AiMessage {
+    pub id: String,
+    pub conversation_id: String,
+    pub role: String,
+    pub content: String,
+    pub file_attachment_id: Option<String>,
+    pub tokens_used: Option<u32>,
+    pub model: Option<String>,
+    pub created_at: String,
 }
