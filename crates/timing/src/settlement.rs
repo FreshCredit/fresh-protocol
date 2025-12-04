@@ -186,7 +186,7 @@ pub enum SettlementStatus {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::{TimeZone, Datelike, Weekday, Duration};
+    use chrono::{TimeZone, Duration};
 
     #[test]
     fn test_standard_ach_settlement() {
