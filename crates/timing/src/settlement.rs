@@ -133,12 +133,12 @@ impl Default for SettlementCalculator {
 /// ACH settlement types with different timing
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum AchSettlementType {
-    /// Standard ACH (T+2 to T+4 business days) - most common
-    Standard,
-    
+    /// Regular ACH (T+2 to T+4 business days) - most common, 3-day settlement
+    ThreeDaySettlement,
+
     /// Same-day ACH (T+1 business day) - requires cutoff time
     SameDay,
-    
+
     /// Next-day ACH (T+1 business day)
     NextDay,
 }
@@ -147,7 +147,7 @@ impl AchSettlementType {
     /// Get business days for settlement type
     pub fn business_days(&self) -> i64 {
         match self {
-            AchSettlementType::Standard => 3, // T+3 is typical for standard ACH
+            AchSettlementType::ThreeDaySettlement => 3, // T+3 for regular ACH
             AchSettlementType::SameDay => 1,  // T+1 for same-day
             AchSettlementType::NextDay => 1,  // T+1 for next-day
         }
@@ -194,7 +194,7 @@ mod tests {
 
         // Monday initiation -> Thursday settlement (T+3)
         let initiated = Utc.with_ymd_and_hms(2025, 1, 6, 10, 0, 0).unwrap(); // Monday
-        let result = calculator.calculate_settlement_date(initiated, AchSettlementType::Standard);
+        let result = calculator.calculate_settlement_date(initiated, AchSettlementType::ThreeDaySettlement);
 
         assert_eq!(result.business_days, 3);
         // Settlement should be at least 3 business days later
@@ -221,8 +221,8 @@ mod tests {
         // Payment initiated 10 days ago
         let initiated = Utc::now() - Duration::days(10);
 
-        // Standard ACH (T+3) should be overdue
-        assert!(calculator.is_settlement_overdue(initiated, AchSettlementType::Standard));
+        // Regular ACH (T+3) should be overdue
+        assert!(calculator.is_settlement_overdue(initiated, AchSettlementType::ThreeDaySettlement));
     }
 
     #[test]
@@ -232,8 +232,8 @@ mod tests {
         // Payment initiated today
         let initiated = Utc::now();
 
-        // Standard ACH (T+3) should not be overdue
-        assert!(!calculator.is_settlement_overdue(initiated, AchSettlementType::Standard));
+        // Regular ACH (T+3) should not be overdue
+        assert!(!calculator.is_settlement_overdue(initiated, AchSettlementType::ThreeDaySettlement));
     }
 
     #[test]
@@ -243,7 +243,7 @@ mod tests {
         // Payment initiated today
         let initiated = Utc::now();
 
-        let status = calculator.get_settlement_status(initiated, AchSettlementType::Standard);
+        let status = calculator.get_settlement_status(initiated, AchSettlementType::ThreeDaySettlement);
         assert_eq!(status, SettlementStatus::InTransit);
     }
 
@@ -254,7 +254,7 @@ mod tests {
         // Payment initiated today
         let initiated = Utc::now();
 
-        let days = calculator.days_until_settlement(initiated, AchSettlementType::Standard);
+        let days = calculator.days_until_settlement(initiated, AchSettlementType::ThreeDaySettlement);
 
         // Should be at least 3 business days (could be more if weekends/holidays)
         assert!(days >= 3);
