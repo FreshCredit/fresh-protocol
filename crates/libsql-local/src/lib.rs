@@ -87,7 +87,7 @@ pub struct UserPreferences {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UploadedFile {
     pub id: String,
-    pub user_email: String,
+    pub user_id: String,
     pub filename: String,
     pub mime_type: String,
     pub file_size: i64,
@@ -318,19 +318,25 @@ impl LocalClient {
 
         // NOTE: credit_reports table removed - use 'reports' table instead (BlockID)
 
-        // Create workflows table for Windmill integration
+        // Create workflows table (matches Turso cloud unified schema)
         self.connection.execute(
             "CREATE TABLE IF NOT EXISTS workflows (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
-                name TEXT NOT NULL,
-                description TEXT,
-                definition TEXT NOT NULL,
-                created_at INTEGER NOT NULL,
-                updated_at INTEGER NOT NULL,
-                windmill_path TEXT,
-                last_synced_at INTEGER,
-                sync_status TEXT DEFAULT 'pending' CHECK (sync_status IN ('pending', 'synced', 'error'))
+                workflow_type TEXT NOT NULL,
+                workflow_name TEXT NOT NULL,
+                workflow_description TEXT,
+                workflow_status TEXT DEFAULT 'draft',
+                workflow_data TEXT NOT NULL,
+                trigger_type TEXT,
+                trigger_config TEXT,
+                is_active BOOLEAN DEFAULT FALSE,
+                last_run_at DATETIME,
+                next_run_at DATETIME,
+                run_count INTEGER DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
             )",
             (),
         ).await?;
@@ -355,7 +361,7 @@ impl LocalClient {
         self.connection.execute(
             "CREATE TABLE IF NOT EXISTS user_preferences (
                 id TEXT PRIMARY KEY,
-                user_email TEXT NOT NULL UNIQUE,
+                user_id TEXT NOT NULL UNIQUE,
                 ai_agent_enabled BOOLEAN DEFAULT FALSE,
                 ai_feedback_enabled BOOLEAN DEFAULT FALSE,
                 ai_offers_enabled BOOLEAN DEFAULT FALSE,
@@ -366,7 +372,8 @@ impl LocalClient {
                 kilt_did_enabled BOOLEAN DEFAULT FALSE,
                 ai_mode TEXT DEFAULT 'auto',
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
             )",
             (),
         ).await?;
@@ -381,23 +388,26 @@ impl LocalClient {
         self.connection.execute(
             "CREATE TABLE IF NOT EXISTS api_keys (
                 id TEXT PRIMARY KEY,
-                user_email TEXT NOT NULL,
-                name TEXT NOT NULL,
-                key_prefix TEXT NOT NULL,
+                user_id TEXT NOT NULL,
+                key_name TEXT NOT NULL,
                 key_hash TEXT NOT NULL,
+                key_prefix TEXT NOT NULL,
                 permissions TEXT NOT NULL DEFAULT 'read',
+                rate_limit INTEGER DEFAULT 1000,
+                is_active BOOLEAN DEFAULT TRUE,
                 last_used_at DATETIME,
                 expires_at DATETIME,
                 is_revoked BOOLEAN DEFAULT FALSE,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
             )",
             (),
         ).await?;
 
         // Create index for api_keys lookup
         self.connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_api_keys_user_email ON api_keys(user_email)",
+            "CREATE INDEX IF NOT EXISTS idx_api_keys_user_id ON api_keys(user_id)",
             (),
         ).await?;
 
@@ -431,23 +441,31 @@ impl LocalClient {
         self.connection.execute(
             "CREATE TABLE IF NOT EXISTS uploaded_files (
                 id TEXT PRIMARY KEY,
-                user_email TEXT NOT NULL,
+                user_id TEXT NOT NULL,
                 filename TEXT NOT NULL,
-                mime_type TEXT NOT NULL,
+                file_type TEXT NOT NULL,
                 file_size INTEGER NOT NULL,
+                mime_type TEXT NOT NULL,
+                storage_path TEXT,
+                file_hash TEXT,
                 file_data BLOB,
                 text_content TEXT,
                 ai_analysis TEXT,
+                is_encrypted BOOLEAN DEFAULT FALSE,
+                encryption_key_id TEXT,
+                metadata TEXT,
                 conversation_id TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                expires_at DATETIME
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                expires_at DATETIME,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
             )",
             (),
         ).await?;
 
         // Create index for uploaded_files lookup
         self.connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_uploaded_files_user ON uploaded_files(user_email)",
+            "CREATE INDEX IF NOT EXISTS idx_uploaded_files_user_id ON uploaded_files(user_id)",
             (),
         ).await?;
 
@@ -460,11 +478,13 @@ impl LocalClient {
         self.connection.execute(
             "CREATE TABLE IF NOT EXISTS ai_conversations (
                 id TEXT PRIMARY KEY,
-                user_email TEXT NOT NULL,
+                user_id TEXT NOT NULL,
                 title TEXT,
                 context TEXT,
+                model TEXT DEFAULT 'gemini-pro',
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
             )",
             (),
         ).await?;
@@ -487,7 +507,7 @@ impl LocalClient {
 
         // Create indexes for ai_conversations
         self.connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_ai_conversations_user ON ai_conversations(user_email)",
+            "CREATE INDEX IF NOT EXISTS idx_ai_conversations_user_id ON ai_conversations(user_id)",
             (),
         ).await?;
 
@@ -1848,15 +1868,15 @@ impl LocalClient {
     }
 
     /// Get user preferences
-    pub async fn get_user_preferences(&self, user_email: &str) -> Result<Option<UserPreferences>> {
-        info!("Getting preferences for user: {user_email}");
+    pub async fn get_user_preferences(&self, user_id: &str) -> Result<Option<UserPreferences>> {
+        info!("Getting preferences for user: {user_id}");
 
         let mut rows = self.connection.query(
             "SELECT ai_agent_enabled, ai_feedback_enabled, ai_offers_enabled, ai_lenders_enabled,
                     cloud_sync_enabled, blockchain_enabled, email_notifications_enabled, kilt_did_enabled,
                     COALESCE(ai_mode, 'auto') as ai_mode
-             FROM user_preferences WHERE user_email = ?",
-            libsql::params![user_email],
+             FROM user_preferences WHERE user_id = ?",
+            libsql::params![user_id],
         ).await?;
 
         if let Some(row) = rows.next().await? {
@@ -1877,18 +1897,18 @@ impl LocalClient {
     }
 
     /// Save user preferences
-    pub async fn save_user_preferences(&self, user_email: &str, prefs: &UserPreferences) -> Result<()> {
-        info!("Saving preferences for user: {user_email}");
+    pub async fn save_user_preferences(&self, user_id: &str, prefs: &UserPreferences) -> Result<()> {
+        info!("Saving preferences for user: {user_id}");
 
         let id = uuid::Uuid::new_v4().to_string();
         let now = chrono::Utc::now().to_rfc3339();
 
         self.connection.execute(
-            "INSERT INTO user_preferences (id, user_email, ai_agent_enabled, ai_feedback_enabled,
+            "INSERT INTO user_preferences (id, user_id, ai_agent_enabled, ai_feedback_enabled,
                 ai_offers_enabled, ai_lenders_enabled, cloud_sync_enabled, blockchain_enabled,
                 email_notifications_enabled, kilt_did_enabled, ai_mode, created_at, updated_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-             ON CONFLICT(user_email) DO UPDATE SET
+             ON CONFLICT(user_id) DO UPDATE SET
                 ai_agent_enabled = excluded.ai_agent_enabled,
                 ai_feedback_enabled = excluded.ai_feedback_enabled,
                 ai_offers_enabled = excluded.ai_offers_enabled,
@@ -1901,7 +1921,7 @@ impl LocalClient {
                 updated_at = excluded.updated_at",
             libsql::params![
                 id,
-                user_email,
+                user_id,
                 prefs.ai_agent_enabled.unwrap_or(false) as i64,
                 prefs.ai_feedback_enabled.unwrap_or(false) as i64,
                 prefs.ai_offers_enabled.unwrap_or(false) as i64,
@@ -1923,7 +1943,7 @@ impl LocalClient {
     #[allow(clippy::too_many_arguments)]
     pub async fn save_uploaded_file(
         &self,
-        user_email: &str,
+        user_id: &str,
         filename: &str,
         mime_type: &str,
         file_size: i64,
@@ -1935,19 +1955,23 @@ impl LocalClient {
         let now = chrono::Utc::now().to_rfc3339();
         // Files expire after 24 hours
         let expires_at = (chrono::Utc::now() + chrono::Duration::hours(24)).to_rfc3339();
+        // Derive file_type from mime_type
+        let file_type = mime_type.split('/').next().unwrap_or("unknown").to_string();
 
         self.connection.execute(
-            "INSERT INTO uploaded_files (id, user_email, filename, mime_type, file_size, file_data, text_content, conversation_id, created_at, expires_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO uploaded_files (id, user_id, filename, file_type, file_size, mime_type, file_data, text_content, conversation_id, created_at, updated_at, expires_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             libsql::params![
                 id.clone(),
-                user_email,
+                user_id,
                 filename,
-                mime_type,
+                file_type,
                 file_size,
+                mime_type,
                 file_data.map(libsql::Value::Blob).unwrap_or(libsql::Value::Null),
                 text_content.map(|s| s.to_string()),
                 conversation_id.map(|s| s.to_string()),
+                now.clone(),
                 now,
                 expires_at
             ],
@@ -1959,7 +1983,7 @@ impl LocalClient {
     /// Get an uploaded file by ID
     pub async fn get_uploaded_file(&self, file_id: &str) -> Result<Option<UploadedFile>> {
         let mut rows = self.connection.query(
-            "SELECT id, user_email, filename, mime_type, file_size, file_data, text_content, ai_analysis, conversation_id, created_at, expires_at
+            "SELECT id, user_id, filename, mime_type, file_size, file_data, text_content, ai_analysis, conversation_id, created_at, expires_at
              FROM uploaded_files WHERE id = ?",
             libsql::params![file_id],
         ).await?;
@@ -1967,7 +1991,7 @@ impl LocalClient {
         if let Some(row) = rows.next().await? {
             Ok(Some(UploadedFile {
                 id: row.get(0)?,
-                user_email: row.get(1)?,
+                user_id: row.get(1)?,
                 filename: row.get(2)?,
                 mime_type: row.get(3)?,
                 file_size: row.get(4)?,
@@ -2009,7 +2033,7 @@ impl LocalClient {
     /// Create a new conversation
     pub async fn create_conversation(
         &self,
-        user_email: &str,
+        user_id: &str,
         title: Option<&str>,
         context: Option<&str>,
     ) -> Result<String> {
@@ -2017,9 +2041,9 @@ impl LocalClient {
         let now = chrono::Utc::now().to_rfc3339();
 
         self.connection.execute(
-            "INSERT INTO ai_conversations (id, user_email, title, context, created_at, updated_at)
+            "INSERT INTO ai_conversations (id, user_id, title, context, created_at, updated_at)
              VALUES (?, ?, ?, ?, ?, ?)",
-            libsql::params![id.clone(), user_email, title, context, now.clone(), now],
+            libsql::params![id.clone(), user_id, title, context, now.clone(), now],
         ).await?;
 
         Ok(id)
@@ -2028,7 +2052,7 @@ impl LocalClient {
     /// Get conversation by ID
     pub async fn get_conversation(&self, conversation_id: &str) -> Result<Option<AiConversation>> {
         let mut rows = self.connection.query(
-            "SELECT id, user_email, title, context, created_at, updated_at
+            "SELECT id, user_id, title, context, created_at, updated_at
              FROM ai_conversations WHERE id = ?",
             libsql::params![conversation_id],
         ).await?;
@@ -2036,7 +2060,7 @@ impl LocalClient {
         if let Some(row) = rows.next().await? {
             Ok(Some(AiConversation {
                 id: row.get(0)?,
-                user_email: row.get(1)?,
+                user_id: row.get(1)?,
                 title: row.get(2)?,
                 context: row.get(3)?,
                 created_at: row.get(4)?,
@@ -2050,21 +2074,21 @@ impl LocalClient {
     /// Get recent conversations for a user
     pub async fn get_user_conversations(
         &self,
-        user_email: &str,
+        user_id: &str,
         limit: u32,
     ) -> Result<Vec<AiConversation>> {
         let mut rows = self.connection.query(
-            "SELECT id, user_email, title, context, created_at, updated_at
-             FROM ai_conversations WHERE user_email = ?
+            "SELECT id, user_id, title, context, created_at, updated_at
+             FROM ai_conversations WHERE user_id = ?
              ORDER BY updated_at DESC LIMIT ?",
-            libsql::params![user_email, limit as i64],
+            libsql::params![user_id, limit as i64],
         ).await?;
 
         let mut conversations = Vec::new();
         while let Some(row) = rows.next().await? {
             conversations.push(AiConversation {
                 id: row.get(0)?,
-                user_email: row.get(1)?,
+                user_id: row.get(1)?,
                 title: row.get(2)?,
                 context: row.get(3)?,
                 created_at: row.get(4)?,
@@ -2189,7 +2213,7 @@ impl LocalClient {
 #[derive(Debug, Clone)]
 pub struct AiConversation {
     pub id: String,
-    pub user_email: String,
+    pub user_id: String,
     pub title: Option<String>,
     pub context: Option<String>,
     pub created_at: String,
