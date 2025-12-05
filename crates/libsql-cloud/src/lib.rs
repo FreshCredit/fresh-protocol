@@ -177,36 +177,35 @@ impl CloudClient {
         Ok(())
     }
 
-    /// Sync credit report to cloud
+    /// Sync report to cloud (uses reports table - BlockID)
     pub async fn sync_credit_report(&self, report: &CreditReport) -> FreshCreditResult<()> {
-        info!("Syncing credit report to cloud for user: {}", report.user_id);
-        
+        info!("Syncing report to cloud for user: {}", report.user_id);
+
         let data = serde_json::to_string(report)
             .map_err(|e| freshcredit_types::FreshCreditError::InternalError(e.to_string()))?;
-        
+
         self.connection.execute(
-            "INSERT OR REPLACE INTO credit_reports (id, user_id, score, data, generated_at, blockchain_hash)
-             VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT OR REPLACE INTO reports (id, user_id, report_type, report_status, report_data, raw_report_data, blockchain_hash, created_at, updated_at)
+             VALUES (?, ?, 'financial', 'ready', ?, ?, ?, datetime('now'), datetime('now'))",
             libsql::params![
                 report.id.to_string(),
                 report.user_id.clone(),
-                report.score,
+                data.clone(),
                 data,
-                report.generated_at.to_rfc3339(),
                 report.blockchain_hash.clone(),
             ],
         ).await
         .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?;
-        
+
         Ok(())
     }
 
-    /// Get credit report from cloud
+    /// Get report from cloud
     pub async fn get_credit_report(&self, user_id: &UserId) -> FreshCreditResult<Option<CreditReport>> {
-        info!("Retrieving credit report from cloud for user: {}", user_id);
-        
+        info!("Retrieving report from cloud for user: {}", user_id);
+
         let mut rows = self.connection.query(
-            "SELECT data FROM credit_reports WHERE user_id = ? ORDER BY generated_at DESC LIMIT 1",
+            "SELECT report_data FROM reports WHERE user_id = ? ORDER BY created_at DESC LIMIT 1",
             libsql::params![user_id.clone()],
         ).await
         .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?;

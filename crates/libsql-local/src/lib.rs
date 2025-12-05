@@ -1,11 +1,33 @@
 //! Local LibSQL database operations for FreshCredit
+//!
+//! This module implements the unified database schema for FreshCredit,
+//! containing 41 tables that support:
+//! - User profile and authentication (Entra ID + Verified ID)
+//! - All 11 Plaid products (Accounts, Transactions, Auth, Identity, etc.)
+//! - Payment processing (Stripe Connect ACH)
+//! - AI features (conversations, file uploads)
+//! - Workflow automation (Windmill integration)
+//! - KILT Protocol DID support
+//!
+//! TABLE CONSOLIDATION NOTES:
+//! - `reports` table is used for BlockID reports (NOT `credit_reports`)
+//! - `identity_verification` (singular) is used for Plaid IDV (NOT `identity_verifications`)
+//! - `balances` table stores balance history; `accounts` table columns store current balance
+//!
+//! SCHEMA SOURCE OF TRUTH:
+//! - Rust code: crates/db/libsql/local/src/lib.rs (this file, initialize_schema function)
+//! - SQL file: migrations/unified_schema.sql
+//! - Cloud database: freshcredit-unified-schema-v1 (Turso)
+//!
+//! Schema Version: unified-v1 (2025-12-05)
 
 use anyhow::Result;
 use freshcredit_types::{CreditReport, UserId, FreshCreditResult};
 use tracing::info;
 use serde::{Deserialize, Serialize};
 
-/// User profile for database storage (matches production schema)
+/// User profile for database storage (unified schema)
+/// Combines Entra ID claims with extended profile and Verified ID fields
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserProfile {
     pub id: String,
@@ -145,27 +167,30 @@ impl LocalClient {
         ).await?;
 
         // Create accounts table that matches production schema
+        // Foreign key disabled to allow account creation before user_profile exists
         self.connection.execute(
             "CREATE TABLE IF NOT EXISTS accounts (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
-                plaid_account_id TEXT NOT NULL,
+                plaid_account_id TEXT,
                 plaid_access_token TEXT,
                 account_id TEXT UNIQUE,
                 institution_id TEXT,
-                account_name TEXT NOT NULL,
+                institution_name TEXT,
+                account_name TEXT,
                 account_type TEXT NOT NULL,
                 account_subtype TEXT,
                 balance_available REAL,
                 balance_current REAL,
                 balance_limit REAL,
+                currency TEXT DEFAULT 'USD',
                 currency_code TEXT DEFAULT 'USD',
+                balance REAL DEFAULT 0.0,
                 is_funding_source BOOLEAN DEFAULT FALSE,
                 date_opened DATE,
                 credit_limit DECIMAL(12,2),
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )",
             (),
         ).await?;
@@ -206,6 +231,27 @@ impl LocalClient {
             (),
         ).await?;
 
+        // Create indexes for accounts and transactions tables
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_accounts_user_id ON accounts(user_id)",
+            (),
+        ).await?;
+
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_transactions_account_id ON transactions(account_id)",
+            (),
+        ).await?;
+
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date)",
+            (),
+        ).await?;
+
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_user_profile_email ON user_profile(email)",
+            (),
+        ).await?;
+
         // Create auth table for account authentication data
         self.connection.execute(
             "CREATE TABLE IF NOT EXISTS auth (
@@ -225,42 +271,52 @@ impl LocalClient {
             (),
         ).await?;
 
-        // Create identities table for identity verification data
+        // Create identities table for Plaid Identity data per account
+        // Matches production Turso schema with JSON arrays and dedicated columns
         self.connection.execute(
             "CREATE TABLE IF NOT EXISTS identities (
                 id TEXT PRIMARY KEY,
-                user_id TEXT NOT NULL,
                 account_id TEXT NOT NULL,
-                name TEXT,
-                email TEXT,
-                phone_number TEXT,
-                address_street TEXT,
-                address_city TEXT,
-                address_region TEXT,
-                address_postal_code TEXT,
-                address_country TEXT,
+                user_id TEXT NOT NULL,
+                -- Plaid Identity data per account (JSON arrays for backward compatibility)
+                account_holder_names TEXT, -- JSON array of names from Plaid Identity API
+                account_holder_emails TEXT, -- JSON array of email objects from Plaid Identity API
+                account_holder_phones TEXT, -- JSON array of phone objects from Plaid Identity API
+                account_holder_addresses TEXT, -- JSON array of address objects from Plaid Identity API
+                -- Dedicated email columns for different email types
+                primary_email TEXT,
+                secondary_email TEXT,
+                other_email TEXT,
+                -- Dedicated phone columns for different phone types
+                primary_phone TEXT,
+                home_phone TEXT,
+                work_phone TEXT,
+                mobile_phone TEXT,
+                -- Dedicated address columns for primary address
+                primary_address_street TEXT,
+                primary_address_city TEXT,
+                primary_address_region TEXT,
+                primary_address_postal_code TEXT,
+                primary_address_country TEXT,
+                -- Dedicated address columns for secondary address
+                secondary_address_street TEXT,
+                secondary_address_city TEXT,
+                secondary_address_region TEXT,
+                secondary_address_postal_code TEXT,
+                secondary_address_country TEXT,
+                -- Account-specific identity flags
+                is_primary_account_holder BOOLEAN DEFAULT FALSE,
+                account_holder_type TEXT DEFAULT 'owner',
                 raw_identity_data TEXT NOT NULL,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
-                FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE
-            )",
-            (),
-        ).await?;
-
-        // Create credit_reports table
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS credit_reports (
-                id TEXT PRIMARY KEY,
-                user_id TEXT NOT NULL,
-                score INTEGER,
-                data TEXT NOT NULL,
-                generated_at TEXT NOT NULL,
-                blockchain_hash TEXT,
+                FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE,
                 FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
             )",
             (),
         ).await?;
+
+        // NOTE: credit_reports table removed - use 'reports' table instead (BlockID)
 
         // Create workflows table for Windmill integration
         self.connection.execute(
@@ -440,7 +496,930 @@ impl LocalClient {
             (),
         ).await?;
 
-        info!("Local database schema initialization completed");
+        // ============================================
+        // PLAID PRODUCT TABLES (from Turso production)
+        // ============================================
+
+        // Create assets table for Plaid Asset Reports
+        self.connection.execute(
+            "CREATE TABLE IF NOT EXISTS assets (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                asset_report_id TEXT NOT NULL UNIQUE,
+                asset_report_token TEXT NOT NULL,
+                client_report_id TEXT,
+                date_generated DATETIME NOT NULL,
+                days_requested INTEGER NOT NULL,
+                report_type TEXT DEFAULT 'FULL',
+                user_info TEXT,
+                raw_asset_report_data TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
+            )",
+            (),
+        ).await?;
+
+        // Create balances table for Plaid Balance data
+        self.connection.execute(
+            "CREATE TABLE IF NOT EXISTS balances (
+                id TEXT PRIMARY KEY,
+                account_id TEXT NOT NULL,
+                user_id TEXT NOT NULL,
+                balance_current REAL NOT NULL,
+                balance_available REAL,
+                balance_limit REAL,
+                iso_currency_code TEXT DEFAULT 'USD',
+                unofficial_currency_code TEXT,
+                last_statement_issue_date DATE,
+                last_statement_balance REAL,
+                minimum_balance_fee REAL,
+                raw_balance_data TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
+            )",
+            (),
+        ).await?;
+
+        // Create consumer_reports table for Plaid Consumer Reports
+        self.connection.execute(
+            "CREATE TABLE IF NOT EXISTS consumer_reports (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                consumer_report_id TEXT UNIQUE,
+                report_type TEXT,
+                permissible_purpose TEXT,
+                report_status TEXT,
+                report_generation_time DATETIME,
+                report_expiration_time DATETIME,
+                consumer_consent_given BOOLEAN DEFAULT FALSE,
+                consumer_consent_timestamp DATETIME,
+                credit_score INTEGER,
+                credit_score_model TEXT,
+                credit_score_factors TEXT,
+                tradelines_count INTEGER DEFAULT 0,
+                inquiries_count INTEGER DEFAULT 0,
+                public_records_count INTEGER DEFAULT 0,
+                collections_count INTEGER DEFAULT 0,
+                report_data TEXT,
+                raw_consumer_report_data TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
+            )",
+            (),
+        ).await?;
+
+        // Create employment table for Plaid Employment data
+        self.connection.execute(
+            "CREATE TABLE IF NOT EXISTS employment (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                employment_id TEXT NOT NULL UNIQUE,
+                employer_name TEXT,
+                employer_address TEXT,
+                employment_type TEXT,
+                job_title TEXT,
+                start_date DATE,
+                end_date DATE,
+                salary REAL,
+                pay_frequency TEXT,
+                currency TEXT DEFAULT 'USD',
+                raw_employment_data TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
+            )",
+            (),
+        ).await?;
+
+        // Create enrich table for Plaid Transaction Enrichment
+        self.connection.execute(
+            "CREATE TABLE IF NOT EXISTS enrich (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                account_id TEXT NOT NULL,
+                transaction_id TEXT NOT NULL,
+                enriched_merchant_name TEXT,
+                enriched_category TEXT,
+                enriched_subcategory TEXT,
+                merchant_logo_url TEXT,
+                merchant_website TEXT,
+                merchant_phone_number TEXT,
+                merchant_address TEXT,
+                confidence_level REAL,
+                enrichment_timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                raw_enrich_data TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
+                FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE,
+                FOREIGN KEY (transaction_id) REFERENCES transactions (id) ON DELETE CASCADE
+            )",
+            (),
+        ).await?;
+
+        // Create income table for Plaid Bank Income
+        self.connection.execute(
+            "CREATE TABLE IF NOT EXISTS income (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                bank_income_id TEXT NOT NULL UNIQUE,
+                generated_time DATETIME NOT NULL,
+                days_requested INTEGER NOT NULL,
+                item_id TEXT NOT NULL,
+                institution_id TEXT,
+                institution_name TEXT,
+                raw_bank_income_data TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
+            )",
+            (),
+        ).await?;
+
+        // Create income_verification table for Plaid Income Verification
+        self.connection.execute(
+            "CREATE TABLE IF NOT EXISTS income_verification (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                income_verification_id TEXT UNIQUE,
+                user_token TEXT,
+                webhook_url TEXT,
+                status TEXT,
+                created_at_plaid DATETIME,
+                completed_at DATETIME,
+                days_requested INTEGER DEFAULT 365,
+                transactions_access_token TEXT,
+                transactions_access_tokens TEXT,
+                income_source_types TEXT,
+                income_verification_url TEXT,
+                income_report_token TEXT,
+                precheck_id TEXT,
+                raw_income_verification_data TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
+            )",
+            (),
+        ).await?;
+
+        // Create identity_verification table for Plaid IDV (singular)
+        self.connection.execute(
+            "CREATE TABLE IF NOT EXISTS identity_verification (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                identity_verification_id TEXT UNIQUE,
+                template_id TEXT,
+                gave_consent BOOLEAN DEFAULT FALSE,
+                status TEXT,
+                created_at_plaid DATETIME,
+                completed_at DATETIME,
+                previous_attempt_id TEXT,
+                shareable_url TEXT,
+                client_user_id TEXT,
+                phone_number TEXT,
+                email_address TEXT,
+                date_of_birth DATE,
+                country_code TEXT,
+                documentary_verification TEXT,
+                selfie_verification TEXT,
+                kyc_check TEXT,
+                risk_check TEXT,
+                watchlist_screening TEXT,
+                raw_identity_verification_data TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
+            )",
+            (),
+        ).await?;
+
+        // NOTE: identity_verifications (plural) table removed - use 'identity_verification' (singular) instead
+
+        // Create investments_holdings table for Plaid Investments
+        self.connection.execute(
+            "CREATE TABLE IF NOT EXISTS investments_holdings (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                account_id TEXT NOT NULL,
+                security_id TEXT NOT NULL,
+                institution_price REAL,
+                institution_price_as_of DATE,
+                institution_price_datetime DATETIME,
+                institution_value REAL,
+                cost_basis REAL,
+                quantity REAL NOT NULL,
+                iso_currency_code TEXT DEFAULT 'USD',
+                unofficial_currency_code TEXT,
+                vested_quantity REAL,
+                vested_value REAL,
+                raw_holding_data TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
+                FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE
+            )",
+            (),
+        ).await?;
+
+        // Create investments_securities table for Plaid Investments
+        self.connection.execute(
+            "CREATE TABLE IF NOT EXISTS investments_securities (
+                id TEXT PRIMARY KEY,
+                security_id TEXT NOT NULL UNIQUE,
+                isin TEXT,
+                cusip TEXT,
+                sedol TEXT,
+                institution_security_id TEXT,
+                institution_id TEXT,
+                proxy_security_id TEXT,
+                name TEXT,
+                ticker_symbol TEXT,
+                is_cash_equivalent BOOLEAN DEFAULT FALSE,
+                type TEXT,
+                close_price REAL,
+                close_price_as_of DATE,
+                update_datetime DATETIME,
+                iso_currency_code TEXT DEFAULT 'USD',
+                unofficial_currency_code TEXT,
+                market_identifier_code TEXT,
+                sector TEXT,
+                industry TEXT,
+                option_contract TEXT,
+                raw_security_data TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )",
+            (),
+        ).await?;
+
+        // Create investments_transactions table for Plaid Investments
+        self.connection.execute(
+            "CREATE TABLE IF NOT EXISTS investments_transactions (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                account_id TEXT NOT NULL,
+                security_id TEXT,
+                investment_transaction_id TEXT NOT NULL UNIQUE,
+                date DATE NOT NULL,
+                name TEXT NOT NULL,
+                quantity REAL NOT NULL,
+                amount REAL NOT NULL,
+                price REAL NOT NULL,
+                fees REAL,
+                type TEXT NOT NULL,
+                subtype TEXT,
+                iso_currency_code TEXT DEFAULT 'USD',
+                unofficial_currency_code TEXT,
+                raw_investment_transaction_data TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
+                FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE
+            )",
+            (),
+        ).await?;
+
+        // Create layer table for Plaid Layer
+        self.connection.execute(
+            "CREATE TABLE IF NOT EXISTS layer (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                account_id TEXT NOT NULL,
+                layer_id TEXT NOT NULL UNIQUE,
+                layer_type TEXT,
+                layer_status TEXT,
+                layer_data TEXT,
+                raw_layer_data TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
+                FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE
+            )",
+            (),
+        ).await?;
+
+        // Create liabilities table for Plaid Liabilities
+        self.connection.execute(
+            "CREATE TABLE IF NOT EXISTS liabilities (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                account_id TEXT NOT NULL,
+                liability_type TEXT NOT NULL,
+                -- Credit card specific fields
+                aprs TEXT,
+                is_overdue BOOLEAN,
+                last_payment_amount REAL,
+                last_payment_date DATE,
+                last_statement_issue_date DATE,
+                last_statement_balance REAL,
+                minimum_payment_amount REAL,
+                next_payment_due_date DATE,
+                -- Mortgage specific fields
+                origination_date DATE,
+                origination_principal_amount REAL,
+                current_late_fee REAL,
+                escrow_balance REAL,
+                has_pmi BOOLEAN,
+                has_prepayment_penalty BOOLEAN,
+                interest_rate_percentage REAL,
+                interest_rate_type TEXT,
+                loan_term TEXT,
+                loan_type_description TEXT,
+                maturity_date DATE,
+                next_monthly_payment REAL,
+                past_due_amount REAL,
+                property_address TEXT,
+                ytd_interest_paid REAL,
+                ytd_principal_paid REAL,
+                -- Student loan specific fields
+                disbursement_dates TEXT,
+                expected_payoff_date DATE,
+                guarantor TEXT,
+                interest_rate_percentage_student REAL,
+                is_overdue_student BOOLEAN,
+                last_payment_amount_student REAL,
+                last_payment_date_student DATE,
+                last_statement_issue_date_student DATE,
+                last_statement_balance_student REAL,
+                loan_name TEXT,
+                loan_status TEXT,
+                minimum_payment_amount_student REAL,
+                next_payment_due_date_student DATE,
+                origination_date_student DATE,
+                origination_principal_amount_student REAL,
+                outstanding_interest_amount REAL,
+                payment_reference_number TEXT,
+                pslf_status TEXT,
+                repayment_plan TEXT,
+                sequence_number TEXT,
+                servicer_address TEXT,
+                ytd_interest_paid_student REAL,
+                ytd_principal_paid_student REAL,
+                raw_liability_data TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
+                FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE
+            )",
+            (),
+        ).await?;
+
+        // Create monitor table for Plaid Monitor (Item monitoring)
+        self.connection.execute(
+            "CREATE TABLE IF NOT EXISTS monitor (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                item_id TEXT NOT NULL,
+                monitor_id TEXT NOT NULL UNIQUE,
+                monitor_type TEXT,
+                monitor_status TEXT,
+                last_check_time DATETIME,
+                next_check_time DATETIME,
+                alert_settings TEXT,
+                raw_monitor_data TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
+            )",
+            (),
+        ).await?;
+
+        // Create recurring_transactions table for Plaid Recurring Transactions
+        self.connection.execute(
+            "CREATE TABLE IF NOT EXISTS recurring_transactions (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                account_id TEXT NOT NULL,
+                stream_id TEXT NOT NULL UNIQUE,
+                category TEXT,
+                category_id TEXT,
+                description TEXT,
+                merchant_name TEXT,
+                personal_finance_category TEXT,
+                first_date DATE,
+                last_date DATE,
+                frequency TEXT,
+                transaction_ids TEXT,
+                average_amount REAL,
+                average_amount_is_estimated BOOLEAN DEFAULT FALSE,
+                last_amount REAL,
+                is_active BOOLEAN DEFAULT TRUE,
+                status TEXT,
+                is_user_modified BOOLEAN DEFAULT FALSE,
+                last_user_modified_datetime DATETIME,
+                raw_recurring_data TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
+                FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE
+            )",
+            (),
+        ).await?;
+
+        // Create signal_evaluations table for Plaid Signal
+        self.connection.execute(
+            "CREATE TABLE IF NOT EXISTS signal_evaluations (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                account_id TEXT NOT NULL,
+                client_transaction_id TEXT NOT NULL UNIQUE,
+                amount REAL NOT NULL,
+                client_user_id TEXT,
+                user_present BOOLEAN,
+                device TEXT,
+                scores TEXT,
+                core_attributes TEXT,
+                warnings TEXT,
+                request_id TEXT,
+                raw_signal_data TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
+                FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE
+            )",
+            (),
+        ).await?;
+
+        // Create statements table for Plaid Statements
+        self.connection.execute(
+            "CREATE TABLE IF NOT EXISTS statements (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                account_id TEXT NOT NULL,
+                statement_id TEXT NOT NULL UNIQUE,
+                month INTEGER NOT NULL,
+                year INTEGER NOT NULL,
+                institution_id TEXT,
+                institution_name TEXT,
+                statement_pdf_url TEXT,
+                statement_pdf_data BLOB,
+                raw_statement_data TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
+                FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE
+            )",
+            (),
+        ).await?;
+
+        // Create transactions_sync table for Plaid Transactions Sync cursor
+        self.connection.execute(
+            "CREATE TABLE IF NOT EXISTS transactions_sync (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                item_id TEXT NOT NULL UNIQUE,
+                access_token TEXT NOT NULL,
+                cursor TEXT,
+                has_more BOOLEAN DEFAULT FALSE,
+                added_count INTEGER DEFAULT 0,
+                modified_count INTEGER DEFAULT 0,
+                removed_count INTEGER DEFAULT 0,
+                last_sync_time DATETIME,
+                raw_sync_data TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
+            )",
+            (),
+        ).await?;
+
+        // ============================================
+        // PAYMENT AND BUSINESS TABLES
+        // ============================================
+
+        // Create customers table for Stripe/Dwolla customers
+        self.connection.execute(
+            "CREATE TABLE IF NOT EXISTS customers (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                stripe_customer_id TEXT UNIQUE,
+                dwolla_customer_id TEXT UNIQUE,
+                customer_type TEXT DEFAULT 'consumer',
+                email TEXT,
+                phone TEXT,
+                first_name TEXT,
+                last_name TEXT,
+                business_name TEXT,
+                business_type TEXT,
+                status TEXT DEFAULT 'active',
+                verification_status TEXT,
+                raw_customer_data TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
+            )",
+            (),
+        ).await?;
+
+        // Create funding_sources table for payment funding sources
+        self.connection.execute(
+            "CREATE TABLE IF NOT EXISTS funding_sources (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                customer_id TEXT NOT NULL,
+                account_id TEXT,
+                funding_source_id TEXT UNIQUE,
+                funding_source_type TEXT NOT NULL,
+                bank_name TEXT,
+                bank_account_type TEXT,
+                name TEXT,
+                status TEXT DEFAULT 'unverified',
+                verification_type TEXT,
+                is_default BOOLEAN DEFAULT FALSE,
+                raw_funding_source_data TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
+                FOREIGN KEY (customer_id) REFERENCES customers (id) ON DELETE CASCADE,
+                FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE SET NULL
+            )",
+            (),
+        ).await?;
+
+        // Create payments table for payment transactions
+        self.connection.execute(
+            "CREATE TABLE IF NOT EXISTS payments (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                customer_id TEXT NOT NULL,
+                funding_source_id TEXT,
+                payment_id TEXT UNIQUE,
+                payment_type TEXT NOT NULL,
+                amount REAL NOT NULL,
+                currency TEXT DEFAULT 'USD',
+                status TEXT DEFAULT 'pending',
+                description TEXT,
+                metadata TEXT,
+                failure_reason TEXT,
+                initiated_at DATETIME,
+                completed_at DATETIME,
+                raw_payment_data TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
+                FOREIGN KEY (customer_id) REFERENCES customers (id) ON DELETE CASCADE,
+                FOREIGN KEY (funding_source_id) REFERENCES funding_sources (id) ON DELETE SET NULL
+            )",
+            (),
+        ).await?;
+
+        // Create stripe_plaid_payments table for Stripe+Plaid ACH payments
+        self.connection.execute(
+            "CREATE TABLE IF NOT EXISTS stripe_plaid_payments (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                stripe_payment_intent_id TEXT UNIQUE,
+                plaid_account_id TEXT NOT NULL,
+                amount REAL NOT NULL,
+                currency TEXT DEFAULT 'USD',
+                status TEXT DEFAULT 'pending',
+                stripe_customer_id TEXT,
+                stripe_payment_method_id TEXT,
+                plaid_access_token TEXT,
+                description TEXT,
+                metadata TEXT,
+                failure_reason TEXT,
+                initiated_at DATETIME,
+                completed_at DATETIME,
+                raw_payment_data TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
+            )",
+            (),
+        ).await?;
+
+        // Create virtual_accounts table for virtual account numbers
+        self.connection.execute(
+            "CREATE TABLE IF NOT EXISTS virtual_accounts (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                customer_id TEXT NOT NULL,
+                virtual_account_id TEXT UNIQUE,
+                account_number TEXT,
+                routing_number TEXT,
+                account_type TEXT DEFAULT 'checking',
+                status TEXT DEFAULT 'active',
+                balance REAL DEFAULT 0.0,
+                currency TEXT DEFAULT 'USD',
+                raw_virtual_account_data TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
+                FOREIGN KEY (customer_id) REFERENCES customers (id) ON DELETE CASCADE
+            )",
+            (),
+        ).await?;
+
+        // ============================================
+        // PROVIDER AND BUSINESS LOGIC TABLES
+        // ============================================
+
+        // Create reports table for generated reports (BlockID)
+        self.connection.execute(
+            "CREATE TABLE IF NOT EXISTS reports (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                report_type TEXT NOT NULL,
+                report_name TEXT,
+                report_status TEXT DEFAULT 'pending',
+                generation_started_at DATETIME,
+                generation_completed_at DATETIME,
+                expiration_date DATETIME,
+                blockchain_hash TEXT,
+                blockchain_tx_id TEXT,
+                report_data TEXT,
+                raw_report_data TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
+            )",
+            (),
+        ).await?;
+
+        // Create scores table for provider-defined scoring models (BlockScore)
+        // NOTE: FreshCredit does NOT generate scores - providers define their own models
+        self.connection.execute(
+            "CREATE TABLE IF NOT EXISTS scores (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                provider_id TEXT NOT NULL,
+                score_model_id TEXT NOT NULL,
+                score_model_name TEXT,
+                score_model_version TEXT,
+                -- Provider-defined score (FreshCredit does not calculate this)
+                provider_calculated_score INTEGER,
+                provider_score_factors TEXT,
+                -- Data elements used for scoring (weights defined by provider)
+                data_elements_used TEXT,
+                data_element_weights TEXT,
+                -- Metadata
+                calculated_at DATETIME,
+                expires_at DATETIME,
+                raw_score_data TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
+            )",
+            (),
+        ).await?;
+
+        // Create offers table for matched offers (BlockIQ)
+        // NOTE: FreshCredit matches offers, does not recommend them
+        self.connection.execute(
+            "CREATE TABLE IF NOT EXISTS offers (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                provider_id TEXT NOT NULL,
+                offer_type TEXT NOT NULL,
+                offer_name TEXT,
+                offer_description TEXT,
+                -- Match criteria (not recommendation)
+                match_score REAL,
+                match_criteria TEXT,
+                user_preferences_matched TEXT,
+                provider_requirements_matched TEXT,
+                -- Offer details (provider-defined)
+                offer_terms TEXT,
+                offer_amount_min REAL,
+                offer_amount_max REAL,
+                offer_apr_min REAL,
+                offer_apr_max REAL,
+                offer_duration_months INTEGER,
+                -- Status
+                offer_status TEXT DEFAULT 'active',
+                user_viewed_at DATETIME,
+                user_clicked_at DATETIME,
+                user_applied_at DATETIME,
+                expires_at DATETIME,
+                raw_offer_data TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
+            )",
+            (),
+        ).await?;
+
+        // Create disputes table for consumer disputes
+        self.connection.execute(
+            "CREATE TABLE IF NOT EXISTS disputes (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                dispute_type TEXT NOT NULL,
+                disputed_item_type TEXT,
+                disputed_item_id TEXT,
+                dispute_reason TEXT NOT NULL,
+                dispute_description TEXT,
+                supporting_documents TEXT,
+                dispute_status TEXT DEFAULT 'pending',
+                resolution TEXT,
+                resolved_at DATETIME,
+                raw_dispute_data TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
+            )",
+            (),
+        ).await?;
+
+        // Create verification_requests table for data verification requests
+        self.connection.execute(
+            "CREATE TABLE IF NOT EXISTS verification_requests (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                provider_id TEXT NOT NULL,
+                request_type TEXT NOT NULL,
+                requested_data_elements TEXT,
+                consent_given BOOLEAN DEFAULT FALSE,
+                consent_timestamp DATETIME,
+                consent_expires_at DATETIME,
+                request_status TEXT DEFAULT 'pending',
+                verification_result TEXT,
+                verified_at DATETIME,
+                raw_request_data TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
+            )",
+            (),
+        ).await?;
+
+        // Create verified_credentials table for Entra Verified ID / KILT DID credentials
+        self.connection.execute(
+            "CREATE TABLE IF NOT EXISTS verified_credentials (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                credential_type TEXT NOT NULL,
+                credential_issuer TEXT NOT NULL,
+                credential_subject TEXT,
+                credential_id TEXT UNIQUE,
+                did_uri TEXT,
+                issuance_date DATETIME,
+                expiration_date DATETIME,
+                credential_status TEXT DEFAULT 'active',
+                revocation_id TEXT,
+                credential_data TEXT,
+                raw_credential_data TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
+            )",
+            (),
+        ).await?;
+
+        // ============================================
+        // INDEXES FOR ALL TABLES
+        // ============================================
+
+        // Indexes for Plaid product tables
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_assets_user_id ON assets(user_id)",
+            (),
+        ).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_balances_account_id ON balances(account_id)",
+            (),
+        ).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_consumer_reports_user_id ON consumer_reports(user_id)",
+            (),
+        ).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_employment_user_id ON employment(user_id)",
+            (),
+        ).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_enrich_transaction_id ON enrich(transaction_id)",
+            (),
+        ).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_income_user_id ON income(user_id)",
+            (),
+        ).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_income_verification_user_id ON income_verification(user_id)",
+            (),
+        ).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_identity_verification_user_id ON identity_verification(user_id)",
+            (),
+        ).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_investments_holdings_account_id ON investments_holdings(account_id)",
+            (),
+        ).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_investments_securities_ticker ON investments_securities(ticker_symbol)",
+            (),
+        ).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_investments_transactions_account_id ON investments_transactions(account_id)",
+            (),
+        ).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_layer_account_id ON layer(account_id)",
+            (),
+        ).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_liabilities_account_id ON liabilities(account_id)",
+            (),
+        ).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_monitor_item_id ON monitor(item_id)",
+            (),
+        ).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_recurring_transactions_account_id ON recurring_transactions(account_id)",
+            (),
+        ).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_signal_evaluations_account_id ON signal_evaluations(account_id)",
+            (),
+        ).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_statements_account_id ON statements(account_id)",
+            (),
+        ).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_transactions_sync_item_id ON transactions_sync(item_id)",
+            (),
+        ).await?;
+
+        // Indexes for payment tables
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_customers_user_id ON customers(user_id)",
+            (),
+        ).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_funding_sources_customer_id ON funding_sources(customer_id)",
+            (),
+        ).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_payments_customer_id ON payments(customer_id)",
+            (),
+        ).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_stripe_plaid_payments_user_id ON stripe_plaid_payments(user_id)",
+            (),
+        ).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_virtual_accounts_customer_id ON virtual_accounts(customer_id)",
+            (),
+        ).await?;
+
+        // Indexes for business logic tables
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_reports_user_id ON reports(user_id)",
+            (),
+        ).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_scores_user_id ON scores(user_id)",
+            (),
+        ).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_scores_provider_id ON scores(provider_id)",
+            (),
+        ).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_offers_user_id ON offers(user_id)",
+            (),
+        ).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_offers_provider_id ON offers(provider_id)",
+            (),
+        ).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_disputes_user_id ON disputes(user_id)",
+            (),
+        ).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_verification_requests_user_id ON verification_requests(user_id)",
+            (),
+        ).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_verified_credentials_user_id ON verified_credentials(user_id)",
+            (),
+        ).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_verified_credentials_did_uri ON verified_credentials(did_uri)",
+            (),
+        ).await?;
+
+        // Indexes for identities table (new comprehensive schema)
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_identities_account_id ON identities(account_id)",
+            (),
+        ).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_identities_user_id ON identities(user_id)",
+            (),
+        ).await?;
+
+        info!("Unified database schema initialization completed (43 tables)");
         Ok(())
     }
 
@@ -471,31 +1450,33 @@ impl LocalClient {
         if let Some(row) = rows.next().await? {
             let orphaned_count: i64 = row.get(0)?;
             if orphaned_count > 0 {
-                issues.push(format!("Found {} orphaned transactions without valid accounts", orphaned_count));
+                issues.push(format!("Found {orphaned_count} orphaned transactions without valid accounts"));
             }
         }
 
         // Check for accounts without valid users
+        // Note: Table is user_profile (singular), not user_profiles
         let mut rows = self.connection.query(
             "SELECT COUNT(*) FROM accounts a
-             LEFT JOIN user_profiles u ON a.user_id = u.user_id
-             WHERE u.user_id IS NULL",
+             LEFT JOIN user_profile u ON a.user_id = u.platform_user_id
+             WHERE u.platform_user_id IS NULL",
             (),
         ).await?;
 
         if let Some(row) = rows.next().await? {
             let orphaned_count: i64 = row.get(0)?;
             if orphaned_count > 0 {
-                issues.push(format!("Found {} accounts without valid user profiles", orphaned_count));
+                issues.push(format!("Found {orphaned_count} accounts without valid user profiles"));
             }
         }
 
         // Check for missing required indexes
+        // Note: Index is idx_user_profile_email (singular), not idx_user_profiles_email
         let required_indexes = vec![
             "idx_accounts_user_id",
             "idx_transactions_account_id",
             "idx_transactions_date",
-            "idx_user_profiles_email"
+            "idx_user_profile_email"
         ];
 
         for index_name in required_indexes {
@@ -505,7 +1486,7 @@ impl LocalClient {
             ).await?;
 
             if rows.next().await?.is_none() {
-                warnings.push(format!("Missing recommended index: {}", index_name));
+                warnings.push(format!("Missing recommended index: {index_name}"));
             }
         }
 
@@ -523,6 +1504,7 @@ impl LocalClient {
     }
 
     /// Validate data consistency
+    #[allow(clippy::ptr_arg)]
     async fn validate_data_consistency(&self, _issues: &mut Vec<String>, warnings: &mut Vec<String>) -> Result<()> {
         // Check for invalid currency codes
         let mut rows = self.connection.query(
@@ -537,7 +1519,7 @@ impl LocalClient {
         }
 
         if !invalid_currencies.is_empty() {
-            warnings.push(format!("Found accounts with non-standard currencies: {:?}", invalid_currencies));
+            warnings.push(format!("Found accounts with non-standard currencies: {invalid_currencies:?}"));
         }
 
         // Check for transactions with invalid amounts
@@ -549,7 +1531,7 @@ impl LocalClient {
         if let Some(row) = rows.next().await? {
             let invalid_amount_count: i64 = row.get(0)?;
             if invalid_amount_count > 0 {
-                warnings.push(format!("Found {} transactions with zero or null amounts", invalid_amount_count));
+                warnings.push(format!("Found {invalid_amount_count} transactions with zero or null amounts"));
             }
         }
 
@@ -562,43 +1544,42 @@ impl LocalClient {
         if let Some(row) = rows.next().await? {
             let future_count: i64 = row.get(0)?;
             if future_count > 0 {
-                warnings.push(format!("Found {} transactions with future dates", future_count));
+                warnings.push(format!("Found {future_count} transactions with future dates"));
             }
         }
 
         Ok(())
     }
 
-    /// Store credit report locally
+    /// Store report locally (uses reports table - BlockID)
     pub async fn store_credit_report(&self, report: &CreditReport) -> FreshCreditResult<()> {
-        info!("Storing credit report locally for user: {}", report.user_id);
-        
+        info!("Storing report locally for user: {}", report.user_id);
+
         let data = serde_json::to_string(report)
             .map_err(|e| freshcredit_types::FreshCreditError::InternalError(e.to_string()))?;
-        
+
         self.connection.execute(
-            "INSERT OR REPLACE INTO credit_reports (id, user_id, score, data, generated_at, blockchain_hash)
-             VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT OR REPLACE INTO reports (id, user_id, report_type, report_status, report_data, raw_report_data, blockchain_hash, created_at, updated_at)
+             VALUES (?, ?, 'financial', 'ready', ?, ?, ?, datetime('now'), datetime('now'))",
             libsql::params![
                 report.id.to_string(),
                 report.user_id.clone(),
-                report.score,
+                data.clone(),
                 data,
-                report.generated_at.to_rfc3339(),
                 report.blockchain_hash.clone(),
             ],
         ).await
         .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?;
-        
+
         Ok(())
     }
 
-    /// Retrieve credit report from local storage using raw SQL
+    /// Retrieve report from local storage using raw SQL
     pub async fn get_credit_report(&self, user_id: &UserId) -> FreshCreditResult<Option<CreditReport>> {
-        info!("Retrieving credit report from local storage for user: {}", user_id);
+        info!("Retrieving report from local storage for user: {}", user_id);
 
         let mut rows = self.connection.query(
-            "SELECT data FROM credit_reports WHERE user_id = ? ORDER BY generated_at DESC LIMIT 1",
+            "SELECT report_data FROM reports WHERE user_id = ? ORDER BY created_at DESC LIMIT 1",
             libsql::params![user_id.clone()],
         ).await
         .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?;
@@ -666,6 +1647,52 @@ impl LocalClient {
         let mut rows = self.connection.query(
             "SELECT * FROM user_profile WHERE platform_user_id = ?",
             libsql::params![platform_user_id],
+        ).await?;
+
+        if let Some(row) = rows.next().await? {
+            let profile = UserProfile {
+                id: row.get(0)?,
+                platform_user_id: row.get(1)?,
+                azure_id: row.get(2)?,
+                email: row.get(3)?,
+                display_name: row.get(4)?,
+                given_name: row.get::<Option<String>>(5).unwrap_or(None),
+                family_name: row.get::<Option<String>>(6).unwrap_or(None),
+                surname: row.get::<Option<String>>(7).unwrap_or(None),
+                mobile_phone: row.get::<Option<String>>(8).unwrap_or(None),
+                job_title: row.get::<Option<String>>(9).unwrap_or(None),
+                street_address: row.get::<Option<String>>(10).unwrap_or(None),
+                city: row.get::<Option<String>>(11).unwrap_or(None),
+                state_province: row.get::<Option<String>>(12).unwrap_or(None),
+                postal_code: row.get::<Option<String>>(13).unwrap_or(None),
+                country_region: row.get::<Option<String>>(14).unwrap_or(None),
+                date_of_birth: row.get::<Option<String>>(15).unwrap_or(None),
+                ssn_last_four: row.get::<Option<String>>(16).unwrap_or(None),
+                employment_status: row.get::<Option<String>>(17).unwrap_or(None),
+                annual_income: row.get::<Option<i32>>(18).unwrap_or(None),
+                role: row.get(19).unwrap_or_else(|_| "consumer".to_string()),
+                tenant_id: row.get(20)?,
+                object_id: row.get(21)?,
+                verified_id_credential_id: row.get::<Option<String>>(22).unwrap_or(None),
+                verified_id_status: row.get(23).unwrap_or_else(|_| "pending".to_string()),
+                verified_id_issued_at: row.get::<Option<String>>(24).unwrap_or(None),
+                created_at: row.get(25).unwrap_or_default(),
+                updated_at: row.get(26).unwrap_or_default(),
+            };
+
+            Ok(Some(profile))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Get user profile by Azure AD Object ID (used when user_id is the Azure ID)
+    pub async fn get_user_profile_by_azure_id(&self, azure_id: &str) -> Result<Option<UserProfile>> {
+        info!("Retrieving user profile by azure_id: {}", azure_id);
+
+        let mut rows = self.connection.query(
+            "SELECT * FROM user_profile WHERE azure_id = ?",
+            libsql::params![azure_id],
         ).await?;
 
         if let Some(row) = rows.next().await? {
@@ -776,7 +1803,7 @@ impl LocalClient {
                 currency: row.get(4)?,
                 institution_name: row.get(5)?,
                 created_at: chrono::DateTime::parse_from_rfc3339(&row.get::<String>(6)?)
-                    .map_err(|e| anyhow::anyhow!("Failed to parse date: {}", e))?
+                    .map_err(|e| anyhow::anyhow!("Failed to parse date: {e}"))?
                     .with_timezone(&chrono::Utc),
             };
             accounts.push(account);
@@ -787,7 +1814,7 @@ impl LocalClient {
 
     /// Get all transactions for a user
     pub async fn get_user_transactions(&self, user_id: &str) -> Result<Vec<freshcredit_types::Transaction>> {
-        info!("Retrieving transactions for user: {}", user_id);
+        info!("Retrieving transactions for user: {user_id}");
 
         let mut rows = self.connection.query(
             "SELECT t.* FROM transactions t
@@ -810,7 +1837,7 @@ impl LocalClient {
                 description: row.get(4)?,
                 category: if category.is_empty() { None } else { Some(category) },
                 date: chrono::DateTime::parse_from_rfc3339(&row.get::<String>(6)?)
-                    .map_err(|e| anyhow::anyhow!("Failed to parse date: {}", e))?
+                    .map_err(|e| anyhow::anyhow!("Failed to parse date: {e}"))?
                     .with_timezone(&chrono::Utc),
                 merchant_name: if merchant_name.is_empty() { None } else { Some(merchant_name) },
             };
@@ -893,6 +1920,7 @@ impl LocalClient {
     }
 
     /// Save an uploaded file for AI analysis
+    #[allow(clippy::too_many_arguments)]
     pub async fn save_uploaded_file(
         &self,
         user_email: &str,
@@ -917,7 +1945,7 @@ impl LocalClient {
                 filename,
                 mime_type,
                 file_size,
-                file_data.map(|d| libsql::Value::Blob(d)).unwrap_or(libsql::Value::Null),
+                file_data.map(libsql::Value::Blob).unwrap_or(libsql::Value::Null),
                 text_content.map(|s| s.to_string()),
                 conversation_id.map(|s| s.to_string()),
                 now,
@@ -1093,8 +2121,7 @@ impl LocalClient {
             format!(
                 "SELECT id, conversation_id, role, content, file_attachment_id, tokens_used, model, created_at
                  FROM ai_messages WHERE conversation_id = ?
-                 ORDER BY created_at ASC LIMIT {}",
-                lim
+                 ORDER BY created_at ASC LIMIT {lim}"
             )
         } else {
             "SELECT id, conversation_id, role, content, file_attachment_id, tokens_used, model, created_at
@@ -1145,12 +2172,12 @@ impl LocalClient {
 
     /// Execute a raw SQL query and return rows
     pub async fn query(&self, sql: &str, params: Vec<libsql::Value>) -> Result<libsql::Rows> {
-        self.connection.query(sql, params).await.map_err(|e| anyhow::anyhow!("{}", e))
+        self.connection.query(sql, params).await.map_err(|e| anyhow::anyhow!("{e}"))
     }
 
     /// Execute a raw SQL statement and return affected rows count
     pub async fn execute(&self, sql: &str, params: Vec<libsql::Value>) -> Result<u64> {
-        self.connection.execute(sql, params).await.map_err(|e| anyhow::anyhow!("{}", e))
+        self.connection.execute(sql, params).await.map_err(|e| anyhow::anyhow!("{e}"))
     }
 }
 
