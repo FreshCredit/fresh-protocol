@@ -1439,7 +1439,7 @@ impl LocalClient {
             (),
         ).await?;
 
-        info!("Unified database schema initialization completed (43 tables)");
+        info!("Unified database schema initialization completed (41 tables)");
         Ok(())
     }
 
