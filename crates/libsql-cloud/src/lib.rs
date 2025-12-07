@@ -32,7 +32,7 @@ impl CloudClient {
 
         for table in &key_tables {
             let mut rows = self.connection.query(
-                &format!("SELECT name FROM sqlite_master WHERE type='table' AND name='{}'", table),
+                &format!("SELECT name FROM sqlite_master WHERE type='table' AND name='{table}'"),
                 ()
             ).await?;
 
