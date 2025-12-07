@@ -59,21 +59,21 @@ async fn main() -> Result<()> {
     let mut validator = SchemaValidator::new();
 
     if let Some(path) = staging_path {
-        println!("📦 Connecting to staging database: {}", path);
+        println!("📦 Connecting to staging database: {path}");
         let db = libsql::Builder::new_local(&path).build().await?;
         let conn = db.connect()?;
         validator = validator.with_staging(conn);
     }
 
     if let Some(path) = local_path {
-        println!("📦 Connecting to local database: {}", path);
+        println!("📦 Connecting to local database: {path}");
         let db = libsql::Builder::new_local(&path).build().await?;
         let conn = db.connect()?;
         validator = validator.with_local(conn);
     }
 
     if let Some(url) = cloud_url {
-        println!("📦 Connecting to cloud database: {}", url);
+        println!("📦 Connecting to cloud database: {url}");
         let auth_token = env::var("TURSO_AUTH_TOKEN")
             .unwrap_or_else(|_| {
                 eprintln!("⚠️  TURSO_AUTH_TOKEN not set, using empty token");
@@ -111,7 +111,7 @@ fn print_human_readable(result: &freshcredit_libsql_schema_validator::SchemaVali
 
     println!("🗄️  Databases Checked:");
     for db in &result.databases_checked {
-        println!("   - {}", db);
+        println!("   - {db}");
     }
     println!();
 
