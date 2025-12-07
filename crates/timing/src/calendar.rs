@@ -42,7 +42,7 @@ impl BusinessDayCalendar {
         let direction = if days >= 0 { 1 } else { -1 };
 
         while remaining > 0 {
-            current = current + Duration::days(direction as i64);
+            current += Duration::days(direction as i64);
             if self.is_business_day(current) {
                 remaining -= 1;
             }
@@ -75,7 +75,7 @@ impl BusinessDayCalendar {
             if self.is_business_day(current) {
                 count += 1;
             }
-            current = current + Duration::days(1);
+            current += Duration::days(1);
         }
         
         count
