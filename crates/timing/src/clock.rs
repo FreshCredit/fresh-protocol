@@ -53,7 +53,7 @@ impl MockClock {
     
     /// Advance the clock by the given duration
     pub fn advance(&mut self, duration: chrono::Duration) {
-        self.current_time = self.current_time + duration;
+        self.current_time += duration;
     }
     
     /// Set the clock to a specific time

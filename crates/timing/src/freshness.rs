@@ -101,7 +101,7 @@ impl FreshnessValidator {
     }
     
     /// Create a freshness validator with default thresholds
-    pub fn default() -> Self {
+    pub fn with_default_thresholds() -> Self {
         Self::new(FreshnessThresholds::default())
     }
     
