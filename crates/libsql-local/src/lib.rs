@@ -1297,6 +1297,47 @@ impl LocalClient {
         ).await?;
 
         // ============================================
+        // WEBHOOK EVENTS TABLE (Outbox Pattern)
+        // ============================================
+        self.connection.execute(
+            "CREATE TABLE IF NOT EXISTS webhook_events (
+                id TEXT PRIMARY KEY,
+                user_id TEXT,
+                provider TEXT NOT NULL,
+                event_type TEXT NOT NULL,
+                event_id TEXT UNIQUE,
+                payload TEXT NOT NULL,
+                status TEXT DEFAULT 'pending',
+                retry_count INTEGER DEFAULT 0,
+                error_message TEXT,
+                processed_at DATETIME,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE SET NULL
+            )",
+            (),
+        ).await?;
+
+        // ============================================
+        // NOTIFICATIONS TABLE (In-App Notifications)
+        // ============================================
+        self.connection.execute(
+            "CREATE TABLE IF NOT EXISTS notifications (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                notification_type TEXT NOT NULL,
+                title TEXT NOT NULL,
+                message TEXT,
+                read_status INTEGER DEFAULT 0,
+                action_url TEXT,
+                metadata TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                expires_at DATETIME,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
+            )",
+            (),
+        ).await?;
+
+        // ============================================
         // INDEXES FOR ALL TABLES
         // ============================================
 
@@ -1444,7 +1485,31 @@ impl LocalClient {
             (),
         ).await?;
 
-        info!("Unified database schema initialization completed (41 tables)");
+        // Indexes for webhook_events table
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_webhook_events_user_id ON webhook_events(user_id)",
+            (),
+        ).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_webhook_events_status ON webhook_events(status)",
+            (),
+        ).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_webhook_events_provider ON webhook_events(provider)",
+            (),
+        ).await?;
+
+        // Indexes for notifications table
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id)",
+            (),
+        ).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_notifications_read_status ON notifications(read_status)",
+            (),
+        ).await?;
+
+        info!("Unified database schema initialization completed (43 tables)");
         Ok(())
     }
 
