@@ -60,7 +60,10 @@ async fn setup_test_user(client: &LocalClient) -> Result<TestUserData> {
         vec![Value::Text(customer_id.clone()), Value::Text(user_id.clone()), Value::Text(format!("cus_{user_id}"))]
     ).await?;
 
-    Ok(TestUserData { user_id, customer_id })
+    Ok(TestUserData {
+        user_id,
+        customer_id,
+    })
 }
 
 /// Helper to check if rows exist
@@ -77,7 +80,10 @@ async fn test_ach_bank_account_linking() -> Result<()> {
     client.initialize_schema().await?;
     let test_data = setup_test_user(&client).await?;
 
-    println!("✅ Test database initialized with user: {}", test_data.user_id);
+    println!(
+        "✅ Test database initialized with user: {}",
+        test_data.user_id
+    );
 
     // Simulate Plaid account linking - store account in database
     let account_id = uuid::Uuid::new_v4().to_string();
@@ -89,11 +95,16 @@ async fn test_ach_bank_account_linking() -> Result<()> {
     println!("✅ Bank account linked: {account_id}");
 
     // Verify account was stored
-    let mut rows = client.query(
-        "SELECT * FROM accounts WHERE user_id = ?",
-        vec![Value::Text(test_data.user_id.clone())]
-    ).await?;
-    assert!(has_rows(&mut rows).await, "Account should be stored in database");
+    let mut rows = client
+        .query(
+            "SELECT * FROM accounts WHERE user_id = ?",
+            vec![Value::Text(test_data.user_id.clone())],
+        )
+        .await?;
+    assert!(
+        has_rows(&mut rows).await,
+        "Account should be stored in database"
+    );
     println!("✅ Account verified in database");
 
     // Simulate funding source creation from linked account (uses funding_sources table)
@@ -106,11 +117,16 @@ async fn test_ach_bank_account_linking() -> Result<()> {
     println!("✅ Funding source created: {funding_source_id}");
 
     // Verify funding source
-    let mut fs_rows = client.query(
-        "SELECT * FROM funding_sources WHERE user_id = ?",
-        vec![Value::Text(test_data.user_id.clone())]
-    ).await?;
-    assert!(has_rows(&mut fs_rows).await, "Funding source should be stored");
+    let mut fs_rows = client
+        .query(
+            "SELECT * FROM funding_sources WHERE user_id = ?",
+            vec![Value::Text(test_data.user_id.clone())],
+        )
+        .await?;
+    assert!(
+        has_rows(&mut fs_rows).await,
+        "Funding source should be stored"
+    );
     println!("✅ Funding source verified in database");
 
     println!("🎉 ACH Bank Account Linking test passed!");
@@ -145,10 +161,12 @@ async fn test_payment_transaction_initiation() -> Result<()> {
     println!("✅ Payment initiated: {payment_id} ($100.00)");
 
     // Verify payment status is pending
-    let mut payment_rows = client.query(
-        "SELECT status FROM payments WHERE id = ?",
-        vec![Value::Text(payment_id.clone())]
-    ).await?;
+    let mut payment_rows = client
+        .query(
+            "SELECT status FROM payments WHERE id = ?",
+            vec![Value::Text(payment_id.clone())],
+        )
+        .await?;
     assert!(has_rows(&mut payment_rows).await, "Payment should exist");
     println!("✅ Payment status verified as pending");
 
@@ -204,16 +222,20 @@ async fn test_webhook_status_updates() -> Result<()> {
     println!("✅ Webhook marked as processed");
 
     // Verify final states
-    let mut final_payment = client.query(
-        "SELECT status FROM payments WHERE id = ?",
-        vec![Value::Text(payment_id.clone())]
-    ).await?;
+    let mut final_payment = client
+        .query(
+            "SELECT status FROM payments WHERE id = ?",
+            vec![Value::Text(payment_id.clone())],
+        )
+        .await?;
     assert!(has_rows(&mut final_payment).await, "Payment should exist");
 
-    let mut final_webhook = client.query(
-        "SELECT status FROM webhook_events WHERE id = ?",
-        vec![Value::Text(webhook_id.clone())]
-    ).await?;
+    let mut final_webhook = client
+        .query(
+            "SELECT status FROM webhook_events WHERE id = ?",
+            vec![Value::Text(webhook_id.clone())],
+        )
+        .await?;
     assert!(has_rows(&mut final_webhook).await, "Webhook should exist");
 
     println!("🎉 Webhook Status Updates test passed!");
@@ -239,11 +261,16 @@ async fn test_payment_status_tracking() -> Result<()> {
     println!("✅ Pending payment created: {payment_id}");
 
     // Query pending payments
-    let mut pending_payments = client.query(
-        "SELECT id, status FROM payments WHERE status = 'pending'",
-        vec![]
-    ).await?;
-    assert!(has_rows(&mut pending_payments).await, "Should have pending payments");
+    let mut pending_payments = client
+        .query(
+            "SELECT id, status FROM payments WHERE status = 'pending'",
+            vec![],
+        )
+        .await?;
+    assert!(
+        has_rows(&mut pending_payments).await,
+        "Should have pending payments"
+    );
     println!("✅ Found pending payments");
 
     // Simulate payment completion
@@ -254,10 +281,12 @@ async fn test_payment_status_tracking() -> Result<()> {
     println!("✅ Payment marked as completed");
 
     // Verify payment status
-    let mut completed = client.query(
-        "SELECT status FROM payments WHERE id = ?",
-        vec![Value::Text(payment_id.clone())]
-    ).await?;
+    let mut completed = client
+        .query(
+            "SELECT status FROM payments WHERE id = ?",
+            vec![Value::Text(payment_id.clone())],
+        )
+        .await?;
     assert!(has_rows(&mut completed).await, "Payment should exist");
     println!("✅ Payment status verified as completed");
 
@@ -317,10 +346,12 @@ async fn test_complete_payment_flow() -> Result<()> {
     println!("✅ Step 5: Webhook processed, payment completed");
 
     // Verify complete flow
-    let mut final_payment = client.query(
-        "SELECT status FROM payments WHERE id = ?",
-        vec![Value::Text(payment_id.clone())]
-    ).await?;
+    let mut final_payment = client
+        .query(
+            "SELECT status FROM payments WHERE id = ?",
+            vec![Value::Text(payment_id.clone())],
+        )
+        .await?;
     assert!(has_rows(&mut final_payment).await, "Payment should exist");
     println!("✅ Complete payment flow verified");
 

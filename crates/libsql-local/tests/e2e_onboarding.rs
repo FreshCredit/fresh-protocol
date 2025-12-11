@@ -134,7 +134,10 @@ async fn test_onboarding_role_selection() -> Result<()> {
     println!("✅ Profile upgraded to provider");
 
     // Verify role change persisted
-    let retrieved = client.get_user_profile_by_azure_id(azure_id).await?.unwrap();
+    let retrieved = client
+        .get_user_profile_by_azure_id(azure_id)
+        .await?
+        .unwrap();
     assert_eq!(retrieved.role, "provider");
     assert_eq!(retrieved.verified_id_status, "onboarding_complete");
 
@@ -153,7 +156,8 @@ async fn test_onboarding_verified_id_transitions() -> Result<()> {
     client.initialize_schema().await?;
 
     let azure_id = "azure-verified-id-test-456";
-    let mut profile = create_test_profile(azure_id, "verifiedtest@example.com", "Verified Test User");
+    let mut profile =
+        create_test_profile(azure_id, "verifiedtest@example.com", "Verified Test User");
 
     // Initial state: pending
     assert_eq!(profile.verified_id_status, "pending");
@@ -165,7 +169,10 @@ async fn test_onboarding_verified_id_transitions() -> Result<()> {
     profile.updated_at = chrono::Utc::now().to_rfc3339();
     client.store_user_profile(&profile).await?;
 
-    let retrieved = client.get_user_profile_by_azure_id(azure_id).await?.unwrap();
+    let retrieved = client
+        .get_user_profile_by_azure_id(azure_id)
+        .await?
+        .unwrap();
     assert_eq!(retrieved.verified_id_status, "verification_requested");
     println!("✅ Transition: pending -> verification_requested");
 
@@ -176,7 +183,10 @@ async fn test_onboarding_verified_id_transitions() -> Result<()> {
     profile.updated_at = chrono::Utc::now().to_rfc3339();
     client.store_user_profile(&profile).await?;
 
-    let retrieved = client.get_user_profile_by_azure_id(azure_id).await?.unwrap();
+    let retrieved = client
+        .get_user_profile_by_azure_id(azure_id)
+        .await?
+        .unwrap();
     assert_eq!(retrieved.verified_id_status, "verified");
     assert!(retrieved.verified_id_credential_id.is_some());
     println!("✅ Transition: verification_requested -> verified");
@@ -186,7 +196,10 @@ async fn test_onboarding_verified_id_transitions() -> Result<()> {
     profile.updated_at = chrono::Utc::now().to_rfc3339();
     client.store_user_profile(&profile).await?;
 
-    let retrieved = client.get_user_profile_by_azure_id(azure_id).await?.unwrap();
+    let retrieved = client
+        .get_user_profile_by_azure_id(azure_id)
+        .await?
+        .unwrap();
     assert_eq!(retrieved.verified_id_status, "onboarding_complete");
     println!("✅ Transition: verified -> onboarding_complete");
 
@@ -239,7 +252,10 @@ async fn test_complete_onboarding_flow() -> Result<()> {
     println!("✅ Step 4: Onboarding marked complete");
 
     // Verify final state
-    let final_profile = client.get_user_profile_by_azure_id(azure_id).await?.unwrap();
+    let final_profile = client
+        .get_user_profile_by_azure_id(azure_id)
+        .await?
+        .unwrap();
     assert_eq!(final_profile.verified_id_status, "onboarding_complete");
     assert!(final_profile.verified_id_credential_id.is_some());
     assert!(final_profile.given_name.is_some());

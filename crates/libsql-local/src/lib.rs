@@ -1,7 +1,7 @@
 //! Local LibSQL database operations for FreshCredit
 //!
 //! This module implements the unified database schema for FreshCredit,
-//! containing 41 tables that support:
+//! containing 44 tables that support:
 //! - User profile and authentication (Entra ID + Verified ID)
 //! - All 11 Plaid products (Accounts, Transactions, Auth, Identity, etc.)
 //! - Payment processing (Stripe Connect ACH)
@@ -22,9 +22,9 @@
 //! Schema Version: unified-v1 (2025-12-05)
 
 use anyhow::Result;
-use freshcredit_types::{CreditReport, UserId, FreshCreditResult};
-use tracing::info;
+use freshcredit_types::{CreditReport, FreshCreditResult, UserId};
 use serde::{Deserialize, Serialize};
+use tracing::info;
 
 /// User profile for database storage (unified schema)
 /// Combines Entra ID claims with extended profile and Verified ID fields
@@ -156,11 +156,14 @@ impl LocalClient {
         info!("Initializing local database schema with production schema");
 
         // Enable foreign key constraints first
-        self.connection.execute("PRAGMA foreign_keys = ON", ()).await?;
+        self.connection
+            .execute("PRAGMA foreign_keys = ON", ())
+            .await?;
 
         // Create user_profile table first (referenced by other tables)
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS user_profile (
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS user_profile (
                 id TEXT PRIMARY KEY,
                 platform_user_id TEXT NOT NULL,
                 azure_id TEXT NOT NULL,
@@ -189,13 +192,15 @@ impl LocalClient {
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP
             )",
-            (),
-        ).await?;
+                (),
+            )
+            .await?;
 
         // Create accounts table that matches production schema
         // Foreign key disabled to allow account creation before user_profile exists
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS accounts (
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS accounts (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
                 plaid_account_id TEXT,
@@ -218,12 +223,14 @@ impl LocalClient {
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )",
-            (),
-        ).await?;
+                (),
+            )
+            .await?;
 
         // Create transactions table that matches production schema
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS transactions (
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS transactions (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
                 account_id TEXT NOT NULL,
@@ -254,33 +261,41 @@ impl LocalClient {
                 FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
                 FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE
             )",
-            (),
-        ).await?;
+                (),
+            )
+            .await?;
 
         // Create indexes for accounts and transactions tables
-        self.connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_accounts_user_id ON accounts(user_id)",
-            (),
-        ).await?;
+        self.connection
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_accounts_user_id ON accounts(user_id)",
+                (),
+            )
+            .await?;
 
         self.connection.execute(
             "CREATE INDEX IF NOT EXISTS idx_transactions_account_id ON transactions(account_id)",
             (),
         ).await?;
 
-        self.connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date)",
-            (),
-        ).await?;
+        self.connection
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date)",
+                (),
+            )
+            .await?;
 
-        self.connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_user_profile_email ON user_profile(email)",
-            (),
-        ).await?;
+        self.connection
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_user_profile_email ON user_profile(email)",
+                (),
+            )
+            .await?;
 
         // Create auth table for account authentication data
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS auth (
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS auth (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
                 account_id TEXT NOT NULL UNIQUE,
@@ -294,8 +309,9 @@ impl LocalClient {
                 FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
                 FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE
             )",
-            (),
-        ).await?;
+                (),
+            )
+            .await?;
 
         // Create identities table for Plaid Identity data per account
         // Matches production Turso schema with JSON arrays and dedicated columns
@@ -345,8 +361,9 @@ impl LocalClient {
         // NOTE: credit_reports table removed - use 'reports' table instead (BlockID)
 
         // Create workflows table (matches Turso cloud unified schema)
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS workflows (
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS workflows (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
                 workflow_type TEXT NOT NULL,
@@ -364,25 +381,31 @@ impl LocalClient {
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
             )",
-            (),
-        ).await?;
+                (),
+            )
+            .await?;
 
         // Create indexes for workflows table
-        self.connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_workflows_user_id ON workflows(user_id)",
-            (),
-        ).await?;
+        self.connection
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_workflows_user_id ON workflows(user_id)",
+                (),
+            )
+            .await?;
 
-        self.connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_workflows_updated ON workflows(updated_at DESC)",
-            (),
-        ).await?;
+        self.connection
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_workflows_updated ON workflows(updated_at DESC)",
+                (),
+            )
+            .await?;
 
         // Note: sync_status index removed - column not in table definition
 
         // Create user_preferences table
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS user_preferences (
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS user_preferences (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL UNIQUE,
                 ai_agent_enabled BOOLEAN DEFAULT FALSE,
@@ -399,25 +422,33 @@ impl LocalClient {
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
             )",
-            (),
-        ).await?;
+                (),
+            )
+            .await?;
 
         // Add ai_mode column if it doesn't exist (migration for existing databases)
-        let _ = self.connection.execute(
-            "ALTER TABLE user_preferences ADD COLUMN ai_mode TEXT DEFAULT 'auto'",
-            (),
-        ).await;
+        let _ = self
+            .connection
+            .execute(
+                "ALTER TABLE user_preferences ADD COLUMN ai_mode TEXT DEFAULT 'auto'",
+                (),
+            )
+            .await;
 
         // Add mock_data_enabled column if it doesn't exist (migration for existing databases)
         // Only available for @freshcredit.com internal team members
-        let _ = self.connection.execute(
-            "ALTER TABLE user_preferences ADD COLUMN mock_data_enabled BOOLEAN DEFAULT FALSE",
-            (),
-        ).await;
+        let _ = self
+            .connection
+            .execute(
+                "ALTER TABLE user_preferences ADD COLUMN mock_data_enabled BOOLEAN DEFAULT FALSE",
+                (),
+            )
+            .await;
 
         // Create api_keys table for API key management
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS api_keys (
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS api_keys (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
                 key_name TEXT NOT NULL,
@@ -433,23 +464,29 @@ impl LocalClient {
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
             )",
-            (),
-        ).await?;
+                (),
+            )
+            .await?;
 
         // Create index for api_keys lookup
-        self.connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_api_keys_user_id ON api_keys(user_id)",
-            (),
-        ).await?;
+        self.connection
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_api_keys_user_id ON api_keys(user_id)",
+                (),
+            )
+            .await?;
 
-        self.connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_api_keys_key_prefix ON api_keys(key_prefix)",
-            (),
-        ).await?;
+        self.connection
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_api_keys_key_prefix ON api_keys(key_prefix)",
+                (),
+            )
+            .await?;
 
         // Create kilt_dids table for KILT Protocol DID storage
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS kilt_dids (
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS kilt_dids (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 did_uri TEXT NOT NULL UNIQUE,
                 network TEXT NOT NULL CHECK (network IN ('peregrine', 'spiritnet')),
@@ -459,18 +496,22 @@ impl LocalClient {
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )",
-            (),
-        ).await?;
+                (),
+            )
+            .await?;
 
         // Create index for kilt_dids lookup
-        self.connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_kilt_dids_did_uri ON kilt_dids(did_uri)",
-            (),
-        ).await?;
+        self.connection
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_kilt_dids_did_uri ON kilt_dids(did_uri)",
+                (),
+            )
+            .await?;
 
         // Create uploaded_files table for AI multimodal input
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS uploaded_files (
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS uploaded_files (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
                 filename TEXT NOT NULL,
@@ -491,14 +532,17 @@ impl LocalClient {
                 expires_at DATETIME,
                 FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
             )",
-            (),
-        ).await?;
+                (),
+            )
+            .await?;
 
         // Create index for uploaded_files lookup
-        self.connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_uploaded_files_user_id ON uploaded_files(user_id)",
-            (),
-        ).await?;
+        self.connection
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_uploaded_files_user_id ON uploaded_files(user_id)",
+                (),
+            )
+            .await?;
 
         self.connection.execute(
             "CREATE INDEX IF NOT EXISTS idx_uploaded_files_conversation ON uploaded_files(conversation_id)",
@@ -506,8 +550,9 @@ impl LocalClient {
         ).await?;
 
         // Create ai_conversations table for conversation memory
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS ai_conversations (
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS ai_conversations (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
                 title TEXT,
@@ -517,12 +562,14 @@ impl LocalClient {
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
             )",
-            (),
-        ).await?;
+                (),
+            )
+            .await?;
 
         // Create ai_messages table for conversation history
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS ai_messages (
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS ai_messages (
                 id TEXT PRIMARY KEY,
                 conversation_id TEXT NOT NULL,
                 role TEXT NOT NULL,
@@ -533,8 +580,9 @@ impl LocalClient {
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (conversation_id) REFERENCES ai_conversations(id) ON DELETE CASCADE
             )",
-            (),
-        ).await?;
+                (),
+            )
+            .await?;
 
         // Create indexes for ai_conversations
         self.connection.execute(
@@ -552,8 +600,9 @@ impl LocalClient {
         // ============================================
 
         // Create assets table for Plaid Asset Reports
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS assets (
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS assets (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
                 asset_report_id TEXT NOT NULL UNIQUE,
@@ -568,12 +617,14 @@ impl LocalClient {
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
             )",
-            (),
-        ).await?;
+                (),
+            )
+            .await?;
 
         // Create balances table for Plaid Balance data
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS balances (
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS balances (
                 id TEXT PRIMARY KEY,
                 account_id TEXT NOT NULL,
                 user_id TEXT NOT NULL,
@@ -591,12 +642,14 @@ impl LocalClient {
                 FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE,
                 FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
             )",
-            (),
-        ).await?;
+                (),
+            )
+            .await?;
 
         // Create consumer_reports table for Plaid Consumer Reports
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS consumer_reports (
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS consumer_reports (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
                 consumer_report_id TEXT UNIQUE,
@@ -620,12 +673,14 @@ impl LocalClient {
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
             )",
-            (),
-        ).await?;
+                (),
+            )
+            .await?;
 
         // Create employment table for Plaid Employment data
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS employment (
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS employment (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
                 employment_id TEXT NOT NULL UNIQUE,
@@ -643,12 +698,14 @@ impl LocalClient {
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
             )",
-            (),
-        ).await?;
+                (),
+            )
+            .await?;
 
         // Create enrich table for Plaid Transaction Enrichment
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS enrich (
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS enrich (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
                 account_id TEXT NOT NULL,
@@ -669,12 +726,14 @@ impl LocalClient {
                 FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE,
                 FOREIGN KEY (transaction_id) REFERENCES transactions (id) ON DELETE CASCADE
             )",
-            (),
-        ).await?;
+                (),
+            )
+            .await?;
 
         // Create income table for Plaid Bank Income
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS income (
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS income (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
                 bank_income_id TEXT NOT NULL UNIQUE,
@@ -688,12 +747,14 @@ impl LocalClient {
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
             )",
-            (),
-        ).await?;
+                (),
+            )
+            .await?;
 
         // Create income_verification table for Plaid Income Verification
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS income_verification (
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS income_verification (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
                 income_verification_id TEXT UNIQUE,
@@ -714,12 +775,14 @@ impl LocalClient {
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
             )",
-            (),
-        ).await?;
+                (),
+            )
+            .await?;
 
         // Create identity_verification table for Plaid IDV (singular)
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS identity_verification (
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS identity_verification (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
                 identity_verification_id TEXT UNIQUE,
@@ -745,14 +808,16 @@ impl LocalClient {
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
             )",
-            (),
-        ).await?;
+                (),
+            )
+            .await?;
 
         // NOTE: identity_verifications (plural) table removed - use 'identity_verification' (singular) instead
 
         // Create investments_holdings table for Plaid Investments
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS investments_holdings (
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS investments_holdings (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
                 account_id TEXT NOT NULL,
@@ -773,12 +838,14 @@ impl LocalClient {
                 FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
                 FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE
             )",
-            (),
-        ).await?;
+                (),
+            )
+            .await?;
 
         // Create investments_securities table for Plaid Investments
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS investments_securities (
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS investments_securities (
                 id TEXT PRIMARY KEY,
                 security_id TEXT NOT NULL UNIQUE,
                 isin TEXT,
@@ -804,12 +871,14 @@ impl LocalClient {
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )",
-            (),
-        ).await?;
+                (),
+            )
+            .await?;
 
         // Create investments_transactions table for Plaid Investments
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS investments_transactions (
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS investments_transactions (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
                 account_id TEXT NOT NULL,
@@ -831,12 +900,14 @@ impl LocalClient {
                 FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
                 FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE
             )",
-            (),
-        ).await?;
+                (),
+            )
+            .await?;
 
         // Create layer table for Plaid Layer
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS layer (
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS layer (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
                 account_id TEXT NOT NULL,
@@ -850,12 +921,14 @@ impl LocalClient {
                 FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
                 FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE
             )",
-            (),
-        ).await?;
+                (),
+            )
+            .await?;
 
         // Create liabilities table for Plaid Liabilities
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS liabilities (
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS liabilities (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
                 account_id TEXT NOT NULL,
@@ -916,12 +989,14 @@ impl LocalClient {
                 FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
                 FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE
             )",
-            (),
-        ).await?;
+                (),
+            )
+            .await?;
 
         // Create monitor table for Plaid Monitor (Item monitoring)
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS monitor (
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS monitor (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
                 item_id TEXT NOT NULL,
@@ -936,12 +1011,14 @@ impl LocalClient {
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
             )",
-            (),
-        ).await?;
+                (),
+            )
+            .await?;
 
         // Create recurring_transactions table for Plaid Recurring Transactions
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS recurring_transactions (
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS recurring_transactions (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
                 account_id TEXT NOT NULL,
@@ -968,12 +1045,14 @@ impl LocalClient {
                 FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
                 FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE
             )",
-            (),
-        ).await?;
+                (),
+            )
+            .await?;
 
         // Create signal_evaluations table for Plaid Signal
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS signal_evaluations (
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS signal_evaluations (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
                 account_id TEXT NOT NULL,
@@ -992,12 +1071,14 @@ impl LocalClient {
                 FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
                 FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE
             )",
-            (),
-        ).await?;
+                (),
+            )
+            .await?;
 
         // Create statements table for Plaid Statements
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS statements (
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS statements (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
                 account_id TEXT NOT NULL,
@@ -1014,12 +1095,14 @@ impl LocalClient {
                 FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
                 FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE
             )",
-            (),
-        ).await?;
+                (),
+            )
+            .await?;
 
         // Create transactions_sync table for Plaid Transactions Sync cursor
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS transactions_sync (
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS transactions_sync (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
                 item_id TEXT NOT NULL UNIQUE,
@@ -1035,16 +1118,18 @@ impl LocalClient {
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
             )",
-            (),
-        ).await?;
+                (),
+            )
+            .await?;
 
         // ============================================
         // PAYMENT AND BUSINESS TABLES
         // ============================================
 
         // Create customers table for Stripe/Dwolla customers
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS customers (
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS customers (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
                 stripe_customer_id TEXT UNIQUE,
@@ -1063,12 +1148,14 @@ impl LocalClient {
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
             )",
-            (),
-        ).await?;
+                (),
+            )
+            .await?;
 
         // Create funding_sources table for payment funding sources
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS funding_sources (
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS funding_sources (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
                 customer_id TEXT NOT NULL,
@@ -1088,12 +1175,14 @@ impl LocalClient {
                 FOREIGN KEY (customer_id) REFERENCES customers (id) ON DELETE CASCADE,
                 FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE SET NULL
             )",
-            (),
-        ).await?;
+                (),
+            )
+            .await?;
 
         // Create payments table for payment transactions
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS payments (
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS payments (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
                 customer_id TEXT NOT NULL,
@@ -1115,12 +1204,14 @@ impl LocalClient {
                 FOREIGN KEY (customer_id) REFERENCES customers (id) ON DELETE CASCADE,
                 FOREIGN KEY (funding_source_id) REFERENCES funding_sources (id) ON DELETE SET NULL
             )",
-            (),
-        ).await?;
+                (),
+            )
+            .await?;
 
         // Create stripe_plaid_payments table for Stripe+Plaid ACH payments
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS stripe_plaid_payments (
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS stripe_plaid_payments (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
                 stripe_payment_intent_id TEXT UNIQUE,
@@ -1141,12 +1232,14 @@ impl LocalClient {
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
             )",
-            (),
-        ).await?;
+                (),
+            )
+            .await?;
 
         // Create virtual_accounts table for virtual account numbers
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS virtual_accounts (
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS virtual_accounts (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
                 customer_id TEXT NOT NULL,
@@ -1163,16 +1256,18 @@ impl LocalClient {
                 FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
                 FOREIGN KEY (customer_id) REFERENCES customers (id) ON DELETE CASCADE
             )",
-            (),
-        ).await?;
+                (),
+            )
+            .await?;
 
         // ============================================
         // PROVIDER AND BUSINESS LOGIC TABLES
         // ============================================
 
         // Create reports table for generated reports (BlockID)
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS reports (
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS reports (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
                 report_type TEXT NOT NULL,
@@ -1189,13 +1284,15 @@ impl LocalClient {
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
             )",
-            (),
-        ).await?;
+                (),
+            )
+            .await?;
 
         // Create scores table for provider-defined scoring models (BlockScore)
         // NOTE: FreshCredit does NOT generate scores - providers define their own models
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS scores (
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS scores (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
                 provider_id TEXT NOT NULL,
@@ -1216,13 +1313,15 @@ impl LocalClient {
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
             )",
-            (),
-        ).await?;
+                (),
+            )
+            .await?;
 
         // Create offers table for matched offers (BlockIQ)
         // NOTE: FreshCredit matches offers, does not recommend them
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS offers (
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS offers (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
                 provider_id TEXT NOT NULL,
@@ -1252,12 +1351,14 @@ impl LocalClient {
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
             )",
-            (),
-        ).await?;
+                (),
+            )
+            .await?;
 
         // Create disputes table for consumer disputes
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS disputes (
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS disputes (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
                 dispute_type TEXT NOT NULL,
@@ -1274,12 +1375,14 @@ impl LocalClient {
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
             )",
-            (),
-        ).await?;
+                (),
+            )
+            .await?;
 
         // Create verification_requests table for data verification requests
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS verification_requests (
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS verification_requests (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
                 provider_id TEXT NOT NULL,
@@ -1296,12 +1399,14 @@ impl LocalClient {
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
             )",
-            (),
-        ).await?;
+                (),
+            )
+            .await?;
 
         // Create phone_verification_codes table for SMS verification
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS phone_verification_codes (
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS phone_verification_codes (
                 id TEXT PRIMARY KEY,
                 user_id TEXT,
                 phone_number TEXT NOT NULL,
@@ -1313,12 +1418,14 @@ impl LocalClient {
                 verified_at DATETIME,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )",
-            (),
-        ).await?;
+                (),
+            )
+            .await?;
 
         // Create verified_credentials table for Entra Verified ID / KILT DID credentials
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS verified_credentials (
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS verified_credentials (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
                 credential_type TEXT NOT NULL,
@@ -1336,14 +1443,16 @@ impl LocalClient {
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
             )",
-            (),
-        ).await?;
+                (),
+            )
+            .await?;
 
         // ============================================
         // WEBHOOK EVENTS TABLE (Outbox Pattern)
         // ============================================
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS webhook_events (
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS webhook_events (
                 id TEXT PRIMARY KEY,
                 user_id TEXT,
                 provider TEXT NOT NULL,
@@ -1357,14 +1466,16 @@ impl LocalClient {
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE SET NULL
             )",
-            (),
-        ).await?;
+                (),
+            )
+            .await?;
 
         // ============================================
         // NOTIFICATIONS TABLE (In-App Notifications)
         // ============================================
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS notifications (
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS notifications (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
                 notification_type TEXT NOT NULL,
@@ -1377,38 +1488,49 @@ impl LocalClient {
                 expires_at DATETIME,
                 FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
             )",
-            (),
-        ).await?;
+                (),
+            )
+            .await?;
 
         // ============================================
         // INDEXES FOR ALL TABLES
         // ============================================
 
         // Indexes for Plaid product tables
-        self.connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_assets_user_id ON assets(user_id)",
-            (),
-        ).await?;
-        self.connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_balances_account_id ON balances(account_id)",
-            (),
-        ).await?;
+        self.connection
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_assets_user_id ON assets(user_id)",
+                (),
+            )
+            .await?;
+        self.connection
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_balances_account_id ON balances(account_id)",
+                (),
+            )
+            .await?;
         self.connection.execute(
             "CREATE INDEX IF NOT EXISTS idx_consumer_reports_user_id ON consumer_reports(user_id)",
             (),
         ).await?;
-        self.connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_employment_user_id ON employment(user_id)",
-            (),
-        ).await?;
-        self.connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_enrich_transaction_id ON enrich(transaction_id)",
-            (),
-        ).await?;
-        self.connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_income_user_id ON income(user_id)",
-            (),
-        ).await?;
+        self.connection
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_employment_user_id ON employment(user_id)",
+                (),
+            )
+            .await?;
+        self.connection
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_enrich_transaction_id ON enrich(transaction_id)",
+                (),
+            )
+            .await?;
+        self.connection
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_income_user_id ON income(user_id)",
+                (),
+            )
+            .await?;
         self.connection.execute(
             "CREATE INDEX IF NOT EXISTS idx_income_verification_user_id ON income_verification(user_id)",
             (),
@@ -1429,18 +1551,24 @@ impl LocalClient {
             "CREATE INDEX IF NOT EXISTS idx_investments_transactions_account_id ON investments_transactions(account_id)",
             (),
         ).await?;
-        self.connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_layer_account_id ON layer(account_id)",
-            (),
-        ).await?;
-        self.connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_liabilities_account_id ON liabilities(account_id)",
-            (),
-        ).await?;
-        self.connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_monitor_item_id ON monitor(item_id)",
-            (),
-        ).await?;
+        self.connection
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_layer_account_id ON layer(account_id)",
+                (),
+            )
+            .await?;
+        self.connection
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_liabilities_account_id ON liabilities(account_id)",
+                (),
+            )
+            .await?;
+        self.connection
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_monitor_item_id ON monitor(item_id)",
+                (),
+            )
+            .await?;
         self.connection.execute(
             "CREATE INDEX IF NOT EXISTS idx_recurring_transactions_account_id ON recurring_transactions(account_id)",
             (),
@@ -1449,28 +1577,34 @@ impl LocalClient {
             "CREATE INDEX IF NOT EXISTS idx_signal_evaluations_account_id ON signal_evaluations(account_id)",
             (),
         ).await?;
-        self.connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_statements_account_id ON statements(account_id)",
-            (),
-        ).await?;
+        self.connection
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_statements_account_id ON statements(account_id)",
+                (),
+            )
+            .await?;
         self.connection.execute(
             "CREATE INDEX IF NOT EXISTS idx_transactions_sync_item_id ON transactions_sync(item_id)",
             (),
         ).await?;
 
         // Indexes for payment tables
-        self.connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_customers_user_id ON customers(user_id)",
-            (),
-        ).await?;
+        self.connection
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_customers_user_id ON customers(user_id)",
+                (),
+            )
+            .await?;
         self.connection.execute(
             "CREATE INDEX IF NOT EXISTS idx_funding_sources_customer_id ON funding_sources(customer_id)",
             (),
         ).await?;
-        self.connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_payments_customer_id ON payments(customer_id)",
-            (),
-        ).await?;
+        self.connection
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_payments_customer_id ON payments(customer_id)",
+                (),
+            )
+            .await?;
         self.connection.execute(
             "CREATE INDEX IF NOT EXISTS idx_stripe_plaid_payments_user_id ON stripe_plaid_payments(user_id)",
             (),
@@ -1481,30 +1615,42 @@ impl LocalClient {
         ).await?;
 
         // Indexes for business logic tables
-        self.connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_reports_user_id ON reports(user_id)",
-            (),
-        ).await?;
-        self.connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_scores_user_id ON scores(user_id)",
-            (),
-        ).await?;
-        self.connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_scores_provider_id ON scores(provider_id)",
-            (),
-        ).await?;
-        self.connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_offers_user_id ON offers(user_id)",
-            (),
-        ).await?;
-        self.connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_offers_provider_id ON offers(provider_id)",
-            (),
-        ).await?;
-        self.connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_disputes_user_id ON disputes(user_id)",
-            (),
-        ).await?;
+        self.connection
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_reports_user_id ON reports(user_id)",
+                (),
+            )
+            .await?;
+        self.connection
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_scores_user_id ON scores(user_id)",
+                (),
+            )
+            .await?;
+        self.connection
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_scores_provider_id ON scores(provider_id)",
+                (),
+            )
+            .await?;
+        self.connection
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_offers_user_id ON offers(user_id)",
+                (),
+            )
+            .await?;
+        self.connection
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_offers_provider_id ON offers(provider_id)",
+                (),
+            )
+            .await?;
+        self.connection
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_disputes_user_id ON disputes(user_id)",
+                (),
+            )
+            .await?;
         self.connection.execute(
             "CREATE INDEX IF NOT EXISTS idx_verification_requests_user_id ON verification_requests(user_id)",
             (),
@@ -1527,40 +1673,50 @@ impl LocalClient {
         ).await?;
 
         // Indexes for identities table (new comprehensive schema)
-        self.connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_identities_account_id ON identities(account_id)",
-            (),
-        ).await?;
-        self.connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_identities_user_id ON identities(user_id)",
-            (),
-        ).await?;
+        self.connection
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_identities_account_id ON identities(account_id)",
+                (),
+            )
+            .await?;
+        self.connection
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_identities_user_id ON identities(user_id)",
+                (),
+            )
+            .await?;
 
         // Indexes for webhook_events table
-        self.connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_webhook_events_user_id ON webhook_events(user_id)",
-            (),
-        ).await?;
-        self.connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_webhook_events_status ON webhook_events(status)",
-            (),
-        ).await?;
+        self.connection
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_webhook_events_user_id ON webhook_events(user_id)",
+                (),
+            )
+            .await?;
+        self.connection
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_webhook_events_status ON webhook_events(status)",
+                (),
+            )
+            .await?;
         self.connection.execute(
             "CREATE INDEX IF NOT EXISTS idx_webhook_events_provider ON webhook_events(provider)",
             (),
         ).await?;
 
         // Indexes for notifications table
-        self.connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id)",
-            (),
-        ).await?;
+        self.connection
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id)",
+                (),
+            )
+            .await?;
         self.connection.execute(
             "CREATE INDEX IF NOT EXISTS idx_notifications_read_status ON notifications(read_status)",
             (),
         ).await?;
 
-        info!("Unified database schema initialization completed (43 tables)");
+        info!("Unified database schema initialization completed (44 tables)");
         Ok(())
     }
 
@@ -1581,33 +1737,43 @@ impl LocalClient {
         }
 
         // Check for orphaned transactions (transactions without valid accounts)
-        let mut rows = self.connection.query(
-            "SELECT COUNT(*) FROM transactions t
+        let mut rows = self
+            .connection
+            .query(
+                "SELECT COUNT(*) FROM transactions t
              LEFT JOIN accounts a ON t.account_id = a.id
              WHERE a.id IS NULL",
-            (),
-        ).await?;
+                (),
+            )
+            .await?;
 
         if let Some(row) = rows.next().await? {
             let orphaned_count: i64 = row.get(0)?;
             if orphaned_count > 0 {
-                issues.push(format!("Found {orphaned_count} orphaned transactions without valid accounts"));
+                issues.push(format!(
+                    "Found {orphaned_count} orphaned transactions without valid accounts"
+                ));
             }
         }
 
         // Check for accounts without valid users
         // Note: Table is user_profile (singular), not user_profiles
-        let mut rows = self.connection.query(
-            "SELECT COUNT(*) FROM accounts a
+        let mut rows = self
+            .connection
+            .query(
+                "SELECT COUNT(*) FROM accounts a
              LEFT JOIN user_profile u ON a.user_id = u.platform_user_id
              WHERE u.platform_user_id IS NULL",
-            (),
-        ).await?;
+                (),
+            )
+            .await?;
 
         if let Some(row) = rows.next().await? {
             let orphaned_count: i64 = row.get(0)?;
             if orphaned_count > 0 {
-                issues.push(format!("Found {orphaned_count} accounts without valid user profiles"));
+                issues.push(format!(
+                    "Found {orphaned_count} accounts without valid user profiles"
+                ));
             }
         }
 
@@ -1617,14 +1783,17 @@ impl LocalClient {
             "idx_accounts_user_id",
             "idx_transactions_account_id",
             "idx_transactions_date",
-            "idx_user_profile_email"
+            "idx_user_profile_email",
         ];
 
         for index_name in required_indexes {
-            let mut rows = self.connection.query(
-                "SELECT name FROM sqlite_master WHERE type='index' AND name=?",
-                libsql::params![index_name],
-            ).await?;
+            let mut rows = self
+                .connection
+                .query(
+                    "SELECT name FROM sqlite_master WHERE type='index' AND name=?",
+                    libsql::params![index_name],
+                )
+                .await?;
 
             if rows.next().await?.is_none() {
                 warnings.push(format!("Missing recommended index: {index_name}"));
@@ -1632,7 +1801,8 @@ impl LocalClient {
         }
 
         // Check data consistency
-        self.validate_data_consistency(&mut issues, &mut warnings).await?;
+        self.validate_data_consistency(&mut issues, &mut warnings)
+            .await?;
 
         let is_valid = issues.is_empty();
 
@@ -1646,7 +1816,11 @@ impl LocalClient {
 
     /// Validate data consistency
     #[allow(clippy::ptr_arg)]
-    async fn validate_data_consistency(&self, _issues: &mut Vec<String>, warnings: &mut Vec<String>) -> Result<()> {
+    async fn validate_data_consistency(
+        &self,
+        _issues: &mut Vec<String>,
+        warnings: &mut Vec<String>,
+    ) -> Result<()> {
         // Check for invalid currency codes
         let mut rows = self.connection.query(
             "SELECT DISTINCT currency FROM accounts WHERE currency NOT IN ('USD', 'EUR', 'GBP', 'CAD', 'JPY')",
@@ -1660,32 +1834,44 @@ impl LocalClient {
         }
 
         if !invalid_currencies.is_empty() {
-            warnings.push(format!("Found accounts with non-standard currencies: {invalid_currencies:?}"));
+            warnings.push(format!(
+                "Found accounts with non-standard currencies: {invalid_currencies:?}"
+            ));
         }
 
         // Check for transactions with invalid amounts
-        let mut rows = self.connection.query(
-            "SELECT COUNT(*) FROM transactions WHERE amount = 0 OR amount IS NULL",
-            (),
-        ).await?;
+        let mut rows = self
+            .connection
+            .query(
+                "SELECT COUNT(*) FROM transactions WHERE amount = 0 OR amount IS NULL",
+                (),
+            )
+            .await?;
 
         if let Some(row) = rows.next().await? {
             let invalid_amount_count: i64 = row.get(0)?;
             if invalid_amount_count > 0 {
-                warnings.push(format!("Found {invalid_amount_count} transactions with zero or null amounts"));
+                warnings.push(format!(
+                    "Found {invalid_amount_count} transactions with zero or null amounts"
+                ));
             }
         }
 
         // Check for future-dated transactions
-        let mut rows = self.connection.query(
-            "SELECT COUNT(*) FROM transactions WHERE date > datetime('now')",
-            (),
-        ).await?;
+        let mut rows = self
+            .connection
+            .query(
+                "SELECT COUNT(*) FROM transactions WHERE date > datetime('now')",
+                (),
+            )
+            .await?;
 
         if let Some(row) = rows.next().await? {
             let future_count: i64 = row.get(0)?;
             if future_count > 0 {
-                warnings.push(format!("Found {future_count} transactions with future dates"));
+                warnings.push(format!(
+                    "Found {future_count} transactions with future dates"
+                ));
             }
         }
 
@@ -1716,7 +1902,10 @@ impl LocalClient {
     }
 
     /// Retrieve report from local storage using raw SQL
-    pub async fn get_credit_report(&self, user_id: &UserId) -> FreshCreditResult<Option<CreditReport>> {
+    pub async fn get_credit_report(
+        &self,
+        user_id: &UserId,
+    ) -> FreshCreditResult<Option<CreditReport>> {
         info!("Retrieving report from local storage for user: {}", user_id);
 
         let mut rows = self.connection.query(
@@ -1725,9 +1914,13 @@ impl LocalClient {
         ).await
         .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?;
 
-        if let Some(row) = rows.next().await
-            .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))? {
-            let data: String = row.get(0)
+        if let Some(row) = rows
+            .next()
+            .await
+            .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?
+        {
+            let data: String = row
+                .get(0)
                 .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?;
             let report: CreditReport = serde_json::from_str(&data)
                 .map_err(|e| freshcredit_types::FreshCreditError::InternalError(e.to_string()))?;
@@ -1739,7 +1932,10 @@ impl LocalClient {
 
     /// Store user profile in local database (matches production schema)
     pub async fn store_user_profile(&self, profile: &UserProfile) -> Result<()> {
-        info!("Storing user profile locally for user: {}", profile.platform_user_id);
+        info!(
+            "Storing user profile locally for user: {}",
+            profile.platform_user_id
+        );
 
         self.connection.execute(
             "INSERT OR REPLACE INTO user_profile (
@@ -1783,12 +1979,18 @@ impl LocalClient {
 
     /// Get user profile from local database (matches production schema)
     pub async fn get_user_profile(&self, platform_user_id: &str) -> Result<Option<UserProfile>> {
-        info!("Retrieving user profile locally for user: {}", platform_user_id);
+        info!(
+            "Retrieving user profile locally for user: {}",
+            platform_user_id
+        );
 
-        let mut rows = self.connection.query(
-            "SELECT * FROM user_profile WHERE platform_user_id = ?",
-            libsql::params![platform_user_id],
-        ).await?;
+        let mut rows = self
+            .connection
+            .query(
+                "SELECT * FROM user_profile WHERE platform_user_id = ?",
+                libsql::params![platform_user_id],
+            )
+            .await?;
 
         if let Some(row) = rows.next().await? {
             let profile = UserProfile {
@@ -1828,13 +2030,19 @@ impl LocalClient {
     }
 
     /// Get user profile by Azure AD Object ID (used when user_id is the Azure ID)
-    pub async fn get_user_profile_by_azure_id(&self, azure_id: &str) -> Result<Option<UserProfile>> {
+    pub async fn get_user_profile_by_azure_id(
+        &self,
+        azure_id: &str,
+    ) -> Result<Option<UserProfile>> {
         info!("Retrieving user profile by azure_id: {}", azure_id);
 
-        let mut rows = self.connection.query(
-            "SELECT * FROM user_profile WHERE azure_id = ?",
-            libsql::params![azure_id],
-        ).await?;
+        let mut rows = self
+            .connection
+            .query(
+                "SELECT * FROM user_profile WHERE azure_id = ?",
+                libsql::params![azure_id],
+            )
+            .await?;
 
         if let Some(row) = rows.next().await? {
             let profile = UserProfile {
@@ -1895,7 +2103,10 @@ impl LocalClient {
     }
 
     /// Store transaction data in local database
-    pub async fn store_transaction(&self, transaction: &freshcredit_types::Transaction) -> Result<()> {
+    pub async fn store_transaction(
+        &self,
+        transaction: &freshcredit_types::Transaction,
+    ) -> Result<()> {
         info!("Storing transaction locally: {}", transaction.id);
 
         self.connection.execute(
@@ -1917,13 +2128,19 @@ impl LocalClient {
     }
 
     /// Get all accounts for a user
-    pub async fn get_user_accounts(&self, user_id: &str) -> Result<Vec<freshcredit_types::Account>> {
+    pub async fn get_user_accounts(
+        &self,
+        user_id: &str,
+    ) -> Result<Vec<freshcredit_types::Account>> {
         info!("Retrieving accounts for user: {}", user_id);
 
-        let mut rows = self.connection.query(
-            "SELECT * FROM accounts WHERE user_id = ? ORDER BY created_at DESC",
-            libsql::params![user_id],
-        ).await?;
+        let mut rows = self
+            .connection
+            .query(
+                "SELECT * FROM accounts WHERE user_id = ? ORDER BY created_at DESC",
+                libsql::params![user_id],
+            )
+            .await?;
 
         let mut accounts = Vec::new();
         while let Some(row) = rows.next().await? {
@@ -1954,16 +2171,22 @@ impl LocalClient {
     }
 
     /// Get all transactions for a user
-    pub async fn get_user_transactions(&self, user_id: &str) -> Result<Vec<freshcredit_types::Transaction>> {
+    pub async fn get_user_transactions(
+        &self,
+        user_id: &str,
+    ) -> Result<Vec<freshcredit_types::Transaction>> {
         info!("Retrieving transactions for user: {user_id}");
 
-        let mut rows = self.connection.query(
-            "SELECT t.* FROM transactions t
+        let mut rows = self
+            .connection
+            .query(
+                "SELECT t.* FROM transactions t
              JOIN accounts a ON t.account_id = a.id
              WHERE a.user_id = ?
              ORDER BY t.date DESC",
-            libsql::params![user_id],
-        ).await?;
+                libsql::params![user_id],
+            )
+            .await?;
 
         let mut transactions = Vec::new();
         while let Some(row) = rows.next().await? {
@@ -1976,11 +2199,19 @@ impl LocalClient {
                 amount: row.get(2)?,
                 currency: row.get(3)?,
                 description: row.get(4)?,
-                category: if category.is_empty() { None } else { Some(category) },
+                category: if category.is_empty() {
+                    None
+                } else {
+                    Some(category)
+                },
                 date: chrono::DateTime::parse_from_rfc3339(&row.get::<String>(6)?)
                     .map_err(|e| anyhow::anyhow!("Failed to parse date: {e}"))?
                     .with_timezone(&chrono::Utc),
-                merchant_name: if merchant_name.is_empty() { None } else { Some(merchant_name) },
+                merchant_name: if merchant_name.is_empty() {
+                    None
+                } else {
+                    Some(merchant_name)
+                },
             };
             transactions.push(transaction);
         }
@@ -2019,14 +2250,19 @@ impl LocalClient {
     }
 
     /// Save user preferences
-    pub async fn save_user_preferences(&self, user_id: &str, prefs: &UserPreferences) -> Result<()> {
+    pub async fn save_user_preferences(
+        &self,
+        user_id: &str,
+        prefs: &UserPreferences,
+    ) -> Result<()> {
         info!("Saving preferences for user: {user_id}");
 
         let id = uuid::Uuid::new_v4().to_string();
         let now = chrono::Utc::now().to_rfc3339();
 
-        self.connection.execute(
-            "INSERT INTO user_preferences (id, user_id, ai_agent_enabled, ai_feedback_enabled,
+        self.connection
+            .execute(
+                "INSERT INTO user_preferences (id, user_id, ai_agent_enabled, ai_feedback_enabled,
                 ai_offers_enabled, ai_lenders_enabled, cloud_sync_enabled, blockchain_enabled,
                 email_notifications_enabled, kilt_did_enabled, ai_mode, mock_data_enabled,
                 created_at, updated_at)
@@ -2043,23 +2279,24 @@ impl LocalClient {
                 ai_mode = excluded.ai_mode,
                 mock_data_enabled = excluded.mock_data_enabled,
                 updated_at = excluded.updated_at",
-            libsql::params![
-                id,
-                user_id,
-                prefs.ai_agent_enabled.unwrap_or(false) as i64,
-                prefs.ai_feedback_enabled.unwrap_or(false) as i64,
-                prefs.ai_offers_enabled.unwrap_or(false) as i64,
-                prefs.ai_lenders_enabled.unwrap_or(false) as i64,
-                prefs.cloud_sync_enabled.unwrap_or(true) as i64,
-                prefs.blockchain_enabled.unwrap_or(true) as i64,
-                prefs.email_notifications_enabled.unwrap_or(true) as i64,
-                prefs.kilt_did_enabled.unwrap_or(false) as i64,
-                prefs.ai_mode.clone().unwrap_or_else(|| "auto".to_string()),
-                prefs.mock_data_enabled.unwrap_or(false) as i64,
-                now.clone(),
-                now
-            ],
-        ).await?;
+                libsql::params![
+                    id,
+                    user_id,
+                    prefs.ai_agent_enabled.unwrap_or(false) as i64,
+                    prefs.ai_feedback_enabled.unwrap_or(false) as i64,
+                    prefs.ai_offers_enabled.unwrap_or(false) as i64,
+                    prefs.ai_lenders_enabled.unwrap_or(false) as i64,
+                    prefs.cloud_sync_enabled.unwrap_or(true) as i64,
+                    prefs.blockchain_enabled.unwrap_or(true) as i64,
+                    prefs.email_notifications_enabled.unwrap_or(true) as i64,
+                    prefs.kilt_did_enabled.unwrap_or(false) as i64,
+                    prefs.ai_mode.clone().unwrap_or_else(|| "auto".to_string()),
+                    prefs.mock_data_enabled.unwrap_or(false) as i64,
+                    now.clone(),
+                    now
+                ],
+            )
+            .await?;
 
         Ok(())
     }
@@ -2073,7 +2310,12 @@ impl LocalClient {
         // Files expire after 24 hours
         let expires_at = (chrono::Utc::now() + chrono::Duration::hours(24)).to_rfc3339();
         // Derive file_type from mime_type
-        let file_type = params.mime_type.split('/').next().unwrap_or("unknown").to_string();
+        let file_type = params
+            .mime_type
+            .split('/')
+            .next()
+            .unwrap_or("unknown")
+            .to_string();
 
         self.connection.execute(
             "INSERT INTO uploaded_files (id, user_id, filename, file_type, file_size, mime_type, file_data, text_content, conversation_id, created_at, updated_at, expires_at)
@@ -2126,20 +2368,25 @@ impl LocalClient {
 
     /// Update AI analysis for an uploaded file
     pub async fn update_file_ai_analysis(&self, file_id: &str, analysis: &str) -> Result<()> {
-        self.connection.execute(
-            "UPDATE uploaded_files SET ai_analysis = ? WHERE id = ?",
-            libsql::params![analysis, file_id],
-        ).await?;
+        self.connection
+            .execute(
+                "UPDATE uploaded_files SET ai_analysis = ? WHERE id = ?",
+                libsql::params![analysis, file_id],
+            )
+            .await?;
         Ok(())
     }
 
     /// Delete expired files
     pub async fn cleanup_expired_files(&self) -> Result<u64> {
         let now = chrono::Utc::now().to_rfc3339();
-        let affected = self.connection.execute(
-            "DELETE FROM uploaded_files WHERE expires_at < ?",
-            libsql::params![now],
-        ).await?;
+        let affected = self
+            .connection
+            .execute(
+                "DELETE FROM uploaded_files WHERE expires_at < ?",
+                libsql::params![now],
+            )
+            .await?;
         Ok(affected)
     }
 
@@ -2157,22 +2404,27 @@ impl LocalClient {
         let id = uuid::Uuid::new_v4().to_string();
         let now = chrono::Utc::now().to_rfc3339();
 
-        self.connection.execute(
-            "INSERT INTO ai_conversations (id, user_id, title, context, created_at, updated_at)
+        self.connection
+            .execute(
+                "INSERT INTO ai_conversations (id, user_id, title, context, created_at, updated_at)
              VALUES (?, ?, ?, ?, ?, ?)",
-            libsql::params![id.clone(), user_id, title, context, now.clone(), now],
-        ).await?;
+                libsql::params![id.clone(), user_id, title, context, now.clone(), now],
+            )
+            .await?;
 
         Ok(id)
     }
 
     /// Get conversation by ID
     pub async fn get_conversation(&self, conversation_id: &str) -> Result<Option<AiConversation>> {
-        let mut rows = self.connection.query(
-            "SELECT id, user_id, title, context, created_at, updated_at
+        let mut rows = self
+            .connection
+            .query(
+                "SELECT id, user_id, title, context, created_at, updated_at
              FROM ai_conversations WHERE id = ?",
-            libsql::params![conversation_id],
-        ).await?;
+                libsql::params![conversation_id],
+            )
+            .await?;
 
         if let Some(row) = rows.next().await? {
             Ok(Some(AiConversation {
@@ -2194,12 +2446,15 @@ impl LocalClient {
         user_id: &str,
         limit: u32,
     ) -> Result<Vec<AiConversation>> {
-        let mut rows = self.connection.query(
-            "SELECT id, user_id, title, context, created_at, updated_at
+        let mut rows = self
+            .connection
+            .query(
+                "SELECT id, user_id, title, context, created_at, updated_at
              FROM ai_conversations WHERE user_id = ?
              ORDER BY updated_at DESC LIMIT ?",
-            libsql::params![user_id, limit as i64],
-        ).await?;
+                libsql::params![user_id, limit as i64],
+            )
+            .await?;
 
         let mut conversations = Vec::new();
         while let Some(row) = rows.next().await? {
@@ -2244,10 +2499,12 @@ impl LocalClient {
         ).await?;
 
         // Update conversation's updated_at timestamp
-        self.connection.execute(
-            "UPDATE ai_conversations SET updated_at = ? WHERE id = ?",
-            libsql::params![now, conversation_id],
-        ).await?;
+        self.connection
+            .execute(
+                "UPDATE ai_conversations SET updated_at = ? WHERE id = ?",
+                libsql::params![now, conversation_id],
+            )
+            .await?;
 
         Ok(id)
     }
@@ -2270,7 +2527,10 @@ impl LocalClient {
              ORDER BY created_at ASC".to_string()
         };
 
-        let mut rows = self.connection.query(&query, libsql::params![conversation_id]).await?;
+        let mut rows = self
+            .connection
+            .query(&query, libsql::params![conversation_id])
+            .await?;
 
         let mut messages = Vec::new();
         while let Some(row) = rows.next().await? {
@@ -2290,10 +2550,12 @@ impl LocalClient {
 
     /// Delete a conversation and all its messages
     pub async fn delete_conversation(&self, conversation_id: &str) -> Result<()> {
-        self.connection.execute(
-            "DELETE FROM ai_conversations WHERE id = ?",
-            libsql::params![conversation_id],
-        ).await?;
+        self.connection
+            .execute(
+                "DELETE FROM ai_conversations WHERE id = ?",
+                libsql::params![conversation_id],
+            )
+            .await?;
         Ok(())
     }
 
@@ -2304,21 +2566,29 @@ impl LocalClient {
         title: &str,
     ) -> Result<()> {
         let now = chrono::Utc::now().to_rfc3339();
-        self.connection.execute(
-            "UPDATE ai_conversations SET title = ?, updated_at = ? WHERE id = ?",
-            libsql::params![title, now, conversation_id],
-        ).await?;
+        self.connection
+            .execute(
+                "UPDATE ai_conversations SET title = ?, updated_at = ? WHERE id = ?",
+                libsql::params![title, now, conversation_id],
+            )
+            .await?;
         Ok(())
     }
 
     /// Execute a raw SQL query and return rows
     pub async fn query(&self, sql: &str, params: Vec<libsql::Value>) -> Result<libsql::Rows> {
-        self.connection.query(sql, params).await.map_err(|e| anyhow::anyhow!("{e}"))
+        self.connection
+            .query(sql, params)
+            .await
+            .map_err(|e| anyhow::anyhow!("{e}"))
     }
 
     /// Execute a raw SQL statement and return affected rows count
     pub async fn execute(&self, sql: &str, params: Vec<libsql::Value>) -> Result<u64> {
-        self.connection.execute(sql, params).await.map_err(|e| anyhow::anyhow!("{e}"))
+        self.connection
+            .execute(sql, params)
+            .await
+            .map_err(|e| anyhow::anyhow!("{e}"))
     }
 
     // ========================================================================
@@ -2328,29 +2598,34 @@ impl LocalClient {
 
     /// Save a provider-defined scoring model
     pub async fn save_scoring_model(&self, model: &ScoringModelRecord) -> Result<()> {
-        info!("Saving scoring model: {} for provider: {}", model.id, model.provider_id);
+        info!(
+            "Saving scoring model: {} for provider: {}",
+            model.id, model.provider_id
+        );
 
         let now = chrono::Utc::now().to_rfc3339();
-        self.connection.execute(
-            "INSERT OR REPLACE INTO scores (
+        self.connection
+            .execute(
+                "INSERT OR REPLACE INTO scores (
                 id, user_id, provider_id, score_model_id, score_model_name,
                 score_model_version, data_elements_used, data_element_weights,
                 raw_score_data, created_at, updated_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            libsql::params![
-                model.id.clone(),
-                model.user_id.clone(),
-                model.provider_id.clone(),
-                model.score_model_id.clone(),
-                model.score_model_name.clone().unwrap_or_default(),
-                model.score_model_version.clone().unwrap_or_default(),
-                model.data_elements_used.clone().unwrap_or_default(),
-                model.data_element_weights.clone().unwrap_or_default(),
-                model.raw_score_data.clone(),
-                now.clone(),
-                now
-            ],
-        ).await?;
+                libsql::params![
+                    model.id.clone(),
+                    model.user_id.clone(),
+                    model.provider_id.clone(),
+                    model.score_model_id.clone(),
+                    model.score_model_name.clone().unwrap_or_default(),
+                    model.score_model_version.clone().unwrap_or_default(),
+                    model.data_elements_used.clone().unwrap_or_default(),
+                    model.data_element_weights.clone().unwrap_or_default(),
+                    model.raw_score_data.clone(),
+                    now.clone(),
+                    now
+                ],
+            )
+            .await?;
 
         Ok(())
     }
@@ -2359,13 +2634,16 @@ impl LocalClient {
     pub async fn get_scoring_models(&self, provider_id: &str) -> Result<Vec<ScoringModelRecord>> {
         info!("Getting scoring models for provider: {}", provider_id);
 
-        let mut rows = self.connection.query(
-            "SELECT id, user_id, provider_id, score_model_id, score_model_name,
+        let mut rows = self
+            .connection
+            .query(
+                "SELECT id, user_id, provider_id, score_model_id, score_model_name,
                     score_model_version, data_elements_used, data_element_weights,
                     raw_score_data, created_at, updated_at
              FROM scores WHERE provider_id = ? ORDER BY updated_at DESC",
-            libsql::params![provider_id],
-        ).await?;
+                libsql::params![provider_id],
+            )
+            .await?;
 
         let mut models = Vec::new();
         while let Some(row) = rows.next().await? {
@@ -2391,13 +2669,16 @@ impl LocalClient {
     pub async fn get_scoring_model(&self, model_id: &str) -> Result<Option<ScoringModelRecord>> {
         info!("Getting scoring model: {}", model_id);
 
-        let mut rows = self.connection.query(
-            "SELECT id, user_id, provider_id, score_model_id, score_model_name,
+        let mut rows = self
+            .connection
+            .query(
+                "SELECT id, user_id, provider_id, score_model_id, score_model_name,
                     score_model_version, data_elements_used, data_element_weights,
                     raw_score_data, created_at, updated_at
              FROM scores WHERE id = ?",
-            libsql::params![model_id],
-        ).await?;
+                libsql::params![model_id],
+            )
+            .await?;
 
         if let Some(row) = rows.next().await? {
             Ok(Some(ScoringModelRecord {
@@ -2422,10 +2703,10 @@ impl LocalClient {
     pub async fn delete_scoring_model(&self, model_id: &str) -> Result<bool> {
         info!("Deleting scoring model: {}", model_id);
 
-        let affected = self.connection.execute(
-            "DELETE FROM scores WHERE id = ?",
-            libsql::params![model_id],
-        ).await?;
+        let affected = self
+            .connection
+            .execute("DELETE FROM scores WHERE id = ?", libsql::params![model_id])
+            .await?;
 
         Ok(affected > 0)
     }
@@ -2436,30 +2717,38 @@ impl LocalClient {
 
     /// Save a workflow (flow builder)
     pub async fn save_workflow(&self, workflow: &WorkflowRecord) -> Result<()> {
-        info!("Saving workflow: {} for user: {}", workflow.id, workflow.user_id);
+        info!(
+            "Saving workflow: {} for user: {}",
+            workflow.id, workflow.user_id
+        );
 
         let now = chrono::Utc::now().to_rfc3339();
-        self.connection.execute(
-            "INSERT OR REPLACE INTO workflows (
+        self.connection
+            .execute(
+                "INSERT OR REPLACE INTO workflows (
                 id, user_id, workflow_type, workflow_name, workflow_description,
                 workflow_status, workflow_data, trigger_type, trigger_config,
                 is_active, created_at, updated_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            libsql::params![
-                workflow.id.clone(),
-                workflow.user_id.clone(),
-                workflow.workflow_type.clone(),
-                workflow.workflow_name.clone(),
-                workflow.workflow_description.clone().unwrap_or_default(),
-                workflow.workflow_status.clone().unwrap_or_else(|| "draft".to_string()),
-                workflow.workflow_data.clone(),
-                workflow.trigger_type.clone().unwrap_or_default(),
-                workflow.trigger_config.clone().unwrap_or_default(),
-                workflow.is_active,
-                now.clone(),
-                now
-            ],
-        ).await?;
+                libsql::params![
+                    workflow.id.clone(),
+                    workflow.user_id.clone(),
+                    workflow.workflow_type.clone(),
+                    workflow.workflow_name.clone(),
+                    workflow.workflow_description.clone().unwrap_or_default(),
+                    workflow
+                        .workflow_status
+                        .clone()
+                        .unwrap_or_else(|| "draft".to_string()),
+                    workflow.workflow_data.clone(),
+                    workflow.trigger_type.clone().unwrap_or_default(),
+                    workflow.trigger_config.clone().unwrap_or_default(),
+                    workflow.is_active,
+                    now.clone(),
+                    now
+                ],
+            )
+            .await?;
 
         Ok(())
     }
@@ -2468,13 +2757,16 @@ impl LocalClient {
     pub async fn get_workflows(&self, user_id: &str) -> Result<Vec<WorkflowRecord>> {
         info!("Getting workflows for user: {}", user_id);
 
-        let mut rows = self.connection.query(
-            "SELECT id, user_id, workflow_type, workflow_name, workflow_description,
+        let mut rows = self
+            .connection
+            .query(
+                "SELECT id, user_id, workflow_type, workflow_name, workflow_description,
                     workflow_status, workflow_data, trigger_type, trigger_config,
                     is_active, last_run_at, next_run_at, run_count, created_at, updated_at
              FROM workflows WHERE user_id = ? ORDER BY updated_at DESC",
-            libsql::params![user_id],
-        ).await?;
+                libsql::params![user_id],
+            )
+            .await?;
 
         let mut workflows = Vec::new();
         while let Some(row) = rows.next().await? {
@@ -2504,13 +2796,16 @@ impl LocalClient {
     pub async fn get_workflow(&self, workflow_id: &str) -> Result<Option<WorkflowRecord>> {
         info!("Getting workflow: {}", workflow_id);
 
-        let mut rows = self.connection.query(
-            "SELECT id, user_id, workflow_type, workflow_name, workflow_description,
+        let mut rows = self
+            .connection
+            .query(
+                "SELECT id, user_id, workflow_type, workflow_name, workflow_description,
                     workflow_status, workflow_data, trigger_type, trigger_config,
                     is_active, last_run_at, next_run_at, run_count, created_at, updated_at
              FROM workflows WHERE id = ?",
-            libsql::params![workflow_id],
-        ).await?;
+                libsql::params![workflow_id],
+            )
+            .await?;
 
         if let Some(row) = rows.next().await? {
             Ok(Some(WorkflowRecord {
@@ -2539,10 +2834,13 @@ impl LocalClient {
     pub async fn delete_workflow(&self, workflow_id: &str) -> Result<bool> {
         info!("Deleting workflow: {}", workflow_id);
 
-        let affected = self.connection.execute(
-            "DELETE FROM workflows WHERE id = ?",
-            libsql::params![workflow_id],
-        ).await?;
+        let affected = self
+            .connection
+            .execute(
+                "DELETE FROM workflows WHERE id = ?",
+                libsql::params![workflow_id],
+            )
+            .await?;
 
         Ok(affected > 0)
     }
@@ -2567,7 +2865,10 @@ impl LocalClient {
     /// Store a webhook event for processing (outbox pattern)
     /// Returns true if stored, false if duplicate (idempotent)
     pub async fn store_webhook_event(&self, event: &WebhookEvent) -> Result<bool> {
-        info!("Storing webhook event: {} from {}", event.event_id, event.provider);
+        info!(
+            "Storing webhook event: {} from {}",
+            event.event_id, event.provider
+        );
 
         let now = chrono::Utc::now().to_rfc3339();
         let payload_json = serde_json::to_string(&event.payload)?;
@@ -2649,18 +2950,26 @@ impl LocalClient {
                 libsql::params![status, processed_at, event_id],
             ).await?
         } else {
-            self.connection.execute(
-                "UPDATE webhook_events SET status = ?, processed_at = ? WHERE event_id = ?",
-                libsql::params![status, processed_at, event_id],
-            ).await?
+            self.connection
+                .execute(
+                    "UPDATE webhook_events SET status = ?, processed_at = ? WHERE event_id = ?",
+                    libsql::params![status, processed_at, event_id],
+                )
+                .await?
         };
 
         Ok(affected > 0)
     }
 
     /// Get webhook events that need retry (failed with retry_count < max_retries)
-    pub async fn get_webhook_events_for_retry(&self, max_retries: u32) -> Result<Vec<WebhookEvent>> {
-        info!("Getting webhook events for retry (max_retries: {})", max_retries);
+    pub async fn get_webhook_events_for_retry(
+        &self,
+        max_retries: u32,
+    ) -> Result<Vec<WebhookEvent>> {
+        info!(
+            "Getting webhook events for retry (max_retries: {})",
+            max_retries
+        );
 
         let mut rows = self.connection.query(
             "SELECT id, user_id, provider, event_type, event_id, payload, status, retry_count, processed_at, created_at
@@ -2768,10 +3077,13 @@ impl LocalClient {
 
     /// Get webhook event counts by status for admin dashboard
     pub async fn get_webhook_event_counts(&self) -> Result<WebhookEventCounts> {
-        let mut rows = self.connection.query(
-            "SELECT status, COUNT(*) as count FROM webhook_events GROUP BY status",
-            libsql::params![],
-        ).await?;
+        let mut rows = self
+            .connection
+            .query(
+                "SELECT status, COUNT(*) as count FROM webhook_events GROUP BY status",
+                libsql::params![],
+            )
+            .await?;
 
         let mut counts = WebhookEventCounts::default();
         while let Some(row) = rows.next().await? {
@@ -3031,7 +3343,10 @@ mod tests {
 
         // Verify user exists
         let retrieved = client.get_user_profile("platform-123").await.unwrap();
-        assert!(retrieved.is_some(), "User profile should exist after creation");
+        assert!(
+            retrieved.is_some(),
+            "User profile should exist after creation"
+        );
 
         let retrieved = retrieved.unwrap();
         assert_eq!(retrieved.id, "test-user-123");

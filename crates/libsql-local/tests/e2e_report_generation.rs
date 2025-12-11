@@ -63,7 +63,10 @@ async fn setup_test_user_with_account(client: &LocalClient) -> Result<TestReport
         ).await?;
     }
 
-    Ok(TestReportData { user_id, account_id })
+    Ok(TestReportData {
+        user_id,
+        account_id,
+    })
 }
 
 /// Test report creation and storage
@@ -80,7 +83,8 @@ async fn test_report_creation() -> Result<()> {
     let report_data = serde_json::json!({
         "accounts": [{"id": test_data.account_id, "balance": 5000.00}],
         "transactions_count": 5
-    }).to_string();
+    })
+    .to_string();
 
     client.execute(
         "INSERT INTO reports (id, user_id, report_type, report_name, report_status, raw_report_data, created_at)
@@ -90,10 +94,12 @@ async fn test_report_creation() -> Result<()> {
     println!("✅ Report created: {report_id}");
 
     // Verify report exists
-    let mut report = client.query(
-        "SELECT id, report_status FROM reports WHERE id = ?",
-        vec![Value::Text(report_id.clone())]
-    ).await?;
+    let mut report = client
+        .query(
+            "SELECT id, report_status FROM reports WHERE id = ?",
+            vec![Value::Text(report_id.clone())],
+        )
+        .await?;
     assert!(has_rows(&mut report).await, "Report should exist");
     println!("✅ Report verified in database");
 
@@ -111,26 +117,35 @@ async fn test_data_aggregation() -> Result<()> {
     let test_data = setup_test_user_with_account(&client).await?;
 
     // Query accounts for the user
-    let mut accounts = client.query(
-        "SELECT COUNT(*) as count FROM accounts WHERE user_id = ?",
-        vec![Value::Text(test_data.user_id.clone())]
-    ).await?;
+    let mut accounts = client
+        .query(
+            "SELECT COUNT(*) as count FROM accounts WHERE user_id = ?",
+            vec![Value::Text(test_data.user_id.clone())],
+        )
+        .await?;
     assert!(has_rows(&mut accounts).await, "Should have accounts");
     println!("✅ Accounts aggregated");
 
     // Query transactions for the user
-    let mut transactions = client.query(
-        "SELECT COUNT(*) as count FROM transactions WHERE user_id = ?",
-        vec![Value::Text(test_data.user_id.clone())]
-    ).await?;
-    assert!(has_rows(&mut transactions).await, "Should have transactions");
+    let mut transactions = client
+        .query(
+            "SELECT COUNT(*) as count FROM transactions WHERE user_id = ?",
+            vec![Value::Text(test_data.user_id.clone())],
+        )
+        .await?;
+    assert!(
+        has_rows(&mut transactions).await,
+        "Should have transactions"
+    );
     println!("✅ Transactions aggregated");
 
     // Calculate total transaction amount
-    let mut total = client.query(
-        "SELECT SUM(amount) as total FROM transactions WHERE user_id = ?",
-        vec![Value::Text(test_data.user_id.clone())]
-    ).await?;
+    let mut total = client
+        .query(
+            "SELECT SUM(amount) as total FROM transactions WHERE user_id = ?",
+            vec![Value::Text(test_data.user_id.clone())],
+        )
+        .await?;
     assert!(has_rows(&mut total).await, "Should have total");
     println!("✅ Transaction totals calculated");
 
@@ -166,11 +181,16 @@ async fn test_blockchain_anchoring() -> Result<()> {
     println!("✅ Blockchain hash anchored: {blockchain_hash}");
 
     // Verify blockchain hash is stored
-    let mut anchored = client.query(
-        "SELECT blockchain_hash, blockchain_tx_id FROM reports WHERE id = ?",
-        vec![Value::Text(report_id.clone())]
-    ).await?;
-    assert!(has_rows(&mut anchored).await, "Report should have blockchain hash");
+    let mut anchored = client
+        .query(
+            "SELECT blockchain_hash, blockchain_tx_id FROM reports WHERE id = ?",
+            vec![Value::Text(report_id.clone())],
+        )
+        .await?;
+    assert!(
+        has_rows(&mut anchored).await,
+        "Report should have blockchain hash"
+    );
     println!("✅ Blockchain anchoring verified");
 
     println!("🎉 Blockchain Anchoring test passed!");
@@ -196,7 +216,11 @@ async fn test_hash_verification() -> Result<()> {
 
     // Simulate hash computation (in production, freshcredit_security::blake2_256_hex would be used)
     // For testing, we use a deterministic mock hash based on content length
-    let computed_hash = format!("hash_{:016x}_{}", report_json.len(), uuid::Uuid::new_v4().to_string().replace("-", ""));
+    let computed_hash = format!(
+        "hash_{:016x}_{}",
+        report_json.len(),
+        uuid::Uuid::new_v4().to_string().replace("-", "")
+    );
     println!("✅ Computed hash: {computed_hash}");
 
     // Store report with hash
@@ -215,10 +239,12 @@ async fn test_hash_verification() -> Result<()> {
     println!("✅ Report stored with hash");
 
     // Retrieve and verify hash
-    let mut stored = client.query(
-        "SELECT blockchain_hash, report_data FROM reports WHERE id = ?",
-        vec![Value::Text(report_id.clone())]
-    ).await?;
+    let mut stored = client
+        .query(
+            "SELECT blockchain_hash, report_data FROM reports WHERE id = ?",
+            vec![Value::Text(report_id.clone())],
+        )
+        .await?;
     assert!(has_rows(&mut stored).await, "Report should exist");
     println!("✅ Hash verification successful");
 
@@ -259,21 +285,24 @@ async fn test_report_status_transitions() -> Result<()> {
     println!("✅ Status transitioned to: ready");
 
     // Transition to shared
-    client.execute(
-        "UPDATE reports SET report_status = 'shared' WHERE id = ?",
-        vec![Value::Text(report_id.clone())]
-    ).await?;
+    client
+        .execute(
+            "UPDATE reports SET report_status = 'shared' WHERE id = ?",
+            vec![Value::Text(report_id.clone())],
+        )
+        .await?;
     println!("✅ Status transitioned to: shared");
 
     // Verify final status
-    let mut final_status = client.query(
-        "SELECT report_status FROM reports WHERE id = ?",
-        vec![Value::Text(report_id.clone())]
-    ).await?;
+    let mut final_status = client
+        .query(
+            "SELECT report_status FROM reports WHERE id = ?",
+            vec![Value::Text(report_id.clone())],
+        )
+        .await?;
     assert!(has_rows(&mut final_status).await, "Report should exist");
     println!("✅ Final status verified");
 
     println!("🎉 Report Status Transitions test passed!");
     Ok(())
 }
-
