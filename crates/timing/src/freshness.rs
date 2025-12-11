@@ -138,7 +138,7 @@ mod tests {
 
     #[test]
     fn test_freshness_validation() {
-        let validator = FreshnessValidator::default();
+        let validator = FreshnessValidator::with_default_thresholds();
         
         // Fresh data
         let fresh_time = Utc::now() - Duration::hours(12);
@@ -155,7 +155,7 @@ mod tests {
 
     #[test]
     fn test_approaching_stale() {
-        let validator = FreshnessValidator::default();
+        let validator = FreshnessValidator::with_default_thresholds();
         
         // 21 hours old (87.5% of 24-hour threshold)
         let approaching_stale_time = Utc::now() - Duration::hours(21);
