@@ -12,12 +12,12 @@ use chrono::{DateTime, Utc};
 pub trait Clock: Send + Sync {
     /// Get current UTC time
     fn now(&self) -> DateTime<Utc>;
-    
+
     /// Get current Unix timestamp in seconds
     fn timestamp(&self) -> i64 {
         self.now().timestamp()
     }
-    
+
     /// Get current Unix timestamp in milliseconds
     fn timestamp_millis(&self) -> i64 {
         self.now().timestamp_millis()
@@ -50,12 +50,12 @@ impl MockClock {
     pub fn new(time: DateTime<Utc>) -> Self {
         Self { current_time: time }
     }
-    
+
     /// Advance the clock by the given duration
     pub fn advance(&mut self, duration: chrono::Duration) {
         self.current_time += duration;
     }
-    
+
     /// Set the clock to a specific time
     pub fn set(&mut self, time: DateTime<Utc>) {
         self.current_time = time;
@@ -86,12 +86,12 @@ mod tests {
     fn test_mock_clock() {
         let time = Utc::now();
         let mut clock = MockClock::new(time);
-        
+
         assert_eq!(clock.now(), time);
-        
+
         clock.advance(Duration::hours(1));
         assert_eq!(clock.now(), time + Duration::hours(1));
-        
+
         let new_time = time + Duration::days(1);
         clock.set(new_time);
         assert_eq!(clock.now(), new_time);
@@ -103,9 +103,8 @@ mod tests {
             .unwrap()
             .with_timezone(&Utc);
         let clock = MockClock::new(time);
-        
+
         assert_eq!(clock.timestamp(), 1735689600);
         assert_eq!(clock.timestamp_millis(), 1735689600000);
     }
 }
-

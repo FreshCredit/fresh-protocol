@@ -3,9 +3,9 @@
 //! This module provides retry logic with exponential backoff and jitter
 //! to prevent thundering herd problems.
 
-use std::time::Duration;
-use rand::Rng;
 use async_trait::async_trait;
+use rand::Rng;
+use std::time::Duration;
 
 /// Retry strategy trait
 #[async_trait]
@@ -13,7 +13,7 @@ pub trait RetryStrategy: Send + Sync {
     /// Get the delay before the next retry attempt
     /// Returns None if max attempts reached
     fn next_delay(&self, attempt: u32) -> Option<Duration>;
-    
+
     /// Get the maximum number of retry attempts
     fn max_attempts(&self) -> u32;
 }
@@ -53,7 +53,7 @@ impl ExponentialBackoff {
             jitter_percentage,
         }
     }
-    
+
     /// Create from environment variables
     pub fn from_env() -> Self {
         Self {
@@ -61,13 +61,13 @@ impl ExponentialBackoff {
                 std::env::var("WORKFLOW_RETRY_INITIAL_DELAY_MS")
                     .ok()
                     .and_then(|v| v.parse::<u64>().ok())
-                    .unwrap_or(1000)
+                    .unwrap_or(1000),
             ),
             max_delay: Duration::from_millis(
                 std::env::var("WORKFLOW_RETRY_MAX_DELAY_MS")
                     .ok()
                     .and_then(|v| v.parse::<u64>().ok())
-                    .unwrap_or(60000)
+                    .unwrap_or(60000),
             ),
             max_attempts: std::env::var("WORKFLOW_RETRY_MAX_ATTEMPTS")
                 .ok()
@@ -83,20 +83,20 @@ impl RetryStrategy for ExponentialBackoff {
         if attempt >= self.max_attempts {
             return None;
         }
-        
+
         // Calculate exponential delay: initial_delay * 2^attempt
         let base_delay = self.initial_delay.as_millis() as u64 * 2u64.pow(attempt);
         let capped_delay = base_delay.min(self.max_delay.as_millis() as u64);
-        
+
         // Add jitter to prevent thundering herd
         let jitter_range = (capped_delay as f64 * self.jitter_percentage) as i64;
         let mut rng = rand::thread_rng();
         let jitter = rng.gen_range(-jitter_range..=jitter_range);
         let final_delay = (capped_delay as i64 + jitter).max(0) as u64;
-        
+
         Some(Duration::from_millis(final_delay))
     }
-    
+
     fn max_attempts(&self) -> u32 {
         self.max_attempts
     }
@@ -112,7 +112,7 @@ impl<S: RetryStrategy> RetryExecutor<S> {
     pub fn new(strategy: S) -> Self {
         Self { strategy }
     }
-    
+
     /// Execute an operation with retry logic
     pub async fn execute<F, Fut, T, E>(&self, mut operation: F) -> Result<T, E>
     where
@@ -120,17 +120,13 @@ impl<S: RetryStrategy> RetryExecutor<S> {
         Fut: std::future::Future<Output = Result<T, E>>,
     {
         let mut attempt = 0;
-        
+
         loop {
             match operation().await {
                 Ok(result) => return Ok(result),
                 Err(err) => {
                     if let Some(delay) = self.strategy.next_delay(attempt) {
-                        tracing::warn!(
-                            "Attempt {} failed, retrying in {:?}",
-                            attempt + 1,
-                            delay
-                        );
+                        tracing::warn!("Attempt {} failed, retrying in {:?}", attempt + 1, delay);
                         tokio::time::sleep(delay).await;
                         attempt += 1;
                     } else {
@@ -150,21 +146,20 @@ mod tests {
     #[test]
     fn test_exponential_backoff() {
         let strategy = ExponentialBackoff::default();
-        
+
         // First attempt: ~1000ms
         let delay1 = strategy.next_delay(0).unwrap();
         assert!(delay1.as_millis() >= 800 && delay1.as_millis() <= 1200);
-        
+
         // Second attempt: ~2000ms
         let delay2 = strategy.next_delay(1).unwrap();
         assert!(delay2.as_millis() >= 1600 && delay2.as_millis() <= 2400);
-        
+
         // Third attempt: ~4000ms
         let delay3 = strategy.next_delay(2).unwrap();
         assert!(delay3.as_millis() >= 3200 && delay3.as_millis() <= 4800);
-        
+
         // Fourth attempt: None (max attempts reached)
         assert!(strategy.next_delay(3).is_none());
     }
 }
-

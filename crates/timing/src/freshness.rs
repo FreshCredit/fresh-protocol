@@ -2,7 +2,7 @@
 //!
 //! This module provides utilities for validating data freshness and detecting stale data.
 
-use chrono::{DateTime, Utc, Duration};
+use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 
 /// Data freshness validator
@@ -39,25 +39,25 @@ impl FreshnessThresholds {
                 std::env::var("PLAID_TRANSACTION_FRESHNESS_DAYS")
                     .ok()
                     .and_then(|v| v.parse::<i64>().ok())
-                    .unwrap_or(90)
+                    .unwrap_or(90),
             ),
             plaid_accounts: Duration::days(
                 std::env::var("PLAID_ACCOUNT_FRESHNESS_DAYS")
                     .ok()
                     .and_then(|v| v.parse::<i64>().ok())
-                    .unwrap_or(30)
+                    .unwrap_or(30),
             ),
             linkedin_data: Duration::days(
                 std::env::var("LINKEDIN_FRESHNESS_DAYS")
                     .ok()
                     .and_then(|v| v.parse::<i64>().ok())
-                    .unwrap_or(7)
+                    .unwrap_or(7),
             ),
             reports: Duration::hours(
                 std::env::var("REPORT_FRESHNESS_HOURS")
                     .ok()
                     .and_then(|v| v.parse::<i64>().ok())
-                    .unwrap_or(24)
+                    .unwrap_or(24),
             ),
         }
     }
@@ -78,7 +78,7 @@ impl FreshnessStatus {
     pub fn is_critically_stale(&self) -> bool {
         self.staleness_percentage > 100.0
     }
-    
+
     /// Check if data is approaching staleness (>80% of threshold)
     pub fn is_approaching_stale(&self) -> bool {
         self.staleness_percentage > 80.0 && !self.is_critically_stale()
@@ -99,12 +99,12 @@ impl FreshnessValidator {
     pub fn new(thresholds: FreshnessThresholds) -> Self {
         Self { thresholds }
     }
-    
+
     /// Create a freshness validator with default thresholds
     pub fn with_default_thresholds() -> Self {
         Self::new(FreshnessThresholds::default())
     }
-    
+
     /// Check freshness of data
     pub fn check_freshness(
         &self,
@@ -117,11 +117,12 @@ impl FreshnessValidator {
             DataType::LinkedInData => self.thresholds.linkedin_data,
             DataType::Reports => self.thresholds.reports,
         };
-        
+
         let age = Utc::now() - last_synced_at;
         let is_fresh = age <= threshold;
-        let staleness_percentage = (age.num_seconds() as f64 / threshold.num_seconds() as f64) * 100.0;
-        
+        let staleness_percentage =
+            (age.num_seconds() as f64 / threshold.num_seconds() as f64) * 100.0;
+
         FreshnessStatus {
             is_fresh,
             last_synced_at,
@@ -139,13 +140,13 @@ mod tests {
     #[test]
     fn test_freshness_validation() {
         let validator = FreshnessValidator::with_default_thresholds();
-        
+
         // Fresh data
         let fresh_time = Utc::now() - Duration::hours(12);
         let status = validator.check_freshness(DataType::Reports, fresh_time);
         assert!(status.is_fresh);
         assert!(!status.is_critically_stale());
-        
+
         // Stale data
         let stale_time = Utc::now() - Duration::hours(48);
         let status = validator.check_freshness(DataType::Reports, stale_time);
@@ -156,7 +157,7 @@ mod tests {
     #[test]
     fn test_approaching_stale() {
         let validator = FreshnessValidator::with_default_thresholds();
-        
+
         // 21 hours old (87.5% of 24-hour threshold)
         let approaching_stale_time = Utc::now() - Duration::hours(21);
         let status = validator.check_freshness(DataType::Reports, approaching_stale_time);
@@ -164,4 +165,3 @@ mod tests {
         assert!(!status.is_critically_stale());
     }
 }
-

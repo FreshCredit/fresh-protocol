@@ -10,7 +10,7 @@ use tokio::time::timeout;
 pub enum TimeoutError<E> {
     #[error("Operation timed out after {0:?}")]
     Timeout(Duration),
-    
+
     #[error("Operation failed: {0}")]
     OperationError(E),
 }
@@ -38,7 +38,7 @@ impl TimeoutEnforcer {
             max_timeout,
         }
     }
-    
+
     /// Create from environment variables
     pub fn from_env() -> Self {
         Self {
@@ -46,17 +46,17 @@ impl TimeoutEnforcer {
                 std::env::var("WORKFLOW_DEFAULT_TIMEOUT_MS")
                     .ok()
                     .and_then(|v| v.parse::<u64>().ok())
-                    .unwrap_or(30000)
+                    .unwrap_or(30000),
             ),
             max_timeout: Duration::from_millis(
                 std::env::var("WORKFLOW_MAX_TIMEOUT_MS")
                     .ok()
                     .and_then(|v| v.parse::<u64>().ok())
-                    .unwrap_or(300000)
+                    .unwrap_or(300000),
             ),
         }
     }
-    
+
     /// Execute an operation with timeout enforcement
     pub async fn execute<F, Fut, T, E>(
         &self,
@@ -70,19 +70,16 @@ impl TimeoutEnforcer {
         let timeout_duration = timeout_duration
             .unwrap_or(self.default_timeout)
             .min(self.max_timeout);
-        
+
         match timeout(timeout_duration, operation()).await {
             Ok(Ok(result)) => Ok(result),
             Ok(Err(err)) => Err(TimeoutError::OperationError(err)),
             Err(_) => Err(TimeoutError::Timeout(timeout_duration)),
         }
     }
-    
+
     /// Execute an operation with the default timeout
-    pub async fn execute_default<F, Fut, T, E>(
-        &self,
-        operation: F,
-    ) -> Result<T, TimeoutError<E>>
+    pub async fn execute_default<F, Fut, T, E>(&self, operation: F) -> Result<T, TimeoutError<E>>
     where
         F: FnOnce() -> Fut,
         Fut: std::future::Future<Output = Result<T, E>>,
@@ -99,12 +96,14 @@ mod tests {
     #[tokio::test]
     async fn test_timeout_success() {
         let enforcer = TimeoutEnforcer::default();
-        
-        let result = enforcer.execute(
-            || async { Ok::<_, String>(42) },
-            Some(Duration::from_secs(1)),
-        ).await;
-        
+
+        let result = enforcer
+            .execute(
+                || async { Ok::<_, String>(42) },
+                Some(Duration::from_secs(1)),
+            )
+            .await;
+
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), 42);
     }
@@ -112,15 +111,17 @@ mod tests {
     #[tokio::test]
     async fn test_timeout_exceeded() {
         let enforcer = TimeoutEnforcer::default();
-        
-        let result = enforcer.execute(
-            || async {
-                sleep(Duration::from_secs(2)).await;
-                Ok::<_, String>(42)
-            },
-            Some(Duration::from_millis(100)),
-        ).await;
-        
+
+        let result = enforcer
+            .execute(
+                || async {
+                    sleep(Duration::from_secs(2)).await;
+                    Ok::<_, String>(42)
+                },
+                Some(Duration::from_millis(100)),
+            )
+            .await;
+
         assert!(result.is_err());
         match result {
             Err(TimeoutError::Timeout(d)) => assert_eq!(d, Duration::from_millis(100)),
@@ -131,12 +132,14 @@ mod tests {
     #[tokio::test]
     async fn test_operation_error() {
         let enforcer = TimeoutEnforcer::default();
-        
-        let result = enforcer.execute(
-            || async { Err::<i32, _>("operation failed") },
-            Some(Duration::from_secs(1)),
-        ).await;
-        
+
+        let result = enforcer
+            .execute(
+                || async { Err::<i32, _>("operation failed") },
+                Some(Duration::from_secs(1)),
+            )
+            .await;
+
         assert!(result.is_err());
         match result {
             Err(TimeoutError::OperationError(e)) => assert_eq!(e, "operation failed"),
@@ -144,4 +147,3 @@ mod tests {
         }
     }
 }
-

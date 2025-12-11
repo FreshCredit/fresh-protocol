@@ -2,8 +2,8 @@
 
 pub mod clock;
 
-use blake2::{Blake2b512, Digest};
 use anyhow::Result;
+use blake2::{Blake2b512, Digest};
 
 /// Generate Blake2b-256 hash from serializable data
 pub fn blake2_256_hex<T: serde::Serialize>(value: &T) -> Result<String> {

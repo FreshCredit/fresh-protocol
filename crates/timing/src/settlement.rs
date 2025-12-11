@@ -54,7 +54,9 @@ impl SettlementCalculator {
             business_days
         );
 
-        let settlement_date = self.calendar.add_business_days_datetime(initiated_at, business_days);
+        let settlement_date = self
+            .calendar
+            .add_business_days_datetime(initiated_at, business_days);
 
         info!(
             "Settlement date calculated: {} ({} business days from {})",
@@ -79,9 +81,9 @@ impl SettlementCalculator {
     ) -> bool {
         let expected_settlement = self.calculate_settlement_date(initiated_at, settlement_type);
         let now = Utc::now();
-        
+
         let is_overdue = now > expected_settlement.settlement_date;
-        
+
         if is_overdue {
             warn!(
                 "Settlement overdue: expected={}, now={}",
@@ -89,7 +91,7 @@ impl SettlementCalculator {
                 now.format("%Y-%m-%d")
             );
         }
-        
+
         is_overdue
     }
 
@@ -119,7 +121,7 @@ impl SettlementCalculator {
     ) -> i64 {
         let expected_settlement = self.calculate_settlement_date(initiated_at, settlement_type);
         let now = Utc::now();
-        
+
         (expected_settlement.settlement_date.date_naive() - now.date_naive()).num_days()
     }
 }
@@ -148,8 +150,8 @@ impl AchSettlementType {
     pub fn business_days(&self) -> i64 {
         match self {
             AchSettlementType::ThreeDaySettlement => 3, // T+3 for regular ACH
-            AchSettlementType::SameDay => 1,  // T+1 for same-day
-            AchSettlementType::NextDay => 1,  // T+1 for next-day
+            AchSettlementType::SameDay => 1,            // T+1 for same-day
+            AchSettlementType::NextDay => 1,            // T+1 for next-day
         }
     }
 }
@@ -186,7 +188,7 @@ pub enum SettlementStatus {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::{TimeZone, Duration};
+    use chrono::{Duration, TimeZone};
 
     #[test]
     fn test_standard_ach_settlement() {
@@ -194,7 +196,8 @@ mod tests {
 
         // Monday initiation -> Thursday settlement (T+3)
         let initiated = Utc.with_ymd_and_hms(2025, 1, 6, 10, 0, 0).unwrap(); // Monday
-        let result = calculator.calculate_settlement_date(initiated, AchSettlementType::ThreeDaySettlement);
+        let result =
+            calculator.calculate_settlement_date(initiated, AchSettlementType::ThreeDaySettlement);
 
         assert_eq!(result.business_days, 3);
         // Settlement should be at least 3 business days later
@@ -243,7 +246,8 @@ mod tests {
         // Payment initiated today
         let initiated = Utc::now();
 
-        let status = calculator.get_settlement_status(initiated, AchSettlementType::ThreeDaySettlement);
+        let status =
+            calculator.get_settlement_status(initiated, AchSettlementType::ThreeDaySettlement);
         assert_eq!(status, SettlementStatus::InTransit);
     }
 
@@ -254,10 +258,10 @@ mod tests {
         // Payment initiated today
         let initiated = Utc::now();
 
-        let days = calculator.days_until_settlement(initiated, AchSettlementType::ThreeDaySettlement);
+        let days =
+            calculator.days_until_settlement(initiated, AchSettlementType::ThreeDaySettlement);
 
         // Should be at least 3 business days (could be more if weekends/holidays)
         assert!(days >= 3);
     }
 }
-

@@ -13,20 +13,19 @@
 //! - `calendar`: Business day calendar for settlement calculations
 //! - `settlement`: ACH settlement timing calculations
 
+pub mod calendar;
 pub mod clock;
-pub mod ttl;
 pub mod freshness;
 pub mod retry;
-pub mod timeout;
-pub mod calendar;
 pub mod settlement;
+pub mod timeout;
+pub mod ttl;
 
 // Re-export commonly used types
-pub use clock::{Clock, SystemClock, MockClock};
-pub use ttl::{TtlEnforcement, TtlConfig, TtlError};
-pub use freshness::{FreshnessValidator, FreshnessStatus, FreshnessThresholds, DataType};
-pub use retry::{RetryStrategy, ExponentialBackoff, RetryExecutor};
-pub use timeout::{TimeoutEnforcer, TimeoutError};
 pub use calendar::BusinessDayCalendar;
-pub use settlement::{SettlementCalculator, SettlementDate, SettlementStatus, AchSettlementType};
-
+pub use clock::{Clock, MockClock, SystemClock};
+pub use freshness::{DataType, FreshnessStatus, FreshnessThresholds, FreshnessValidator};
+pub use retry::{ExponentialBackoff, RetryExecutor, RetryStrategy};
+pub use settlement::{AchSettlementType, SettlementCalculator, SettlementDate, SettlementStatus};
+pub use timeout::{TimeoutEnforcer, TimeoutError};
+pub use ttl::{TtlConfig, TtlEnforcement, TtlError};

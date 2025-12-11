@@ -68,12 +68,17 @@ impl BusinessDayCalendar {
     }
 
     /// Add business days to a DateTime<Utc>
-    pub fn add_business_days_datetime(&self, start: chrono::DateTime<chrono::Utc>, days: i64) -> chrono::DateTime<chrono::Utc> {
+    pub fn add_business_days_datetime(
+        &self,
+        start: chrono::DateTime<chrono::Utc>,
+        days: i64,
+    ) -> chrono::DateTime<chrono::Utc> {
         let start_date = start.date_naive();
         let result_date = self.add_business_days(start_date, days as i32);
 
         // Preserve the time component
-        start.with_timezone(&chrono::Utc)
+        start
+            .with_timezone(&chrono::Utc)
             .date_naive()
             .and_hms_opt(0, 0, 0)
             .unwrap()
@@ -81,32 +86,32 @@ impl BusinessDayCalendar {
             .unwrap()
             + chrono::Duration::days((result_date - start_date).num_days())
     }
-    
+
     /// Calculate business days between two dates
     pub fn business_days_between(&self, start: NaiveDate, end: NaiveDate) -> i32 {
         let mut count = 0;
         let mut current = start;
-        
+
         while current < end {
             if self.is_business_day(current) {
                 count += 1;
             }
             current += Duration::days(1);
         }
-        
+
         count
     }
-    
+
     /// Get the next business day from the given date
     pub fn next_business_day(&self, date: NaiveDate) -> NaiveDate {
         self.add_business_days(date, 1)
     }
-    
+
     /// Get the previous business day from the given date
     pub fn previous_business_day(&self, date: NaiveDate) -> NaiveDate {
         self.add_business_days(date, -1)
     }
-    
+
     /// Calculate US Federal Holidays for a given year
     ///
     /// Dynamically calculates holidays based on federal holiday rules:
@@ -172,7 +177,10 @@ impl BusinessDayCalendar {
         let first_weekday = first_of_month.weekday();
 
         // Calculate days until the target weekday
-        let days_until = (weekday.num_days_from_monday() as i32 - first_weekday.num_days_from_monday() as i32 + 7) % 7;
+        let days_until = (weekday.num_days_from_monday() as i32
+            - first_weekday.num_days_from_monday() as i32
+            + 7)
+            % 7;
         let day = 1 + days_until as u32 + (n - 1) * 7;
 
         NaiveDate::from_ymd_opt(year, month, day)
@@ -208,15 +216,15 @@ mod tests {
     #[test]
     fn test_is_business_day() {
         let calendar = BusinessDayCalendar::new();
-        
+
         // Monday, Jan 6, 2025 (business day)
         let monday = NaiveDate::from_ymd_opt(2025, 1, 6).unwrap();
         assert!(calendar.is_business_day(monday));
-        
+
         // Saturday, Jan 4, 2025 (weekend)
         let saturday = NaiveDate::from_ymd_opt(2025, 1, 4).unwrap();
         assert!(!calendar.is_business_day(saturday));
-        
+
         // Wednesday, Jan 1, 2025 (New Year's Day)
         let new_years = NaiveDate::from_ymd_opt(2025, 1, 1).unwrap();
         assert!(!calendar.is_business_day(new_years));
@@ -225,14 +233,14 @@ mod tests {
     #[test]
     fn test_add_business_days() {
         let calendar = BusinessDayCalendar::new();
-        
+
         // Start on Friday, Jan 3, 2025
         let friday = NaiveDate::from_ymd_opt(2025, 1, 3).unwrap();
-        
+
         // Add 1 business day -> Monday, Jan 6 (skip weekend)
         let next = calendar.add_business_days(friday, 1);
         assert_eq!(next, NaiveDate::from_ymd_opt(2025, 1, 6).unwrap());
-        
+
         // Add 5 business days -> Friday, Jan 10
         let next = calendar.add_business_days(friday, 5);
         assert_eq!(next, NaiveDate::from_ymd_opt(2025, 1, 10).unwrap());
@@ -241,11 +249,10 @@ mod tests {
     #[test]
     fn test_business_days_between() {
         let calendar = BusinessDayCalendar::new();
-        
+
         // Monday, Jan 6 to Friday, Jan 10 = 5 business days
         let start = NaiveDate::from_ymd_opt(2025, 1, 6).unwrap();
         let end = NaiveDate::from_ymd_opt(2025, 1, 10).unwrap();
         assert_eq!(calendar.business_days_between(start, end), 4); // Excludes end date
     }
 }
-
