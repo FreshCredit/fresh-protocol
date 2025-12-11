@@ -1273,6 +1273,23 @@ impl LocalClient {
             (),
         ).await?;
 
+        // Create phone_verification_codes table for SMS verification
+        self.connection.execute(
+            "CREATE TABLE IF NOT EXISTS phone_verification_codes (
+                id TEXT PRIMARY KEY,
+                user_id TEXT,
+                phone_number TEXT NOT NULL,
+                code TEXT NOT NULL,
+                purpose TEXT NOT NULL DEFAULT 'phone_verification',
+                attempts INTEGER DEFAULT 0,
+                max_attempts INTEGER DEFAULT 3,
+                expires_at DATETIME NOT NULL,
+                verified_at DATETIME,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )",
+            (),
+        ).await?;
+
         // Create verified_credentials table for Entra Verified ID / KILT DID credentials
         self.connection.execute(
             "CREATE TABLE IF NOT EXISTS verified_credentials (
@@ -1464,6 +1481,14 @@ impl LocalClient {
         ).await?;
         self.connection.execute(
             "CREATE INDEX IF NOT EXISTS idx_verification_requests_user_id ON verification_requests(user_id)",
+            (),
+        ).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_phone_verification_codes_phone ON phone_verification_codes(phone_number)",
+            (),
+        ).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_phone_verification_codes_expires ON phone_verification_codes(expires_at)",
             (),
         ).await?;
         self.connection.execute(
@@ -2903,7 +2928,7 @@ mod tests {
 
         let row = rows.next().await.unwrap().unwrap();
         let count: i64 = row.get(0).unwrap();
-        assert_eq!(count, 41, "Schema should contain exactly 41 tables");
+        assert_eq!(count, 44, "Schema should contain exactly 44 tables");
     }
 
     /// Test that critical tables exist in the schema
