@@ -120,6 +120,14 @@ impl LocalClient {
         Ok(Self { connection })
     }
 
+    /// Create a new in-memory client for testing
+    #[cfg(test)]
+    pub async fn new_in_memory() -> Result<Self> {
+        let db = libsql::Builder::new_local(":memory:").build().await?;
+        let connection = db.connect()?;
+        Ok(Self { connection })
+    }
+
     /// Get access to the underlying connection for direct queries
     pub fn connection(&self) -> &libsql::Connection {
         &self.connection
@@ -352,10 +360,7 @@ impl LocalClient {
             (),
         ).await?;
 
-        self.connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_workflows_sync_status ON workflows(sync_status)",
-            (),
-        ).await?;
+        // Note: sync_status index removed - column not in table definition
 
         // Create user_preferences table
         self.connection.execute(
@@ -2231,4 +2236,119 @@ pub struct AiMessage {
     pub tokens_used: Option<u32>,
     pub model: Option<String>,
     pub created_at: String,
+}
+
+// ============================================================================
+// Tests
+// ============================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Test that the schema contains exactly 41 tables as documented
+    #[tokio::test]
+    async fn test_schema_table_count() {
+        let client = LocalClient::new_in_memory().await.unwrap();
+        client.initialize_schema().await.unwrap();
+
+        // Query sqlite_master for table count
+        let mut rows = client
+            .query(
+                "SELECT COUNT(*) as count FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
+                vec![],
+            )
+            .await
+            .unwrap();
+
+        let row = rows.next().await.unwrap().unwrap();
+        let count: i64 = row.get(0).unwrap();
+        assert_eq!(count, 41, "Schema should contain exactly 41 tables");
+    }
+
+    /// Test that critical tables exist in the schema
+    #[tokio::test]
+    async fn test_critical_tables_exist() {
+        let client = LocalClient::new_in_memory().await.unwrap();
+        client.initialize_schema().await.unwrap();
+
+        let critical_tables = vec![
+            "user_profile",
+            "accounts",
+            "transactions",
+            "balances",
+            "reports",
+            "identity_verification",
+            "workflows",
+            "scores",
+            "ai_conversations",
+            "ai_messages",
+        ];
+
+        for table in critical_tables {
+            let mut rows = client
+                .query(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+                    vec![libsql::Value::Text(table.to_string())],
+                )
+                .await
+                .unwrap();
+
+            let row = rows.next().await.unwrap();
+            assert!(
+                row.is_some(),
+                "Critical table '{table}' should exist in schema"
+            );
+        }
+    }
+
+    /// Test that user profile CRUD operations work
+    #[tokio::test]
+    async fn test_user_profile_crud() {
+        let client = LocalClient::new_in_memory().await.unwrap();
+        client.initialize_schema().await.unwrap();
+
+        let now = chrono::Utc::now().to_rfc3339();
+        let profile = UserProfile {
+            id: "test-user-123".to_string(),
+            platform_user_id: "platform-123".to_string(),
+            azure_id: "azure-123".to_string(),
+            email: "test@example.com".to_string(),
+            display_name: "Test User".to_string(),
+            given_name: Some("Test".to_string()),
+            family_name: Some("User".to_string()),
+            surname: None,
+            mobile_phone: None,
+            job_title: None,
+            street_address: None,
+            city: None,
+            state_province: None,
+            postal_code: None,
+            country_region: None,
+            date_of_birth: None,
+            ssn_last_four: None,
+            employment_status: None,
+            annual_income: None,
+            role: "consumer".to_string(),
+            tenant_id: "tenant-123".to_string(),
+            object_id: "object-123".to_string(),
+            verified_id_credential_id: None,
+            verified_id_status: "pending".to_string(),
+            verified_id_issued_at: None,
+            created_at: now.clone(),
+            updated_at: now,
+        };
+
+        // Store user profile
+        client.store_user_profile(&profile).await.unwrap();
+
+        // Verify user exists
+        let retrieved = client.get_user_profile("platform-123").await.unwrap();
+        assert!(retrieved.is_some(), "User profile should exist after creation");
+
+        let retrieved = retrieved.unwrap();
+        assert_eq!(retrieved.id, "test-user-123");
+        assert_eq!(retrieved.email, "test@example.com");
+        assert_eq!(retrieved.role, "consumer");
+    }
 }
