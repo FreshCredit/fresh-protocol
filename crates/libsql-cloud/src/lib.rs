@@ -442,7 +442,7 @@ impl CloudClient {
         let mut rows = self.connection.query(
             "SELECT ai_agent_enabled, ai_feedback_enabled, ai_offers_enabled, ai_lenders_enabled,
                     cloud_sync_enabled, blockchain_enabled, email_notifications_enabled,
-                    kilt_did_enabled, ai_mode
+                    kilt_did_enabled, ai_mode, COALESCE(mock_data_enabled, 0) as mock_data_enabled
              FROM user_preferences WHERE user_id = ?",
             libsql::params![user_id.to_string()],
         ).await
@@ -460,6 +460,7 @@ impl CloudClient {
                 email_notifications_enabled: row.get::<bool>(6).ok(),
                 kilt_did_enabled: row.get::<bool>(7).ok(),
                 ai_mode: row.get::<String>(8).ok(),
+                mock_data_enabled: row.get::<bool>(9).ok(),
             }))
         } else {
             Ok(None)
@@ -474,8 +475,8 @@ impl CloudClient {
             "INSERT OR REPLACE INTO user_preferences (
                 user_id, ai_agent_enabled, ai_feedback_enabled, ai_offers_enabled,
                 ai_lenders_enabled, cloud_sync_enabled, blockchain_enabled,
-                email_notifications_enabled, kilt_did_enabled, ai_mode, updated_at
-             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                email_notifications_enabled, kilt_did_enabled, ai_mode, mock_data_enabled, updated_at
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             libsql::params![
                 user_id.to_string(),
                 prefs.ai_agent_enabled.unwrap_or(false),
@@ -487,6 +488,7 @@ impl CloudClient {
                 prefs.email_notifications_enabled.unwrap_or(true),
                 prefs.kilt_did_enabled.unwrap_or(false),
                 prefs.ai_mode.clone().unwrap_or_else(|| "auto".to_string()),
+                prefs.mock_data_enabled.unwrap_or(false),
                 chrono::Utc::now().to_rfc3339(),
             ],
         ).await

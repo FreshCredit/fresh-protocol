@@ -81,6 +81,10 @@ pub struct UserPreferences {
     pub kilt_did_enabled: Option<bool>,
     /// AI mode preference: "auto" (default), "cloud", or "local"
     pub ai_mode: Option<String>,
+    /// Mock data mode for internal users testing flows
+    /// When enabled, pages display prefilled mock data without database persistence
+    /// Only available for @freshcredit.com internal team members
+    pub mock_data_enabled: Option<bool>,
 }
 
 /// Uploaded file for AI multimodal input
@@ -102,6 +106,20 @@ pub struct UploadedFile {
     pub created_at: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<String>,
+}
+
+/// Parameters for saving an uploaded file
+///
+/// Consolidates function arguments to avoid clippy::too_many_arguments
+#[derive(Debug, Clone)]
+pub struct SaveUploadedFileParams<'a> {
+    pub user_id: &'a str,
+    pub filename: &'a str,
+    pub mime_type: &'a str,
+    pub file_size: i64,
+    pub file_data: Option<Vec<u8>>,
+    pub text_content: Option<&'a str>,
+    pub conversation_id: Option<&'a str>,
 }
 
 /// Local LibSQL database client
@@ -376,6 +394,7 @@ impl LocalClient {
                 email_notifications_enabled BOOLEAN DEFAULT TRUE,
                 kilt_did_enabled BOOLEAN DEFAULT FALSE,
                 ai_mode TEXT DEFAULT 'auto',
+                mock_data_enabled BOOLEAN DEFAULT FALSE,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
@@ -386,6 +405,13 @@ impl LocalClient {
         // Add ai_mode column if it doesn't exist (migration for existing databases)
         let _ = self.connection.execute(
             "ALTER TABLE user_preferences ADD COLUMN ai_mode TEXT DEFAULT 'auto'",
+            (),
+        ).await;
+
+        // Add mock_data_enabled column if it doesn't exist (migration for existing databases)
+        // Only available for @freshcredit.com internal team members
+        let _ = self.connection.execute(
+            "ALTER TABLE user_preferences ADD COLUMN mock_data_enabled BOOLEAN DEFAULT FALSE",
             (),
         ).await;
 
@@ -1969,7 +1995,7 @@ impl LocalClient {
         let mut rows = self.connection.query(
             "SELECT ai_agent_enabled, ai_feedback_enabled, ai_offers_enabled, ai_lenders_enabled,
                     cloud_sync_enabled, blockchain_enabled, email_notifications_enabled, kilt_did_enabled,
-                    COALESCE(ai_mode, 'auto') as ai_mode
+                    COALESCE(ai_mode, 'auto') as ai_mode, COALESCE(mock_data_enabled, 0) as mock_data_enabled
              FROM user_preferences WHERE user_id = ?",
             libsql::params![user_id],
         ).await?;
@@ -1985,6 +2011,7 @@ impl LocalClient {
                 email_notifications_enabled: Some(row.get::<i64>(6)? != 0),
                 kilt_did_enabled: Some(row.get::<i64>(7)? != 0),
                 ai_mode: Some(row.get::<String>(8)?),
+                mock_data_enabled: Some(row.get::<i64>(9)? != 0),
             }))
         } else {
             Ok(None)
@@ -2001,8 +2028,9 @@ impl LocalClient {
         self.connection.execute(
             "INSERT INTO user_preferences (id, user_id, ai_agent_enabled, ai_feedback_enabled,
                 ai_offers_enabled, ai_lenders_enabled, cloud_sync_enabled, blockchain_enabled,
-                email_notifications_enabled, kilt_did_enabled, ai_mode, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                email_notifications_enabled, kilt_did_enabled, ai_mode, mock_data_enabled,
+                created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT(user_id) DO UPDATE SET
                 ai_agent_enabled = excluded.ai_agent_enabled,
                 ai_feedback_enabled = excluded.ai_feedback_enabled,
@@ -2013,6 +2041,7 @@ impl LocalClient {
                 email_notifications_enabled = excluded.email_notifications_enabled,
                 kilt_did_enabled = excluded.kilt_did_enabled,
                 ai_mode = excluded.ai_mode,
+                mock_data_enabled = excluded.mock_data_enabled,
                 updated_at = excluded.updated_at",
             libsql::params![
                 id,
@@ -2026,6 +2055,7 @@ impl LocalClient {
                 prefs.email_notifications_enabled.unwrap_or(true) as i64,
                 prefs.kilt_did_enabled.unwrap_or(false) as i64,
                 prefs.ai_mode.clone().unwrap_or_else(|| "auto".to_string()),
+                prefs.mock_data_enabled.unwrap_or(false) as i64,
                 now.clone(),
                 now
             ],
@@ -2035,37 +2065,29 @@ impl LocalClient {
     }
 
     /// Save an uploaded file for AI analysis
-    #[allow(clippy::too_many_arguments)]
-    pub async fn save_uploaded_file(
-        &self,
-        user_id: &str,
-        filename: &str,
-        mime_type: &str,
-        file_size: i64,
-        file_data: Option<Vec<u8>>,
-        text_content: Option<&str>,
-        conversation_id: Option<&str>,
-    ) -> Result<String> {
+    ///
+    /// Uses SaveUploadedFileParams struct to consolidate parameters
+    pub async fn save_uploaded_file(&self, params: &SaveUploadedFileParams<'_>) -> Result<String> {
         let id = uuid::Uuid::new_v4().to_string();
         let now = chrono::Utc::now().to_rfc3339();
         // Files expire after 24 hours
         let expires_at = (chrono::Utc::now() + chrono::Duration::hours(24)).to_rfc3339();
         // Derive file_type from mime_type
-        let file_type = mime_type.split('/').next().unwrap_or("unknown").to_string();
+        let file_type = params.mime_type.split('/').next().unwrap_or("unknown").to_string();
 
         self.connection.execute(
             "INSERT INTO uploaded_files (id, user_id, filename, file_type, file_size, mime_type, file_data, text_content, conversation_id, created_at, updated_at, expires_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             libsql::params![
                 id.clone(),
-                user_id,
-                filename,
+                params.user_id,
+                params.filename,
                 file_type,
-                file_size,
-                mime_type,
-                file_data.map(libsql::Value::Blob).unwrap_or(libsql::Value::Null),
-                text_content.map(|s| s.to_string()),
-                conversation_id.map(|s| s.to_string()),
+                params.file_size,
+                params.mime_type,
+                params.file_data.clone().map(libsql::Value::Blob).unwrap_or(libsql::Value::Null),
+                params.text_content.map(|s| s.to_string()),
+                params.conversation_id.map(|s| s.to_string()),
                 now.clone(),
                 now,
                 expires_at
