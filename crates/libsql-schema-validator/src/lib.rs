@@ -429,6 +429,9 @@ impl SchemaValidator {
     }
 
     /// Compare indexes between tables
+    ///
+    /// Note: `_warnings` parameter kept for API consistency with other compare methods
+    #[allow(clippy::ptr_arg)]
     fn compare_indexes(
         &self,
         db_name: &str,
@@ -436,7 +439,6 @@ impl SchemaValidator {
         reference_indexes: &[IndexInfo],
         actual_indexes: &[IndexInfo],
         issues: &mut Vec<SchemaIssue>,
-        #[allow(clippy::ptr_arg)]
         _warnings: &mut Vec<SchemaWarning>,
     ) {
         let _ref_idx_names: HashSet<_> = reference_indexes.iter().map(|i| &i.name).collect();
