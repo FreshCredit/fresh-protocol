@@ -1,7 +1,7 @@
 //! Schema validation CLI tool
-//! 
+//!
 //! Usage: cargo run --bin validate-schema -- [OPTIONS]
-//! 
+//!
 //! Options:
 //!   --staging <path>    Path to staging database
 //!   --local <path>      Path to local database
@@ -10,7 +10,7 @@
 //!   --verbose           Show detailed output
 
 use anyhow::Result;
-use freshcredit_libsql_schema_validator::{SchemaValidator, IssueSeverity};
+use freshcredit_libsql_schema_validator::{IssueSeverity, SchemaValidator};
 use std::env;
 
 #[tokio::main]
@@ -19,7 +19,7 @@ async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
 
     let args: Vec<String> = env::args().collect();
-    
+
     let mut staging_path: Option<String> = None;
     let mut local_path: Option<String> = None;
     let mut cloud_url: Option<String> = None;
@@ -74,11 +74,10 @@ async fn main() -> Result<()> {
 
     if let Some(url) = cloud_url {
         println!("📦 Connecting to cloud database: {url}");
-        let auth_token = env::var("TURSO_AUTH_TOKEN")
-            .unwrap_or_else(|_| {
-                eprintln!("⚠️  TURSO_AUTH_TOKEN not set, using empty token");
-                String::new()
-            });
+        let auth_token = env::var("TURSO_AUTH_TOKEN").unwrap_or_else(|_| {
+            eprintln!("⚠️  TURSO_AUTH_TOKEN not set, using empty token");
+            String::new()
+        });
         let db = libsql::Builder::new_remote(url, auth_token).build().await?;
         let conn = db.connect()?;
         validator = validator.with_cloud(conn);
@@ -103,7 +102,10 @@ async fn main() -> Result<()> {
     }
 }
 
-fn print_human_readable(result: &freshcredit_libsql_schema_validator::SchemaValidationResult, verbose: bool) {
+fn print_human_readable(
+    result: &freshcredit_libsql_schema_validator::SchemaValidationResult,
+    verbose: bool,
+) {
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     println!("📊 Schema Validation Results");
     println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -116,9 +118,18 @@ fn print_human_readable(result: &freshcredit_libsql_schema_validator::SchemaVali
     println!();
 
     println!("📈 Summary:");
-    println!("   Tables Checked:  {}", result.summary.total_tables_checked);
-    println!("   Columns Checked: {}", result.summary.total_columns_checked);
-    println!("   Indexes Checked: {}", result.summary.total_indexes_checked);
+    println!(
+        "   Tables Checked:  {}",
+        result.summary.total_tables_checked
+    );
+    println!(
+        "   Columns Checked: {}",
+        result.summary.total_columns_checked
+    );
+    println!(
+        "   Indexes Checked: {}",
+        result.summary.total_indexes_checked
+    );
     println!();
 
     println!("🔍 Issues Found:");
@@ -146,8 +157,17 @@ fn print_human_readable(result: &freshcredit_libsql_schema_validator::SchemaVali
         println!();
 
         // Group by severity
-        for severity in [IssueSeverity::Critical, IssueSeverity::High, IssueSeverity::Medium, IssueSeverity::Low] {
-            let issues: Vec<_> = result.issues.iter().filter(|i| i.severity == severity).collect();
+        for severity in [
+            IssueSeverity::Critical,
+            IssueSeverity::High,
+            IssueSeverity::Medium,
+            IssueSeverity::Low,
+        ] {
+            let issues: Vec<_> = result
+                .issues
+                .iter()
+                .filter(|i| i.severity == severity)
+                .collect();
             if !issues.is_empty() {
                 let icon = match severity {
                     IssueSeverity::Critical => "🔴",
@@ -175,7 +195,10 @@ fn print_human_readable(result: &freshcredit_libsql_schema_validator::SchemaVali
         println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         println!();
         for warning in &result.warnings {
-            println!("   [{}] {}: {}", warning.database, warning.warning_type, warning.description);
+            println!(
+                "   [{}] {}: {}",
+                warning.database, warning.warning_type, warning.description
+            );
         }
         println!();
     }
@@ -183,4 +206,3 @@ fn print_human_readable(result: &freshcredit_libsql_schema_validator::SchemaVali
     println!("🕐 Checked at: {}", result.checked_at);
     println!();
 }
-

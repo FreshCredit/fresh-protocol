@@ -1,5 +1,5 @@
 //! Schema validation and drift detection for LibSQL databases
-//! 
+//!
 //! This module provides tools to detect schema drift between staging, local, and cloud databases.
 //! It ensures all three database types maintain the same schema structure.
 
@@ -32,10 +32,10 @@ pub struct SchemaIssue {
 /// Issue severity
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum IssueSeverity {
-    Critical,  // Schema drift that breaks functionality
-    High,      // Missing tables or columns
-    Medium,    // Missing indexes
-    Low,       // Minor differences
+    Critical, // Schema drift that breaks functionality
+    High,     // Missing tables or columns
+    Medium,   // Missing indexes
+    Low,      // Minor differences
 }
 
 /// Issue type
@@ -183,9 +183,9 @@ impl SchemaValidator {
         // Calculate summary
         let summary = self.calculate_summary(&all_schemas, &issues, &warnings);
 
-        let is_valid = issues.iter().all(|i| {
-            !matches!(i.severity, IssueSeverity::Critical | IssueSeverity::High)
-        });
+        let is_valid = issues
+            .iter()
+            .all(|i| !matches!(i.severity, IssueSeverity::Critical | IssueSeverity::High));
 
         Ok(SchemaValidationResult {
             is_valid,
@@ -215,13 +215,13 @@ impl SchemaValidator {
 
         while let Some(row) = rows.next().await? {
             let table_name: String = row.get(0)?;
-            
+
             // Get columns
             let columns = self.extract_columns(connection, &table_name).await?;
-            
+
             // Get indexes
             let indexes = self.extract_indexes(connection, &table_name).await?;
-            
+
             // Get foreign keys
             let foreign_keys = self.extract_foreign_keys(connection, &table_name).await?;
 
@@ -236,7 +236,11 @@ impl SchemaValidator {
             );
         }
 
-        info!("Extracted schema for {} tables from {}", schemas.len(), db_name);
+        info!(
+            "Extracted schema for {} tables from {}",
+            schemas.len(),
+            db_name
+        );
         Ok(schemas)
     }
 
@@ -248,7 +252,7 @@ impl SchemaValidator {
     ) -> Result<Vec<ColumnInfo>> {
         let mut columns = Vec::new();
         let query = format!("PRAGMA table_info({table_name})");
-        
+
         let mut rows = connection.query(&query, ()).await?;
 
         while let Some(row) = rows.next().await? {
@@ -278,7 +282,7 @@ impl SchemaValidator {
     ) -> Result<Vec<IndexInfo>> {
         let mut indexes = Vec::new();
         let query = format!("PRAGMA index_list({table_name})");
-        
+
         let mut rows = connection.query(&query, ()).await?;
 
         while let Some(row) = rows.next().await? {
@@ -313,7 +317,7 @@ impl SchemaValidator {
     ) -> Result<Vec<ForeignKeyInfo>> {
         let mut foreign_keys = Vec::new();
         let query = format!("PRAGMA foreign_key_list({table_name})");
-        
+
         let mut rows = connection.query(&query, ()).await?;
 
         while let Some(row) = rows.next().await? {
@@ -377,12 +381,28 @@ impl SchemaValidator {
         }
 
         // If table exists in at least one database, compare columns
-        if let Some((_, reference_schema)) = all_schemas.iter().find(|(_, s)| s.contains_key(&table_name)) {
+        if let Some((_, reference_schema)) = all_schemas
+            .iter()
+            .find(|(_, s)| s.contains_key(&table_name))
+        {
             if let Some(reference_table) = reference_schema.get(&table_name) {
                 for (db_name, schemas) in all_schemas {
                     if let Some(table) = schemas.get(&table_name) {
-                        self.compare_columns(db_name, &table_name, &reference_table.columns, &table.columns, issues);
-                        self.compare_indexes(db_name, &table_name, &reference_table.indexes, &table.indexes, issues, warnings);
+                        self.compare_columns(
+                            db_name,
+                            &table_name,
+                            &reference_table.columns,
+                            &table.columns,
+                            issues,
+                        );
+                        self.compare_indexes(
+                            db_name,
+                            &table_name,
+                            &reference_table.indexes,
+                            &table.indexes,
+                            issues,
+                            warnings,
+                        );
                     }
                 }
             }
@@ -408,7 +428,10 @@ impl SchemaValidator {
                     severity: IssueSeverity::High,
                     database: db_name.to_string(),
                     issue_type: IssueType::MissingColumn,
-                    description: format!("Column '{}' is missing from table '{}'", col.name, table_name),
+                    description: format!(
+                        "Column '{}' is missing from table '{}'",
+                        col.name, table_name
+                    ),
                     affected_object: format!("{}.{}", table_name, col.name),
                 });
             }
@@ -421,7 +444,10 @@ impl SchemaValidator {
                     severity: IssueSeverity::Low,
                     database: db_name.to_string(),
                     issue_type: IssueType::ExtraColumn,
-                    description: format!("Extra column '{}' found in table '{}'", col.name, table_name),
+                    description: format!(
+                        "Extra column '{}' found in table '{}'",
+                        col.name, table_name
+                    ),
                     affected_object: format!("{}.{}", table_name, col.name),
                 });
             }
@@ -451,7 +477,10 @@ impl SchemaValidator {
                     severity: IssueSeverity::Medium,
                     database: db_name.to_string(),
                     issue_type: IssueType::MissingIndex,
-                    description: format!("Index '{}' is missing from table '{}'", idx.name, table_name),
+                    description: format!(
+                        "Index '{}' is missing from table '{}'",
+                        idx.name, table_name
+                    ),
                     affected_object: format!("{}.{}", table_name, idx.name),
                 });
             }
@@ -477,10 +506,22 @@ impl SchemaValidator {
             .map(|t| t.indexes.len())
             .sum();
 
-        let critical_issues = issues.iter().filter(|i| i.severity == IssueSeverity::Critical).count();
-        let high_issues = issues.iter().filter(|i| i.severity == IssueSeverity::High).count();
-        let medium_issues = issues.iter().filter(|i| i.severity == IssueSeverity::Medium).count();
-        let low_issues = issues.iter().filter(|i| i.severity == IssueSeverity::Low).count();
+        let critical_issues = issues
+            .iter()
+            .filter(|i| i.severity == IssueSeverity::Critical)
+            .count();
+        let high_issues = issues
+            .iter()
+            .filter(|i| i.severity == IssueSeverity::High)
+            .count();
+        let medium_issues = issues
+            .iter()
+            .filter(|i| i.severity == IssueSeverity::Medium)
+            .count();
+        let low_issues = issues
+            .iter()
+            .filter(|i| i.severity == IssueSeverity::Low)
+            .count();
 
         ValidationSummary {
             total_tables_checked,
@@ -500,4 +541,3 @@ impl Default for SchemaValidator {
         Self::new()
     }
 }
-
