@@ -247,7 +247,7 @@ impl SchemaValidator {
         table_name: &str,
     ) -> Result<Vec<ColumnInfo>> {
         let mut columns = Vec::new();
-        let query = format!("PRAGMA table_info({})", table_name);
+        let query = format!("PRAGMA table_info({table_name})");
         
         let mut rows = connection.query(&query, ()).await?;
 
@@ -277,7 +277,7 @@ impl SchemaValidator {
         table_name: &str,
     ) -> Result<Vec<IndexInfo>> {
         let mut indexes = Vec::new();
-        let query = format!("PRAGMA index_list({})", table_name);
+        let query = format!("PRAGMA index_list({table_name})");
         
         let mut rows = connection.query(&query, ()).await?;
 
@@ -286,7 +286,7 @@ impl SchemaValidator {
             let unique: i64 = row.get(2)?;
 
             // Get columns for this index
-            let columns_query = format!("PRAGMA index_info({})", index_name);
+            let columns_query = format!("PRAGMA index_info({index_name})");
             let mut col_rows = connection.query(&columns_query, ()).await?;
             let mut columns = Vec::new();
 
@@ -312,7 +312,7 @@ impl SchemaValidator {
         table_name: &str,
     ) -> Result<Vec<ForeignKeyInfo>> {
         let mut foreign_keys = Vec::new();
-        let query = format!("PRAGMA foreign_key_list({})", table_name);
+        let query = format!("PRAGMA foreign_key_list({table_name})");
         
         let mut rows = connection.query(&query, ()).await?;
 
@@ -370,7 +370,7 @@ impl SchemaValidator {
                     severity: IssueSeverity::High,
                     database: db_name.clone(),
                     issue_type: IssueType::MissingTable,
-                    description: format!("Table '{}' is missing", table_name),
+                    description: format!("Table '{table_name}' is missing"),
                     affected_object: table_name.clone(),
                 });
             }
@@ -436,6 +436,7 @@ impl SchemaValidator {
         reference_indexes: &[IndexInfo],
         actual_indexes: &[IndexInfo],
         issues: &mut Vec<SchemaIssue>,
+        #[allow(clippy::ptr_arg)]
         _warnings: &mut Vec<SchemaWarning>,
     ) {
         let _ref_idx_names: HashSet<_> = reference_indexes.iter().map(|i| &i.name).collect();
