@@ -483,6 +483,44 @@ impl LocalClient {
             )
             .await?;
 
+        // Create webauthn_credentials table for FIDO2/passkey biometric authentication
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS webauthn_credentials (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                credential_id BLOB NOT NULL UNIQUE,
+                public_key BLOB NOT NULL,
+                sign_count INTEGER NOT NULL DEFAULT 0,
+                aaguid BLOB,
+                credential_name TEXT,
+                transports TEXT,
+                attestation_format TEXT,
+                user_verified BOOLEAN DEFAULT FALSE,
+                backup_eligible BOOLEAN DEFAULT FALSE,
+                backup_state BOOLEAN DEFAULT FALSE,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                last_used_at DATETIME,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
+            )",
+                (),
+            )
+            .await?;
+
+        self.connection
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_webauthn_credentials_user_id ON webauthn_credentials(user_id)",
+                (),
+            )
+            .await?;
+
+        self.connection
+            .execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_webauthn_credentials_credential_id ON webauthn_credentials(credential_id)",
+                (),
+            )
+            .await?;
+
         // Create kilt_dids table for KILT Protocol DID storage
         self.connection
             .execute(
