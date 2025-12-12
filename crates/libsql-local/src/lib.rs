@@ -1,7 +1,7 @@
 //! Local LibSQL database operations for FreshCredit
 //!
 //! This module implements the unified database schema for FreshCredit,
-//! containing 44 tables that support:
+//! containing 52 tables that support:
 //! - User profile and authentication (Entra ID + Verified ID)
 //! - All 11 Plaid products (Accounts, Transactions, Auth, Identity, etc.)
 //! - Payment processing (Stripe Connect ACH)
@@ -1493,6 +1493,164 @@ impl LocalClient {
             .await?;
 
         // ============================================
+        // TICKETING SYSTEM TABLES
+        // ============================================
+
+        // Tickets table (Support tickets, disputes, inquiries)
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS tickets (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                ticket_type TEXT NOT NULL,
+                subject TEXT NOT NULL,
+                description TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'open',
+                priority TEXT NOT NULL DEFAULT 'medium',
+                category TEXT,
+                related_entity_type TEXT,
+                related_entity_id TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                resolved_at DATETIME,
+                sla_due_at DATETIME,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
+            )",
+                (),
+            )
+            .await?;
+
+        // Ticket comments table
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS ticket_comments (
+                id TEXT PRIMARY KEY,
+                ticket_id TEXT NOT NULL,
+                author_id TEXT NOT NULL,
+                content TEXT NOT NULL,
+                is_internal INTEGER DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (ticket_id) REFERENCES tickets (id) ON DELETE CASCADE,
+                FOREIGN KEY (author_id) REFERENCES user_profile (id) ON DELETE CASCADE
+            )",
+                (),
+            )
+            .await?;
+
+        // Ticket assignments table
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS ticket_assignments (
+                id TEXT PRIMARY KEY,
+                ticket_id TEXT NOT NULL,
+                assignee_id TEXT NOT NULL,
+                assigned_by TEXT NOT NULL,
+                assigned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                unassigned_at DATETIME,
+                FOREIGN KEY (ticket_id) REFERENCES tickets (id) ON DELETE CASCADE,
+                FOREIGN KEY (assignee_id) REFERENCES user_profile (id) ON DELETE CASCADE,
+                FOREIGN KEY (assigned_by) REFERENCES user_profile (id) ON DELETE CASCADE
+            )",
+                (),
+            )
+            .await?;
+
+        // Ticket SLA events table
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS ticket_sla_events (
+                id TEXT PRIMARY KEY,
+                ticket_id TEXT NOT NULL,
+                event_type TEXT NOT NULL,
+                occurred_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                sla_target_minutes INTEGER,
+                actual_minutes INTEGER,
+                FOREIGN KEY (ticket_id) REFERENCES tickets (id) ON DELETE CASCADE
+            )",
+                (),
+            )
+            .await?;
+
+        // ============================================
+        // COMPLIANCE MONITORING TABLES
+        // ============================================
+
+        // Compliance scans table
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS compliance_scans (
+                id TEXT PRIMARY KEY,
+                scan_type TEXT NOT NULL,
+                framework TEXT,
+                status TEXT NOT NULL DEFAULT 'running',
+                started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                completed_at DATETIME,
+                findings_count INTEGER DEFAULT 0,
+                triggered_by TEXT
+            )",
+                (),
+            )
+            .await?;
+
+        // Compliance rules table
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS compliance_rules (
+                id TEXT PRIMARY KEY,
+                framework TEXT NOT NULL,
+                rule_code TEXT NOT NULL,
+                title TEXT NOT NULL,
+                description TEXT NOT NULL,
+                severity TEXT NOT NULL,
+                detection_pattern TEXT,
+                remediation_template TEXT,
+                is_active INTEGER NOT NULL DEFAULT 1,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )",
+                (),
+            )
+            .await?;
+
+        // Compliance findings table
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS compliance_findings (
+                id TEXT PRIMARY KEY,
+                scan_id TEXT NOT NULL,
+                rule_id TEXT NOT NULL,
+                severity TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'open',
+                file_path TEXT,
+                line_number INTEGER,
+                description TEXT NOT NULL,
+                remediation_guidance TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                resolved_at DATETIME,
+                resolved_by TEXT,
+                FOREIGN KEY (scan_id) REFERENCES compliance_scans (id) ON DELETE CASCADE,
+                FOREIGN KEY (rule_id) REFERENCES compliance_rules (id) ON DELETE CASCADE,
+                FOREIGN KEY (resolved_by) REFERENCES user_profile (id) ON DELETE SET NULL
+            )",
+                (),
+            )
+            .await?;
+
+        // Compliance evidence table
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS compliance_evidence (
+                id TEXT PRIMARY KEY,
+                finding_id TEXT NOT NULL,
+                evidence_type TEXT NOT NULL,
+                content TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (finding_id) REFERENCES compliance_findings (id) ON DELETE CASCADE
+            )",
+                (),
+            )
+            .await?;
+
+        // ============================================
         // INDEXES FOR ALL TABLES
         // ============================================
 
@@ -1716,7 +1874,53 @@ impl LocalClient {
             (),
         ).await?;
 
-        info!("Unified database schema initialization completed (44 tables)");
+        // Indexes for ticketing system tables
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_tickets_user_id ON tickets(user_id)", ()).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status)", ()).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_tickets_priority ON tickets(priority)", ()).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_tickets_type ON tickets(ticket_type)", ()).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_tickets_created_at ON tickets(created_at)", ()).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_ticket_comments_ticket_id ON ticket_comments(ticket_id)", ()).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_ticket_comments_author_id ON ticket_comments(author_id)", ()).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_ticket_assignments_ticket_id ON ticket_assignments(ticket_id)", ()).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_ticket_assignments_assignee_id ON ticket_assignments(assignee_id)", ()).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_ticket_sla_events_ticket_id ON ticket_sla_events(ticket_id)", ()).await?;
+
+        // Indexes for compliance monitoring tables
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_compliance_scans_status ON compliance_scans(status)", ()).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_compliance_scans_framework ON compliance_scans(framework)", ()).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_compliance_scans_started_at ON compliance_scans(started_at)", ()).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_compliance_rules_framework ON compliance_rules(framework)", ()).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_compliance_rules_severity ON compliance_rules(severity)", ()).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_compliance_rules_is_active ON compliance_rules(is_active)", ()).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_compliance_findings_scan_id ON compliance_findings(scan_id)", ()).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_compliance_findings_rule_id ON compliance_findings(rule_id)", ()).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_compliance_findings_severity ON compliance_findings(severity)", ()).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_compliance_findings_status ON compliance_findings(status)", ()).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_compliance_evidence_finding_id ON compliance_evidence(finding_id)", ()).await?;
+
+        info!("Unified database schema initialization completed (52 tables)");
         Ok(())
     }
 
@@ -3249,7 +3453,8 @@ impl WebhookEventCounts {
 mod tests {
     use super::*;
 
-    /// Test that the schema contains exactly 43 tables as documented
+    /// Test that the schema contains exactly 52 tables as documented
+    /// (44 original + 4 ticketing + 4 compliance)
     #[tokio::test]
     async fn test_schema_table_count() {
         let client = LocalClient::new_in_memory().await.unwrap();
@@ -3266,7 +3471,7 @@ mod tests {
 
         let row = rows.next().await.unwrap().unwrap();
         let count: i64 = row.get(0).unwrap();
-        assert_eq!(count, 44, "Schema should contain exactly 44 tables");
+        assert_eq!(count, 52, "Schema should contain exactly 52 tables (44 original + 4 ticketing + 4 compliance)");
     }
 
     /// Test that critical tables exist in the schema

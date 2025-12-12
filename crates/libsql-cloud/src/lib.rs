@@ -1,13 +1,13 @@
 //! Cloud LibSQL (Turso) database operations for FreshCredit
 //!
-//! Uses the unified 44-table schema from migrations/unified_schema.sql.
+//! Uses the unified 52-table schema from migrations/unified_schema.sql.
 //! Cloud databases are per-user Turso instances with identical schema to local.
 
 use anyhow::Result;
 use freshcredit_types::{Account, CreditReport, FreshCreditResult, Transaction, UserId};
 use tracing::info;
 
-/// Unified schema SQL embedded at compile time (44 tables)
+/// Unified schema SQL embedded at compile time (52 tables)
 /// Source: migrations/unified_schema.sql
 const UNIFIED_SCHEMA_SQL: &str = include_str!("../../../../../migrations/unified_schema.sql");
 
@@ -29,9 +29,9 @@ impl CloudClient {
         Ok(Self { connection })
     }
 
-    /// Initialize cloud database schema using unified 44-table schema
+    /// Initialize cloud database schema using unified 52-table schema
     pub async fn initialize_schema(&self) -> Result<()> {
-        info!("Initializing cloud database with unified schema (44 tables)");
+        info!("Initializing cloud database with unified schema (52 tables)");
 
         // Check if schema already exists by looking for key tables
         let key_tables = vec!["user_profile", "accounts", "transactions", "reports"];
