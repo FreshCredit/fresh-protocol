@@ -1815,6 +1815,10 @@ impl LocalClient {
     }
 
     /// Validate data consistency
+    ///
+    /// Note: Uses `&mut Vec<String>` for issues/warnings to allow accumulation
+    /// across multiple validation methods. This pattern is consistent with
+    /// other validation methods in this module.
     #[allow(clippy::ptr_arg)]
     async fn validate_data_consistency(
         &self,
