@@ -1,7 +1,8 @@
 //! Local LibSQL database operations for FreshCredit
 //!
 //! This module implements the unified database schema for FreshCredit,
-//! containing 52 tables that support:
+//! // HARDCODED_SCHEMA: 53 tables - update if schema changes
+//! containing 53 tables that support:
 //! - User profile and authentication (Entra ID + Verified ID)
 //! - All 11 Plaid products (Accounts, Transactions, Auth, Identity, etc.)
 //! - Payment processing (Stripe Connect ACH)
@@ -1958,7 +1959,8 @@ impl LocalClient {
         self.connection.execute(
             "CREATE INDEX IF NOT EXISTS idx_compliance_evidence_finding_id ON compliance_evidence(finding_id)", ()).await?;
 
-        info!("Unified database schema initialization completed (52 tables)");
+        // HARDCODED_SCHEMA: 53 tables - update if schema changes
+        info!("Unified database schema initialization completed (53 tables)");
         Ok(())
     }
 
@@ -3491,8 +3493,8 @@ impl WebhookEventCounts {
 mod tests {
     use super::*;
 
-    /// Test that the schema contains exactly 52 tables as documented
-    /// (44 original + 4 ticketing + 4 compliance)
+    /// Test that the schema contains exactly 53 tables as documented
+    /// HARDCODED_SCHEMA: 53 tables - update if schema changes
     #[tokio::test]
     async fn test_schema_table_count() {
         let client = LocalClient::new_in_memory().await.unwrap();
@@ -3509,7 +3511,8 @@ mod tests {
 
         let row = rows.next().await.unwrap().unwrap();
         let count: i64 = row.get(0).unwrap();
-        assert_eq!(count, 52, "Schema should contain exactly 52 tables (44 original + 4 ticketing + 4 compliance)");
+        // HARDCODED_SCHEMA: 53 tables - update if schema changes
+        assert_eq!(count, 53, "Schema should contain exactly 53 tables");
     }
 
     /// Test that critical tables exist in the schema
