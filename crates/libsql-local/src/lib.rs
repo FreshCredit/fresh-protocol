@@ -1959,8 +1959,45 @@ impl LocalClient {
         self.connection.execute(
             "CREATE INDEX IF NOT EXISTS idx_compliance_evidence_finding_id ON compliance_evidence(finding_id)", ()).await?;
 
-        // HARDCODED_SCHEMA: 53 tables - update if schema changes
-        info!("Unified database schema initialization completed (53 tables)");
+        // ============================================
+        // DATA APPROVAL HASHES TABLE
+        // ============================================
+        // Stores blockchain hashes generated when users approve their Plaid data
+        // Stage 1 of two-stage blockchain hashing: hash at approval time
+        // Stage 2 is at report generation time (stored in reports table)
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS data_approval_hashes (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                approval_type TEXT NOT NULL DEFAULT 'plaid_data',
+                data_hash TEXT NOT NULL,
+                blockchain_hash TEXT,
+                blockchain_tx_id TEXT,
+                blockchain_block_number INTEGER,
+                item_count INTEGER NOT NULL DEFAULT 0,
+                accounts_count INTEGER DEFAULT 0,
+                transactions_count INTEGER DEFAULT 0,
+                data_summary TEXT,
+                approval_status TEXT NOT NULL DEFAULT 'pending',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                anchored_at DATETIME,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
+            )",
+                (),
+            )
+            .await?;
+
+        // Create indexes for data_approval_hashes
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_data_approval_hashes_user_id ON data_approval_hashes(user_id)", ()).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_data_approval_hashes_blockchain_hash ON data_approval_hashes(blockchain_hash)", ()).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_data_approval_hashes_created_at ON data_approval_hashes(created_at)", ()).await?;
+
+        // HARDCODED_SCHEMA: 54 tables - update if schema changes
+        info!("Unified database schema initialization completed (54 tables)");
         Ok(())
     }
 
@@ -3511,8 +3548,8 @@ mod tests {
 
         let row = rows.next().await.unwrap().unwrap();
         let count: i64 = row.get(0).unwrap();
-        // HARDCODED_SCHEMA: 53 tables - update if schema changes
-        assert_eq!(count, 53, "Schema should contain exactly 53 tables");
+        // HARDCODED_SCHEMA: 54 tables - update if schema changes
+        assert_eq!(count, 54, "Schema should contain exactly 54 tables");
     }
 
     /// Test that critical tables exist in the schema
@@ -3532,6 +3569,7 @@ mod tests {
             "scores",
             "ai_conversations",
             "ai_messages",
+            "data_approval_hashes",
         ];
 
         for table in critical_tables {
