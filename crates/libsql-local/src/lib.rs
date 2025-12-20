@@ -190,6 +190,7 @@ impl LocalClient {
                 verified_id_credential_id TEXT,
                 verified_id_status TEXT DEFAULT 'pending',
                 verified_id_issued_at TEXT,
+                last_report_date DATETIME,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP
             )",
@@ -865,6 +866,8 @@ impl LocalClient {
                 user_id TEXT NOT NULL,
                 account_id TEXT NOT NULL,
                 security_id TEXT NOT NULL,
+                security_type TEXT,
+                asset_class TEXT,
                 institution_price REAL,
                 institution_price_as_of DATE,
                 institution_price_datetime DATETIME,
