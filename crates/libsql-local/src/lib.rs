@@ -1,8 +1,8 @@
 //! Local LibSQL database operations for FreshCredit
 //!
 //! This module implements the unified database schema for FreshCredit,
-//! // HARDCODED_SCHEMA: 53 tables - update if schema changes
-//! containing 53 tables that support:
+//! // HARDCODED_SCHEMA: 55 tables - update if schema changes
+//! containing 55 tables that support:
 //! - User profile and authentication (Entra ID + Verified ID)
 //! - All 11 Plaid products (Accounts, Transactions, Auth, Identity, etc.)
 //! - Payment processing (Stripe Connect ACH)
@@ -1401,6 +1401,51 @@ impl LocalClient {
             )
             .await?;
 
+        // Create provider_offers table for provider product catalog (BlockIQ)
+        // COMPLIANCE: §2 - Neutral matching only, no recommendations
+        // NOTE: Score thresholds are NOT stored here - they belong in workflow Decision nodes
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS provider_offers (
+                id TEXT PRIMARY KEY,
+                provider_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                description TEXT,
+                product_type TEXT NOT NULL,
+                -- Product terms (what provider offers)
+                loan_amount_min_cents INTEGER,
+                loan_amount_max_cents INTEGER,
+                apr_min_percent REAL,
+                apr_max_percent REAL,
+                term_options_months TEXT,
+                fees_json TEXT,
+                rewards_json TEXT,
+                -- Geographic targeting
+                included_states TEXT,
+                excluded_states TEXT,
+                included_zip_codes TEXT,
+                nationwide BOOLEAN DEFAULT TRUE,
+                -- Customer segment targeting
+                customer_segment TEXT DEFAULT 'all',
+                customer_profiles TEXT,
+                -- BlockScore model reference (for requirements matching)
+                blockscore_model_id TEXT,
+                -- A/B testing support
+                ab_test_variant TEXT,
+                ab_test_allocation INTEGER,
+                -- Metadata
+                is_active BOOLEAN DEFAULT TRUE,
+                version INTEGER DEFAULT 1,
+                blockchain_hash TEXT,
+                block_number INTEGER,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (provider_id) REFERENCES user_profile (id) ON DELETE CASCADE
+            )",
+                (),
+            )
+            .await?;
+
         // Create disputes table for consumer disputes
         self.connection
             .execute(
@@ -2003,8 +2048,8 @@ impl LocalClient {
         self.connection.execute(
             "CREATE INDEX IF NOT EXISTS idx_data_approval_hashes_created_at ON data_approval_hashes(created_at)", ()).await?;
 
-        // HARDCODED_SCHEMA: 54 tables - update if schema changes
-        info!("Unified database schema initialization completed (54 tables)");
+        // HARDCODED_SCHEMA: 55 tables - update if schema changes
+        info!("Unified database schema initialization completed (55 tables)");
         Ok(())
     }
 
@@ -3537,8 +3582,8 @@ impl WebhookEventCounts {
 mod tests {
     use super::*;
 
-    /// Test that the schema contains exactly 53 tables as documented
-    /// HARDCODED_SCHEMA: 53 tables - update if schema changes
+    /// Test that the schema contains exactly 55 tables as documented
+    /// HARDCODED_SCHEMA: 55 tables - update if schema changes
     #[tokio::test]
     async fn test_schema_table_count() {
         let client = LocalClient::new_in_memory().await.unwrap();
@@ -3555,8 +3600,8 @@ mod tests {
 
         let row = rows.next().await.unwrap().unwrap();
         let count: i64 = row.get(0).unwrap();
-        // HARDCODED_SCHEMA: 54 tables - update if schema changes
-        assert_eq!(count, 54, "Schema should contain exactly 54 tables");
+        // HARDCODED_SCHEMA: 55 tables - update if schema changes
+        assert_eq!(count, 55, "Schema should contain exactly 55 tables");
     }
 
     /// Test that critical tables exist in the schema
