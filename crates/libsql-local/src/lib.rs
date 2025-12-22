@@ -1,8 +1,8 @@
 //! Local LibSQL database operations for FreshCredit
 //!
 //! This module implements the unified database schema for FreshCredit,
-//! // HARDCODED_SCHEMA: 55 tables - update if schema changes
-//! containing 55 tables that support:
+//! // HARDCODED_SCHEMA: 58 tables - update if schema changes
+//! containing 58 tables that support:
 //! - User profile and authentication (Entra ID + Verified ID)
 //! - All 11 Plaid products (Accounts, Transactions, Auth, Identity, etc.)
 //! - Payment processing (Stripe Connect ACH)
@@ -2048,8 +2048,96 @@ impl LocalClient {
         self.connection.execute(
             "CREATE INDEX IF NOT EXISTS idx_data_approval_hashes_created_at ON data_approval_hashes(created_at)", ()).await?;
 
-        // HARDCODED_SCHEMA: 55 tables - update if schema changes
-        info!("Unified database schema initialization completed (55 tables)");
+        // ============================================================================
+        // SECTION 16: REFERRALS TABLE
+        // ============================================================================
+        // Stores referral tracking for rewards program
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS referrals (
+                id TEXT PRIMARY KEY,
+                referrer_user_id TEXT NOT NULL,
+                referred_user_id TEXT,
+                referral_code TEXT NOT NULL,
+                status TEXT DEFAULT 'pending',
+                earnings_cents INTEGER DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                converted_at DATETIME,
+                FOREIGN KEY (referrer_user_id) REFERENCES user_profile (id) ON DELETE CASCADE
+            )",
+                (),
+            )
+            .await?;
+
+        // Create indexes for referrals
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_referrals_referrer_user_id ON referrals(referrer_user_id)", ()).await?;
+        self.connection.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_referrals_code ON referrals(referral_code)", ()).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_referrals_status ON referrals(status)", ()).await?;
+
+        // ============================================================================
+        // SECTION 17: PLATFORM METRICS TABLE
+        // ============================================================================
+        // Stores daily aggregated platform metrics for internal dashboard
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS platform_metrics (
+                id TEXT PRIMARY KEY,
+                metric_date DATE NOT NULL,
+                total_users INTEGER DEFAULT 0,
+                new_users INTEGER DEFAULT 0,
+                active_providers INTEGER DEFAULT 0,
+                pending_providers INTEGER DEFAULT 0,
+                reports_generated INTEGER DEFAULT 0,
+                reports_verified INTEGER DEFAULT 0,
+                revenue_cents INTEGER DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )",
+                (),
+            )
+            .await?;
+
+        // Create indexes for platform_metrics
+        self.connection.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_platform_metrics_date ON platform_metrics(metric_date)", ()).await?;
+
+        // ============================================================================
+        // SECTION 18: SALES PIPELINE TABLE
+        // ============================================================================
+        // Stores sales pipeline data synced from HubSpot
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS sales_pipeline (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                hubspot_deal_id TEXT UNIQUE,
+                deal_name TEXT,
+                stage TEXT NOT NULL,
+                value_cents INTEGER,
+                contact_email TEXT,
+                company_name TEXT,
+                last_activity_at DATETIME,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                closed_at DATETIME,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
+            )",
+                (),
+            )
+            .await?;
+
+        // Create indexes for sales_pipeline
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_sales_pipeline_user_id ON sales_pipeline(user_id)", ()).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_sales_pipeline_stage ON sales_pipeline(stage)", ()).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_sales_pipeline_hubspot_deal_id ON sales_pipeline(hubspot_deal_id)", ()).await?;
+
+        // HARDCODED_SCHEMA: 58 tables - update if schema changes
+        info!("Unified database schema initialization completed (58 tables)");
         Ok(())
     }
 
@@ -3600,8 +3688,8 @@ mod tests {
 
         let row = rows.next().await.unwrap().unwrap();
         let count: i64 = row.get(0).unwrap();
-        // HARDCODED_SCHEMA: 55 tables - update if schema changes
-        assert_eq!(count, 55, "Schema should contain exactly 55 tables");
+        // HARDCODED_SCHEMA: 58 tables - update if schema changes
+        assert_eq!(count, 58, "Schema should contain exactly 58 tables");
     }
 
     /// Test that critical tables exist in the schema
@@ -3622,6 +3710,9 @@ mod tests {
             "ai_conversations",
             "ai_messages",
             "data_approval_hashes",
+            "referrals",
+            "platform_metrics",
+            "sales_pipeline",
         ];
 
         for table in critical_tables {
