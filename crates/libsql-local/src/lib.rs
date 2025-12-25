@@ -210,6 +210,7 @@ impl LocalClient {
                 account_id TEXT UNIQUE,
                 institution_id TEXT,
                 institution_name TEXT,
+                institution_logo TEXT,
                 account_name TEXT,
                 account_type TEXT NOT NULL,
                 account_subtype TEXT,
