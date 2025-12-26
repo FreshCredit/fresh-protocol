@@ -272,7 +272,7 @@ impl LocalClient {
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(account_id, date, amount, name),
                 FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
-                FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE
+                FOREIGN KEY (account_id) REFERENCES accounts (account_id) ON DELETE CASCADE
             )",
                 (),
             )
@@ -894,7 +894,7 @@ impl LocalClient {
                 unofficial_currency_code TEXT,
                 vested_quantity REAL,
                 vested_value REAL,
-                raw_holding_data TEXT NOT NULL,
+                raw_holding_data TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
