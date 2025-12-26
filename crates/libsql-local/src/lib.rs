@@ -242,7 +242,7 @@ impl LocalClient {
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
                 account_id TEXT NOT NULL,
-                plaid_transaction_id TEXT,
+                plaid_transaction_id TEXT UNIQUE,
                 amount REAL NOT NULL,
                 iso_currency_code TEXT DEFAULT 'USD',
                 unofficial_currency_code TEXT,
@@ -270,7 +270,6 @@ impl LocalClient {
                 raw_transaction_data TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(account_id, date, amount, name),
                 FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
                 FOREIGN KEY (account_id) REFERENCES accounts (account_id) ON DELETE CASCADE
             )",
