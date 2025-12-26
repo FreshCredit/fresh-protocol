@@ -214,13 +214,17 @@ impl LocalClient {
                 account_name TEXT,
                 account_type TEXT NOT NULL,
                 account_subtype TEXT,
+                mask TEXT,
                 balance_available REAL,
                 balance_current REAL,
                 balance_limit REAL,
+                current_balance REAL,
+                available_balance REAL,
                 currency TEXT DEFAULT 'USD',
                 currency_code TEXT DEFAULT 'USD',
                 balance REAL DEFAULT 0.0,
                 is_funding_source BOOLEAN DEFAULT FALSE,
+                is_active BOOLEAN DEFAULT TRUE,
                 date_opened DATE,
                 credit_limit DECIMAL(12,2),
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -231,13 +235,14 @@ impl LocalClient {
             .await?;
 
         // Create transactions table that matches production schema
+        // Uses composite unique constraint on (account_id, date, amount, name) for deduplication
         self.connection
             .execute(
                 "CREATE TABLE IF NOT EXISTS transactions (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
                 account_id TEXT NOT NULL,
-                plaid_transaction_id TEXT UNIQUE,
+                plaid_transaction_id TEXT,
                 amount REAL NOT NULL,
                 iso_currency_code TEXT DEFAULT 'USD',
                 unofficial_currency_code TEXT,
@@ -262,9 +267,10 @@ impl LocalClient {
                 location_lat REAL,
                 location_lon REAL,
                 payment_channel TEXT,
-                raw_transaction_data TEXT NOT NULL,
+                raw_transaction_data TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(account_id, date, amount, name),
                 FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
                 FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE
             )",
