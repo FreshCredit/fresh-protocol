@@ -292,6 +292,15 @@ impl LocalClient {
             )
             .await?;
 
+        // ISSUE 1 & 5 FIX: Unique composite index for transaction deduplication
+        // Plaid's transaction_id changes between API calls in sandbox, so we use a stable composite key
+        self.connection
+            .execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_composite_key ON transactions(account_id, date, amount, name)",
+                (),
+            )
+            .await?;
+
         self.connection
             .execute(
                 "CREATE INDEX IF NOT EXISTS idx_user_profile_email ON user_profile(email)",
