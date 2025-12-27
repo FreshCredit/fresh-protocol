@@ -42,17 +42,24 @@ pub struct Transaction {
     pub merchant_name: Option<String>,
 }
 
-/// Credit report data
+/// Financial report data (aggregated financial information from connected accounts)
+/// Note: This struct represents user-owned financial data, NOT credit scoring.
+/// Any scores displayed are from external credit bureaus, not calculated by FreshCredit.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CreditReport {
+pub struct FinancialReport {
     pub id: Uuid,
     pub user_id: UserId,
-    pub score: Option<u16>,
+    /// Bureau score from external source (e.g., Plaid, Experian) - NOT calculated by FreshCredit
+    pub bureau_score: Option<u16>,
     pub accounts: Vec<Account>,
     pub transactions: Vec<Transaction>,
     pub generated_at: DateTime<Utc>,
     pub blockchain_hash: Option<String>,
 }
+
+/// Type alias for backward compatibility during migration
+#[deprecated(note = "Use FinancialReport instead - CreditReport is being phased out")]
+pub type CreditReport = FinancialReport;
 
 /// Payment information
 #[derive(Debug, Clone, Serialize, Deserialize)]
