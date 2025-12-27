@@ -29,6 +29,8 @@ use tracing::info;
 
 /// User profile for database storage (unified schema)
 /// Combines Entra ID claims with extended profile and Verified ID fields
+/// P0p: Added is_admin for first provider user admin rule (§27.4)
+/// P0g: Added provider_onboarding_complete for nav visibility (§28.1)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserProfile {
     pub id: String,
@@ -51,6 +53,12 @@ pub struct UserProfile {
     pub employment_status: Option<String>,
     pub annual_income: Option<i32>,
     pub role: String,
+    /// P0p: First provider user is admin by default (§27.4)
+    #[serde(default)]
+    pub is_admin: bool,
+    /// P0g: Provider onboarding completion status (§28.1)
+    #[serde(default)]
+    pub provider_onboarding_complete: bool,
     pub tenant_id: String,
     pub object_id: String,
     pub verified_id_credential_id: Option<String>,
@@ -70,6 +78,7 @@ pub struct SchemaValidationResult {
 }
 
 /// User preferences for toggle states
+/// P0g: Added onboarding dismissal fields for §27.3 onboarding flow rules
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserPreferences {
     pub ai_agent_enabled: Option<bool>,
@@ -86,6 +95,21 @@ pub struct UserPreferences {
     /// When enabled, pages display prefilled mock data without database persistence
     /// Only available for @freshcredit.com internal team members
     pub mock_data_enabled: Option<bool>,
+    /// P0g: Onboarding completed flag (§27.3)
+    #[serde(default)]
+    pub onboarding_completed: Option<bool>,
+    /// P0g: Permanent dismissal flag - "Don't Show Again" (§27.3)
+    #[serde(default)]
+    pub onboarding_permanently_dismissed: Option<bool>,
+    /// P0g: Reminder dismissal timestamp - "Remind Later" re-prompt after 7 days (§27.3)
+    #[serde(default)]
+    pub onboarding_reminder_dismissed_until: Option<String>,
+    /// P0g: Plaid connection skipped flag (§27.3)
+    #[serde(default)]
+    pub plaid_connection_skipped: Option<bool>,
+    /// P0g: Plaid reminder dismissal timestamp (§27.3)
+    #[serde(default)]
+    pub plaid_reminder_dismissed_until: Option<String>,
 }
 
 /// Uploaded file for AI multimodal input
@@ -162,6 +186,8 @@ impl LocalClient {
             .await?;
 
         // Create user_profile table first (referenced by other tables)
+        // P0p: Added is_admin column for first provider user admin rule (§27.4)
+        // P0g: Added provider_onboarding_complete for §28.1 nav visibility
         self.connection
             .execute(
                 "CREATE TABLE IF NOT EXISTS user_profile (
@@ -185,6 +211,8 @@ impl LocalClient {
                 employment_status TEXT,
                 annual_income INTEGER,
                 role TEXT DEFAULT 'consumer',
+                is_admin BOOLEAN DEFAULT FALSE,
+                provider_onboarding_complete BOOLEAN DEFAULT FALSE,
                 tenant_id TEXT NOT NULL,
                 object_id TEXT NOT NULL,
                 verified_id_credential_id TEXT,
@@ -197,6 +225,24 @@ impl LocalClient {
                 (),
             )
             .await?;
+
+        // P0p: Add is_admin column (migration for existing databases)
+        let _ = self
+            .connection
+            .execute(
+                "ALTER TABLE user_profile ADD COLUMN is_admin BOOLEAN DEFAULT FALSE",
+                (),
+            )
+            .await;
+
+        // P0g: Add provider_onboarding_complete column (migration for existing databases)
+        let _ = self
+            .connection
+            .execute(
+                "ALTER TABLE user_profile ADD COLUMN provider_onboarding_complete BOOLEAN DEFAULT FALSE",
+                (),
+            )
+            .await;
 
         // Create accounts table that matches production schema
         // Foreign key disabled to allow account creation before user_profile exists
@@ -425,6 +471,7 @@ impl LocalClient {
         // Note: sync_status index removed - column not in table definition
 
         // Create user_preferences table
+        // P0g: Added onboarding dismissal fields for §27 onboarding flow rules
         self.connection
             .execute(
                 "CREATE TABLE IF NOT EXISTS user_preferences (
@@ -440,6 +487,12 @@ impl LocalClient {
                 kilt_did_enabled BOOLEAN DEFAULT FALSE,
                 ai_mode TEXT DEFAULT 'auto',
                 mock_data_enabled BOOLEAN DEFAULT FALSE,
+                -- P0g: Onboarding dismissal fields (§27.3)
+                onboarding_completed BOOLEAN DEFAULT FALSE,
+                onboarding_permanently_dismissed BOOLEAN DEFAULT FALSE,
+                onboarding_reminder_dismissed_until DATETIME,
+                plaid_connection_skipped BOOLEAN DEFAULT FALSE,
+                plaid_reminder_dismissed_until DATETIME,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
@@ -463,6 +516,43 @@ impl LocalClient {
             .connection
             .execute(
                 "ALTER TABLE user_preferences ADD COLUMN mock_data_enabled BOOLEAN DEFAULT FALSE",
+                (),
+            )
+            .await;
+
+        // P0g: Add onboarding dismissal columns (migration for existing databases)
+        let _ = self
+            .connection
+            .execute(
+                "ALTER TABLE user_preferences ADD COLUMN onboarding_completed BOOLEAN DEFAULT FALSE",
+                (),
+            )
+            .await;
+        let _ = self
+            .connection
+            .execute(
+                "ALTER TABLE user_preferences ADD COLUMN onboarding_permanently_dismissed BOOLEAN DEFAULT FALSE",
+                (),
+            )
+            .await;
+        let _ = self
+            .connection
+            .execute(
+                "ALTER TABLE user_preferences ADD COLUMN onboarding_reminder_dismissed_until DATETIME",
+                (),
+            )
+            .await;
+        let _ = self
+            .connection
+            .execute(
+                "ALTER TABLE user_preferences ADD COLUMN plaid_connection_skipped BOOLEAN DEFAULT FALSE",
+                (),
+            )
+            .await;
+        let _ = self
+            .connection
+            .execute(
+                "ALTER TABLE user_preferences ADD COLUMN plaid_reminder_dismissed_until DATETIME",
                 (),
             )
             .await;
@@ -2372,6 +2462,8 @@ impl LocalClient {
     }
 
     /// Store user profile in local database (matches production schema)
+    /// P0p: Added is_admin for first provider user admin rule (§27.4)
+    /// P0g: Added provider_onboarding_complete for nav visibility (§28.1)
     pub async fn store_user_profile(&self, profile: &UserProfile) -> Result<()> {
         info!(
             "Storing user profile locally for user: {}",
@@ -2383,9 +2475,9 @@ impl LocalClient {
                 id, platform_user_id, azure_id, email, display_name, given_name, family_name,
                 surname, mobile_phone, job_title, street_address, city, state_province,
                 postal_code, country_region, date_of_birth, ssn_last_four, employment_status,
-                annual_income, role, tenant_id, object_id, verified_id_credential_id,
-                verified_id_status, verified_id_issued_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))",
+                annual_income, role, is_admin, provider_onboarding_complete, tenant_id, object_id,
+                verified_id_credential_id, verified_id_status, verified_id_issued_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))",
             libsql::params![
                 profile.id.clone(),
                 profile.platform_user_id.clone(),
@@ -2407,6 +2499,8 @@ impl LocalClient {
                 profile.employment_status.clone().unwrap_or_default(),
                 profile.annual_income.unwrap_or(0),
                 profile.role.clone(),
+                profile.is_admin,
+                profile.provider_onboarding_complete,
                 profile.tenant_id.clone(),
                 profile.object_id.clone(),
                 profile.verified_id_credential_id.clone().unwrap_or_default(),
@@ -2455,13 +2549,15 @@ impl LocalClient {
                 employment_status: row.get::<Option<String>>(17).unwrap_or(None),
                 annual_income: row.get::<Option<i32>>(18).unwrap_or(None),
                 role: row.get(19).unwrap_or_else(|_| "consumer".to_string()),
-                tenant_id: row.get(20)?,
-                object_id: row.get(21)?,
-                verified_id_credential_id: row.get::<Option<String>>(22).unwrap_or(None),
-                verified_id_status: row.get(23).unwrap_or_else(|_| "pending".to_string()),
-                verified_id_issued_at: row.get::<Option<String>>(24).unwrap_or(None),
-                created_at: row.get(25).unwrap_or_default(),
-                updated_at: row.get(26).unwrap_or_default(),
+                is_admin: row.get::<i64>(20).unwrap_or(0) != 0,
+                provider_onboarding_complete: row.get::<i64>(21).unwrap_or(0) != 0,
+                tenant_id: row.get(22)?,
+                object_id: row.get(23)?,
+                verified_id_credential_id: row.get::<Option<String>>(24).unwrap_or(None),
+                verified_id_status: row.get(25).unwrap_or_else(|_| "pending".to_string()),
+                verified_id_issued_at: row.get::<Option<String>>(26).unwrap_or(None),
+                created_at: row.get(28).unwrap_or_default(),
+                updated_at: row.get(29).unwrap_or_default(),
             };
 
             Ok(Some(profile))
@@ -2507,13 +2603,15 @@ impl LocalClient {
                 employment_status: row.get::<Option<String>>(17).unwrap_or(None),
                 annual_income: row.get::<Option<i32>>(18).unwrap_or(None),
                 role: row.get(19).unwrap_or_else(|_| "consumer".to_string()),
-                tenant_id: row.get(20)?,
-                object_id: row.get(21)?,
-                verified_id_credential_id: row.get::<Option<String>>(22).unwrap_or(None),
-                verified_id_status: row.get(23).unwrap_or_else(|_| "pending".to_string()),
-                verified_id_issued_at: row.get::<Option<String>>(24).unwrap_or(None),
-                created_at: row.get(25).unwrap_or_default(),
-                updated_at: row.get(26).unwrap_or_default(),
+                is_admin: row.get::<i64>(20).unwrap_or(0) != 0,
+                provider_onboarding_complete: row.get::<i64>(21).unwrap_or(0) != 0,
+                tenant_id: row.get(22)?,
+                object_id: row.get(23)?,
+                verified_id_credential_id: row.get::<Option<String>>(24).unwrap_or(None),
+                verified_id_status: row.get(25).unwrap_or_else(|_| "pending".to_string()),
+                verified_id_issued_at: row.get::<Option<String>>(26).unwrap_or(None),
+                created_at: row.get(28).unwrap_or_default(),
+                updated_at: row.get(29).unwrap_or_default(),
             };
 
             Ok(Some(profile))
@@ -2661,13 +2759,19 @@ impl LocalClient {
     }
 
     /// Get user preferences
+    /// P0g: Added onboarding dismissal fields (§27.3)
     pub async fn get_user_preferences(&self, user_id: &str) -> Result<Option<UserPreferences>> {
         info!("Getting preferences for user: {user_id}");
 
         let mut rows = self.connection.query(
             "SELECT ai_agent_enabled, ai_feedback_enabled, ai_offers_enabled, ai_lenders_enabled,
                     cloud_sync_enabled, blockchain_enabled, email_notifications_enabled, kilt_did_enabled,
-                    COALESCE(ai_mode, 'auto') as ai_mode, COALESCE(mock_data_enabled, 0) as mock_data_enabled
+                    COALESCE(ai_mode, 'auto') as ai_mode, COALESCE(mock_data_enabled, 0) as mock_data_enabled,
+                    COALESCE(onboarding_completed, 0) as onboarding_completed,
+                    COALESCE(onboarding_permanently_dismissed, 0) as onboarding_permanently_dismissed,
+                    onboarding_reminder_dismissed_until,
+                    COALESCE(plaid_connection_skipped, 0) as plaid_connection_skipped,
+                    plaid_reminder_dismissed_until
              FROM user_preferences WHERE user_id = ?",
             libsql::params![user_id],
         ).await?;
@@ -2684,6 +2788,11 @@ impl LocalClient {
                 kilt_did_enabled: Some(row.get::<i64>(7)? != 0),
                 ai_mode: Some(row.get::<String>(8)?),
                 mock_data_enabled: Some(row.get::<i64>(9)? != 0),
+                onboarding_completed: Some(row.get::<i64>(10)? != 0),
+                onboarding_permanently_dismissed: Some(row.get::<i64>(11)? != 0),
+                onboarding_reminder_dismissed_until: row.get::<Option<String>>(12).unwrap_or(None),
+                plaid_connection_skipped: Some(row.get::<i64>(13)? != 0),
+                plaid_reminder_dismissed_until: row.get::<Option<String>>(14).unwrap_or(None),
             }))
         } else {
             Ok(None)
@@ -2691,6 +2800,7 @@ impl LocalClient {
     }
 
     /// Save user preferences
+    /// P0g: Added onboarding dismissal fields (§27.3)
     pub async fn save_user_preferences(
         &self,
         user_id: &str,
@@ -2706,8 +2816,9 @@ impl LocalClient {
                 "INSERT INTO user_preferences (id, user_id, ai_agent_enabled, ai_feedback_enabled,
                 ai_offers_enabled, ai_lenders_enabled, cloud_sync_enabled, blockchain_enabled,
                 email_notifications_enabled, kilt_did_enabled, ai_mode, mock_data_enabled,
-                created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                onboarding_completed, onboarding_permanently_dismissed, onboarding_reminder_dismissed_until,
+                plaid_connection_skipped, plaid_reminder_dismissed_until, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT(user_id) DO UPDATE SET
                 ai_agent_enabled = excluded.ai_agent_enabled,
                 ai_feedback_enabled = excluded.ai_feedback_enabled,
@@ -2719,6 +2830,11 @@ impl LocalClient {
                 kilt_did_enabled = excluded.kilt_did_enabled,
                 ai_mode = excluded.ai_mode,
                 mock_data_enabled = excluded.mock_data_enabled,
+                onboarding_completed = excluded.onboarding_completed,
+                onboarding_permanently_dismissed = excluded.onboarding_permanently_dismissed,
+                onboarding_reminder_dismissed_until = excluded.onboarding_reminder_dismissed_until,
+                plaid_connection_skipped = excluded.plaid_connection_skipped,
+                plaid_reminder_dismissed_until = excluded.plaid_reminder_dismissed_until,
                 updated_at = excluded.updated_at",
                 libsql::params![
                     id,
@@ -2733,6 +2849,11 @@ impl LocalClient {
                     prefs.kilt_did_enabled.unwrap_or(false) as i64,
                     prefs.ai_mode.clone().unwrap_or_else(|| "auto".to_string()),
                     prefs.mock_data_enabled.unwrap_or(false) as i64,
+                    prefs.onboarding_completed.unwrap_or(false) as i64,
+                    prefs.onboarding_permanently_dismissed.unwrap_or(false) as i64,
+                    prefs.onboarding_reminder_dismissed_until.clone(),
+                    prefs.plaid_connection_skipped.unwrap_or(false) as i64,
+                    prefs.plaid_reminder_dismissed_until.clone(),
                     now.clone(),
                     now
                 ],
@@ -3776,6 +3897,8 @@ mod tests {
             employment_status: None,
             annual_income: None,
             role: "consumer".to_string(),
+            is_admin: false,
+            provider_onboarding_complete: false,
             tenant_id: "tenant-123".to_string(),
             object_id: "object-123".to_string(),
             verified_id_credential_id: None,

@@ -355,6 +355,8 @@ impl CloudClient {
                 employment_status: None,
                 annual_income: None,
                 role: "consumer".to_string(),
+                is_admin: false,
+                provider_onboarding_complete: false,
                 tenant_id: "freshcredit".to_string(),
                 object_id: row.get::<String>(5).unwrap_or_default(),
                 verified_id_credential_id: row.get::<String>(6).ok(),
@@ -444,6 +446,11 @@ impl CloudClient {
                 kilt_did_enabled: row.get::<bool>(7).ok(),
                 ai_mode: row.get::<String>(8).ok(),
                 mock_data_enabled: row.get::<bool>(9).ok(),
+                onboarding_completed: row.get::<bool>(10).ok(),
+                onboarding_permanently_dismissed: row.get::<bool>(11).ok(),
+                onboarding_reminder_dismissed_until: row.get::<String>(12).ok(),
+                plaid_connection_skipped: row.get::<bool>(13).ok(),
+                plaid_reminder_dismissed_until: row.get::<String>(14).ok(),
             }))
         } else {
             Ok(None)
@@ -534,13 +541,15 @@ impl CloudClient {
                 employment_status: row.get(17).ok(),
                 annual_income: row.get(18).ok(),
                 role: row.get(19).unwrap_or_else(|_| "consumer".to_string()),
-                tenant_id: row.get(20).unwrap_or_default(),
-                object_id: row.get(21).unwrap_or_default(),
-                verified_id_credential_id: row.get(22).ok(),
-                verified_id_status: row.get(23).unwrap_or_else(|_| "pending".to_string()),
-                verified_id_issued_at: row.get(24).ok(),
-                created_at: row.get(25).unwrap_or_default(),
-                updated_at: row.get(26).unwrap_or_default(),
+                is_admin: row.get::<i64>(20).unwrap_or(0) != 0,
+                provider_onboarding_complete: row.get::<i64>(21).unwrap_or(0) != 0,
+                tenant_id: row.get(22).unwrap_or_default(),
+                object_id: row.get(23).unwrap_or_default(),
+                verified_id_credential_id: row.get(24).ok(),
+                verified_id_status: row.get(25).unwrap_or_else(|_| "pending".to_string()),
+                verified_id_issued_at: row.get(26).ok(),
+                created_at: row.get(28).unwrap_or_default(),
+                updated_at: row.get(29).unwrap_or_default(),
             }))
         } else {
             Ok(None)
