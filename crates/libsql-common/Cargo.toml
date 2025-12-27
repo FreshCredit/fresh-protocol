@@ -7,6 +7,8 @@ description = "Shared utilities for libSQL/Turso database connections"
 [dependencies]
 thiserror = "2.0"
 tracing = "0.1"
+tokio = { version = "1", features = ["time"] }
+rand = "0.8"
 
 [dev-dependencies]
 
