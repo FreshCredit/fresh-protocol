@@ -1,15 +1,15 @@
 //! Cloud LibSQL (Turso) database operations for FreshCredit
 //!
-//! // HARDCODED_SCHEMA: 53 tables - update if schema changes
-//! Uses the unified 53-table schema from migrations/unified_schema.sql.
+//! // HARDCODED_SCHEMA: 58 tables - update if schema changes
+//! Uses the unified 58-table schema from migrations/unified_schema.sql.
 //! Cloud databases are per-user Turso instances with identical schema to local.
 
 use anyhow::Result;
-use freshcredit_types::{Account, CreditReport, FreshCreditResult, Transaction, UserId};
+use freshcredit_types::{Account, FinancialReport, FreshCreditResult, Transaction, UserId};
 use tracing::info;
 
 /// Unified schema SQL embedded at compile time
-/// // HARDCODED_SCHEMA: 53 tables - update if schema changes
+/// // HARDCODED_SCHEMA: 58 tables - update if schema changes
 /// Source: migrations/unified_schema.sql
 const UNIFIED_SCHEMA_SQL: &str = include_str!("../../../../../migrations/unified_schema.sql");
 
@@ -32,9 +32,9 @@ impl CloudClient {
     }
 
     /// Initialize cloud database schema using unified schema
-    /// // HARDCODED_SCHEMA: 53 tables - update if schema changes
+    /// // HARDCODED_SCHEMA: 58 tables - update if schema changes
     pub async fn initialize_schema(&self) -> Result<()> {
-        info!("Initializing cloud database with unified schema (53 tables)");
+        info!("Initializing cloud database with unified schema (58 tables)");
 
         // Check if schema already exists by looking for key tables
         let key_tables = vec!["user_profile", "accounts", "transactions", "reports"];
@@ -111,9 +111,9 @@ impl CloudClient {
         Ok(())
     }
 
-    /// Sync report to cloud (uses reports table - BlockID)
-    pub async fn sync_credit_report(&self, report: &CreditReport) -> FreshCreditResult<()> {
-        info!("Syncing report to cloud for user: {}", report.user_id);
+    /// Sync financial report to cloud (uses reports table - BlockID)
+    pub async fn sync_financial_report(&self, report: &FinancialReport) -> FreshCreditResult<()> {
+        info!("Syncing financial report to cloud for user: {}", report.user_id);
 
         let data = serde_json::to_string(report)
             .map_err(|e| freshcredit_types::FreshCreditError::InternalError(e.to_string()))?;
@@ -134,12 +134,12 @@ impl CloudClient {
         Ok(())
     }
 
-    /// Get report from cloud
-    pub async fn get_credit_report(
+    /// Get financial report from cloud
+    pub async fn get_financial_report(
         &self,
         user_id: &UserId,
-    ) -> FreshCreditResult<Option<CreditReport>> {
-        info!("Retrieving report from cloud for user: {}", user_id);
+    ) -> FreshCreditResult<Option<FinancialReport>> {
+        info!("Retrieving financial report from cloud for user: {}", user_id);
 
         let mut rows = self.connection.query(
             "SELECT report_data FROM reports WHERE user_id = ? ORDER BY created_at DESC LIMIT 1",
@@ -155,7 +155,7 @@ impl CloudClient {
             let data: String = row
                 .get(0)
                 .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?;
-            let report: CreditReport = serde_json::from_str(&data)
+            let report: FinancialReport = serde_json::from_str(&data)
                 .map_err(|e| freshcredit_types::FreshCreditError::InternalError(e.to_string()))?;
             Ok(Some(report))
         } else {

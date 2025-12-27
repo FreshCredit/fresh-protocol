@@ -23,7 +23,7 @@
 //! Schema Version: unified-v1 (2025-12-05)
 
 use anyhow::Result;
-use freshcredit_types::{CreditReport, FreshCreditResult, UserId};
+use freshcredit_types::{FinancialReport, FreshCreditResult, UserId};
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
@@ -2319,9 +2319,9 @@ impl LocalClient {
         Ok(())
     }
 
-    /// Store report locally (uses reports table - BlockID)
-    pub async fn store_credit_report(&self, report: &CreditReport) -> FreshCreditResult<()> {
-        info!("Storing report locally for user: {}", report.user_id);
+    /// Store financial report locally (uses reports table - BlockID)
+    pub async fn store_financial_report(&self, report: &FinancialReport) -> FreshCreditResult<()> {
+        info!("Storing financial report locally for user: {}", report.user_id);
 
         let data = serde_json::to_string(report)
             .map_err(|e| freshcredit_types::FreshCreditError::InternalError(e.to_string()))?;
@@ -2342,12 +2342,12 @@ impl LocalClient {
         Ok(())
     }
 
-    /// Retrieve report from local storage using raw SQL
-    pub async fn get_credit_report(
+    /// Retrieve financial report from local storage using raw SQL
+    pub async fn get_financial_report(
         &self,
         user_id: &UserId,
-    ) -> FreshCreditResult<Option<CreditReport>> {
-        info!("Retrieving report from local storage for user: {}", user_id);
+    ) -> FreshCreditResult<Option<FinancialReport>> {
+        info!("Retrieving financial report from local storage for user: {}", user_id);
 
         let mut rows = self.connection.query(
             "SELECT report_data FROM reports WHERE user_id = ? ORDER BY created_at DESC LIMIT 1",
@@ -2363,7 +2363,7 @@ impl LocalClient {
             let data: String = row
                 .get(0)
                 .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?;
-            let report: CreditReport = serde_json::from_str(&data)
+            let report: FinancialReport = serde_json::from_str(&data)
                 .map_err(|e| freshcredit_types::FreshCreditError::InternalError(e.to_string()))?;
             Ok(Some(report))
         } else {
@@ -3686,8 +3686,8 @@ impl WebhookEventCounts {
 mod tests {
     use super::*;
 
-    /// Test that the schema contains exactly 55 tables as documented
-    /// HARDCODED_SCHEMA: 55 tables - update if schema changes
+    /// Test that the schema contains exactly 58 tables as documented
+    /// HARDCODED_SCHEMA: 58 tables - update if schema changes
     #[tokio::test]
     async fn test_schema_table_count() {
         let client = LocalClient::new_in_memory().await.unwrap();
