@@ -1,0 +1,12 @@
+[package]
+name = "freshcredit-libsql-common"
+version = "0.1.0"
+edition = "2021"
+description = "Shared utilities for libSQL/Turso database connections"
+
+[dependencies]
+thiserror = "2.0"
+tracing = "0.1"
+
+[dev-dependencies]
+
