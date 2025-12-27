@@ -273,6 +273,8 @@ impl LocalClient {
                 is_active BOOLEAN DEFAULT TRUE,
                 date_opened DATE,
                 credit_limit DECIMAL(12,2),
+                blockchain_hash TEXT,
+                block_number INTEGER,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )",
@@ -314,6 +316,8 @@ impl LocalClient {
                 location_lon REAL,
                 payment_channel TEXT,
                 raw_transaction_data TEXT,
+                blockchain_hash TEXT,
+                block_number INTEGER,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
@@ -954,6 +958,8 @@ impl LocalClient {
                 risk_check TEXT,
                 watchlist_screening TEXT,
                 raw_identity_verification_data TEXT NOT NULL,
+                blockchain_hash TEXT,
+                block_number INTEGER,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
@@ -1499,6 +1505,8 @@ impl LocalClient {
                 user_applied_at DATETIME,
                 expires_at DATETIME,
                 raw_offer_data TEXT NOT NULL,
+                blockchain_hash TEXT,
+                block_number INTEGER,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
