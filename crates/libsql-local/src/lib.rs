@@ -2565,8 +2565,80 @@ impl LocalClient {
         self.connection.execute(
             "CREATE INDEX IF NOT EXISTS idx_healthkit_activity_profile ON healthkit_activity_summaries(healthkit_profile_id)", ()).await?;
 
-        // HARDCODED_SCHEMA: 70 tables - update if schema changes (58 + 6 LinkedIn + 6 HealthKit)
-        info!("Unified database schema initialization completed (70 tables)");
+        // =====================================================================
+        // Section 21: Correlation Engine Tables (Cross-source data correlation)
+        // =====================================================================
+
+        // Create correlation_preferences table for user correlation settings
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS correlation_preferences (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL REFERENCES user_profile(id),
+                    source_type TEXT NOT NULL,
+                    enabled INTEGER NOT NULL DEFAULT 1,
+                    anonymization_level TEXT NOT NULL DEFAULT 'aggregate',
+                    retention_days INTEGER NOT NULL DEFAULT 90,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(user_id, source_type)
+                )",
+                (),
+            )
+            .await?;
+
+        // Create correlation_insights table for generated insights
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS correlation_insights (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL REFERENCES user_profile(id),
+                    insight_type TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    description TEXT NOT NULL,
+                    sources TEXT NOT NULL,
+                    confidence_score REAL NOT NULL,
+                    data_points INTEGER NOT NULL,
+                    insight_data TEXT,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    expires_at TEXT
+                )",
+                (),
+            )
+            .await?;
+
+        // Create correlation_metrics table for aggregated metrics
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS correlation_metrics (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL REFERENCES user_profile(id),
+                    metric_type TEXT NOT NULL,
+                    metric_name TEXT NOT NULL,
+                    metric_value REAL NOT NULL,
+                    period_start TEXT NOT NULL,
+                    period_end TEXT NOT NULL,
+                    sources TEXT NOT NULL,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )",
+                (),
+            )
+            .await?;
+
+        // Create indexes for correlation tables
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_correlation_prefs_user ON correlation_preferences(user_id)", ()).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_correlation_insights_user ON correlation_insights(user_id)", ()).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_correlation_insights_type ON correlation_insights(insight_type)", ()).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_correlation_metrics_user ON correlation_metrics(user_id)", ()).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_correlation_metrics_type ON correlation_metrics(metric_type)", ()).await?;
+
+        // HARDCODED_SCHEMA: 73 tables - update if schema changes (58 + 6 LinkedIn + 6 HealthKit + 3 Correlation)
+        info!("Unified database schema initialization completed (73 tables)");
         Ok(())
     }
 
@@ -4130,8 +4202,8 @@ impl WebhookEventCounts {
 mod tests {
     use super::*;
 
-    /// Test that the schema contains exactly 64 tables as documented
-    /// HARDCODED_SCHEMA: 64 tables - update if schema changes (58 + 6 LinkedIn)
+    /// Test that the schema contains exactly 73 tables as documented
+    /// HARDCODED_SCHEMA: 73 tables - update if schema changes (58 + 6 LinkedIn + 6 HealthKit + 3 Correlation)
     #[tokio::test]
     async fn test_schema_table_count() {
         let client = LocalClient::new_in_memory().await.unwrap();
@@ -4148,9 +4220,8 @@ mod tests {
 
         let row = rows.next().await.unwrap().unwrap();
         let count: i64 = row.get(0).unwrap();
-        // HARDCODED_SCHEMA: 64 tables - update if schema changes (58 + 6 LinkedIn)
-        // HARDCODED_SCHEMA: 70 tables (58 + 6 LinkedIn + 6 HealthKit)
-        assert_eq!(count, 70, "Schema should contain exactly 70 tables");
+        // HARDCODED_SCHEMA: 73 tables (58 + 6 LinkedIn + 6 HealthKit + 3 Correlation)
+        assert_eq!(count, 73, "Schema should contain exactly 73 tables");
     }
 
     /// Test that critical tables exist in the schema
