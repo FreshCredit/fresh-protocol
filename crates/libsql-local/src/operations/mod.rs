@@ -6,7 +6,7 @@
 //! - financial.rs: Account and transaction operations
 //! - report.rs: Financial report operations
 //! - file.rs: File upload operations
-//! - conversation.rs: AI conversation operations
+//! - conversation.rs: AI conversation operations ✅ EXTRACTED
 //! - workflow.rs: Workflow and scoring model operations
 //! - webhook.rs: Webhook event operations ✅ EXTRACTED
 //!
@@ -16,6 +16,7 @@
 //! COMPLIANCE: §10 Unified Database Schema Architecture
 
 // Operation submodules - extracted from lib.rs LocalClient impl block
+pub mod conversation;
 pub mod webhook;
 
 // Remaining operations still in lib.rs (to be extracted):
@@ -23,6 +24,6 @@ pub mod webhook;
 // pub mod financial;
 // pub mod report;
 // pub mod file;
-// pub mod conversation;
 // pub mod workflow;
+// pub mod scoring;
 
