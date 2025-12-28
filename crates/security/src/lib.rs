@@ -25,3 +25,81 @@ pub fn verify_hash<T: serde::Serialize>(value: &T, expected_hash: &str) -> Resul
     let computed_hash = blake2_256_hex(value)?;
     Ok(computed_hash == expected_hash)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde::Serialize;
+
+    #[derive(Serialize)]
+    struct TestData {
+        name: String,
+        value: i32,
+    }
+
+    #[test]
+    fn test_blake2_256_hex_produces_64_char_hash() {
+        let data = TestData {
+            name: "test".to_string(),
+            value: 42,
+        };
+        let hash = blake2_256_hex(&data).unwrap();
+        assert_eq!(hash.len(), 64); // 256 bits = 32 bytes = 64 hex chars
+    }
+
+    #[test]
+    fn test_blake2_256_hex_deterministic() {
+        let data = TestData {
+            name: "test".to_string(),
+            value: 42,
+        };
+        let hash1 = blake2_256_hex(&data).unwrap();
+        let hash2 = blake2_256_hex(&data).unwrap();
+        assert_eq!(hash1, hash2);
+    }
+
+    #[test]
+    fn test_blake2_256_hex_different_data_different_hash() {
+        let data1 = TestData {
+            name: "test".to_string(),
+            value: 42,
+        };
+        let data2 = TestData {
+            name: "test".to_string(),
+            value: 43,
+        };
+        let hash1 = blake2_256_hex(&data1).unwrap();
+        let hash2 = blake2_256_hex(&data2).unwrap();
+        assert_ne!(hash1, hash2);
+    }
+
+    #[test]
+    fn test_verify_hash_valid() {
+        let data = TestData {
+            name: "verify".to_string(),
+            value: 100,
+        };
+        let hash = blake2_256_hex(&data).unwrap();
+        assert!(verify_hash(&data, &hash).unwrap());
+    }
+
+    #[test]
+    fn test_verify_hash_invalid() {
+        let data = TestData {
+            name: "verify".to_string(),
+            value: 100,
+        };
+        let wrong_hash = "0".repeat(64);
+        assert!(!verify_hash(&data, &wrong_hash).unwrap());
+    }
+
+    #[test]
+    fn test_blake2_256_hex_lowercase() {
+        let data = TestData {
+            name: "test".to_string(),
+            value: 1,
+        };
+        let hash = blake2_256_hex(&data).unwrap();
+        assert_eq!(hash, hash.to_lowercase());
+    }
+}
