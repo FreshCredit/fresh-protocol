@@ -19,12 +19,12 @@
 // Operation submodules - extracted from lib.rs LocalClient impl block
 pub mod conversation;
 pub mod financial;
+pub mod preferences;
 pub mod profile;
 pub mod webhook;
 pub mod workflow;
 
 // Remaining operations still in lib.rs (to be extracted):
-// pub mod user;
 // pub mod report;
 // pub mod file;
 
