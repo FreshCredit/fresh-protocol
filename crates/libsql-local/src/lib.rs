@@ -1,8 +1,8 @@
 //! Local LibSQL database operations for FreshCredit
 //!
 //! This module implements the unified database schema for FreshCredit,
-//! // HARDCODED_SCHEMA: 58 tables - update if schema changes
-//! containing 58 tables that support:
+//! // HARDCODED_SCHEMA: 64 tables - update if schema changes
+//! containing 64 tables that support:
 //! - User profile and authentication (Entra ID + Verified ID)
 //! - All 11 Plaid products (Accounts, Transactions, Auth, Identity, etc.)
 //! - Payment processing (Stripe Connect ACH)
@@ -2250,8 +2250,156 @@ impl LocalClient {
         self.connection.execute(
             "CREATE INDEX IF NOT EXISTS idx_sales_pipeline_hubspot_deal_id ON sales_pipeline(hubspot_deal_id)", ()).await?;
 
-        // HARDCODED_SCHEMA: 58 tables - update if schema changes
-        info!("Unified database schema initialization completed (58 tables)");
+        // ============================================================
+        // LinkedIn Professional Data Tables (L1: Multi-Source Integration)
+        // ============================================================
+
+        // Create linkedin_profiles table for LinkedIn profile data
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS linkedin_profiles (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                linkedin_id TEXT UNIQUE,
+                public_profile_url TEXT,
+                first_name TEXT,
+                last_name TEXT,
+                headline TEXT,
+                summary TEXT,
+                industry TEXT,
+                location TEXT,
+                country_code TEXT,
+                profile_picture_url TEXT,
+                connections_count INTEGER,
+                raw_profile_data TEXT NOT NULL,
+                imported_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
+            )",
+                (),
+            )
+            .await?;
+
+        // Create linkedin_experiences table for work experience
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS linkedin_experiences (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                linkedin_profile_id TEXT NOT NULL,
+                company_name TEXT NOT NULL,
+                company_linkedin_url TEXT,
+                title TEXT NOT NULL,
+                description TEXT,
+                location TEXT,
+                employment_type TEXT,
+                start_date TEXT,
+                end_date TEXT,
+                is_current BOOLEAN DEFAULT FALSE,
+                raw_experience_data TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
+                FOREIGN KEY (linkedin_profile_id) REFERENCES linkedin_profiles (id) ON DELETE CASCADE
+            )",
+                (),
+            )
+            .await?;
+
+        // Create linkedin_education table for education history
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS linkedin_education (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                linkedin_profile_id TEXT NOT NULL,
+                school_name TEXT NOT NULL,
+                school_linkedin_url TEXT,
+                degree TEXT,
+                field_of_study TEXT,
+                description TEXT,
+                activities TEXT,
+                start_date TEXT,
+                end_date TEXT,
+                grade TEXT,
+                raw_education_data TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
+                FOREIGN KEY (linkedin_profile_id) REFERENCES linkedin_profiles (id) ON DELETE CASCADE
+            )",
+                (),
+            )
+            .await?;
+
+        // Create linkedin_skills table for skills and endorsements
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS linkedin_skills (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                linkedin_profile_id TEXT NOT NULL,
+                skill_name TEXT NOT NULL,
+                endorsement_count INTEGER DEFAULT 0,
+                raw_skill_data TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
+                FOREIGN KEY (linkedin_profile_id) REFERENCES linkedin_profiles (id) ON DELETE CASCADE
+            )",
+                (),
+            )
+            .await?;
+
+        // Create linkedin_certifications table for professional certifications
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS linkedin_certifications (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                linkedin_profile_id TEXT NOT NULL,
+                certification_name TEXT NOT NULL,
+                issuing_organization TEXT,
+                issue_date TEXT,
+                expiration_date TEXT,
+                credential_id TEXT,
+                credential_url TEXT,
+                raw_certification_data TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
+                FOREIGN KEY (linkedin_profile_id) REFERENCES linkedin_profiles (id) ON DELETE CASCADE
+            )",
+                (),
+            )
+            .await?;
+
+        // Create linkedin_languages table for language proficiencies
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS linkedin_languages (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                linkedin_profile_id TEXT NOT NULL,
+                language_name TEXT NOT NULL,
+                proficiency TEXT,
+                raw_language_data TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
+                FOREIGN KEY (linkedin_profile_id) REFERENCES linkedin_profiles (id) ON DELETE CASCADE
+            )",
+                (),
+            )
+            .await?;
+
+        // Create indexes for LinkedIn tables
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_linkedin_profiles_user_id ON linkedin_profiles(user_id)", ()).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_linkedin_experiences_profile ON linkedin_experiences(linkedin_profile_id)", ()).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_linkedin_education_profile ON linkedin_education(linkedin_profile_id)", ()).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_linkedin_skills_profile ON linkedin_skills(linkedin_profile_id)", ()).await?;
+
+        // HARDCODED_SCHEMA: 64 tables - update if schema changes (58 + 6 LinkedIn)
+        info!("Unified database schema initialization completed (64 tables)");
         Ok(())
     }
 
@@ -3815,8 +3963,8 @@ impl WebhookEventCounts {
 mod tests {
     use super::*;
 
-    /// Test that the schema contains exactly 58 tables as documented
-    /// HARDCODED_SCHEMA: 58 tables - update if schema changes
+    /// Test that the schema contains exactly 64 tables as documented
+    /// HARDCODED_SCHEMA: 64 tables - update if schema changes (58 + 6 LinkedIn)
     #[tokio::test]
     async fn test_schema_table_count() {
         let client = LocalClient::new_in_memory().await.unwrap();
@@ -3833,8 +3981,8 @@ mod tests {
 
         let row = rows.next().await.unwrap().unwrap();
         let count: i64 = row.get(0).unwrap();
-        // HARDCODED_SCHEMA: 58 tables - update if schema changes
-        assert_eq!(count, 58, "Schema should contain exactly 58 tables");
+        // HARDCODED_SCHEMA: 64 tables - update if schema changes (58 + 6 LinkedIn)
+        assert_eq!(count, 64, "Schema should contain exactly 64 tables");
     }
 
     /// Test that critical tables exist in the schema
@@ -3858,6 +4006,13 @@ mod tests {
             "referrals",
             "platform_metrics",
             "sales_pipeline",
+            // LinkedIn tables (L1: Multi-Source Integration)
+            "linkedin_profiles",
+            "linkedin_experiences",
+            "linkedin_education",
+            "linkedin_skills",
+            "linkedin_certifications",
+            "linkedin_languages",
         ];
 
         for table in critical_tables {
