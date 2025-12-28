@@ -104,4 +104,3 @@ impl LocalClient {
         Ok(affected)
     }
 }
-

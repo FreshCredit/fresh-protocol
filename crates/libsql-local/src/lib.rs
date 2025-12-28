@@ -28,8 +28,8 @@
 //! Schema Version: unified-v1 (2025-12-05)
 
 // Submodules for incremental extraction
-pub mod schema;
 pub mod operations;
+pub mod schema;
 
 use anyhow::Result;
 
@@ -2089,16 +2089,36 @@ impl LocalClient {
         ).await?;
 
         // Indexes for ticketing system tables
-        self.connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_tickets_user_id ON tickets(user_id)", ()).await?;
-        self.connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status)", ()).await?;
-        self.connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_tickets_priority ON tickets(priority)", ()).await?;
-        self.connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_tickets_type ON tickets(ticket_type)", ()).await?;
-        self.connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_tickets_created_at ON tickets(created_at)", ()).await?;
+        self.connection
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_tickets_user_id ON tickets(user_id)",
+                (),
+            )
+            .await?;
+        self.connection
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status)",
+                (),
+            )
+            .await?;
+        self.connection
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_tickets_priority ON tickets(priority)",
+                (),
+            )
+            .await?;
+        self.connection
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_tickets_type ON tickets(ticket_type)",
+                (),
+            )
+            .await?;
+        self.connection
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_tickets_created_at ON tickets(created_at)",
+                (),
+            )
+            .await?;
         self.connection.execute(
             "CREATE INDEX IF NOT EXISTS idx_ticket_comments_ticket_id ON ticket_comments(ticket_id)", ()).await?;
         self.connection.execute(
@@ -2195,10 +2215,18 @@ impl LocalClient {
         // Create indexes for referrals
         self.connection.execute(
             "CREATE INDEX IF NOT EXISTS idx_referrals_referrer_user_id ON referrals(referrer_user_id)", ()).await?;
-        self.connection.execute(
-            "CREATE UNIQUE INDEX IF NOT EXISTS idx_referrals_code ON referrals(referral_code)", ()).await?;
-        self.connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_referrals_status ON referrals(status)", ()).await?;
+        self.connection
+            .execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_referrals_code ON referrals(referral_code)",
+                (),
+            )
+            .await?;
+        self.connection
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_referrals_status ON referrals(status)",
+                (),
+            )
+            .await?;
 
         // ============================================================================
         // SECTION 17: PLATFORM METRICS TABLE
@@ -2252,10 +2280,18 @@ impl LocalClient {
             .await?;
 
         // Create indexes for sales_pipeline
-        self.connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_sales_pipeline_user_id ON sales_pipeline(user_id)", ()).await?;
-        self.connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_sales_pipeline_stage ON sales_pipeline(stage)", ()).await?;
+        self.connection
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_sales_pipeline_user_id ON sales_pipeline(user_id)",
+                (),
+            )
+            .await?;
+        self.connection
+            .execute(
+                "CREATE INDEX IF NOT EXISTS idx_sales_pipeline_stage ON sales_pipeline(stage)",
+                (),
+            )
+            .await?;
         self.connection.execute(
             "CREATE INDEX IF NOT EXISTS idx_sales_pipeline_hubspot_deal_id ON sales_pipeline(hubspot_deal_id)", ()).await?;
 
@@ -2819,8 +2855,6 @@ impl LocalClient {
             .await
             .map_err(|e| anyhow::anyhow!("{e}"))
     }
-
-
 }
 // ============================================================================
 // AI Conversation Memory Structs

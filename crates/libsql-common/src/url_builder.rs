@@ -59,8 +59,7 @@ impl TursoUrlBuilder {
     pub fn from_env() -> Self {
         let organization =
             std::env::var("TURSO_ORGANIZATION").unwrap_or_else(|_| "devonshigaki".to_string());
-        let region =
-            std::env::var("TURSO_REGION").unwrap_or_else(|_| "aws-us-west-2".to_string());
+        let region = std::env::var("TURSO_REGION").unwrap_or_else(|_| "aws-us-west-2".to_string());
         Self {
             organization,
             region,
@@ -177,4 +176,3 @@ mod tests {
         assert_eq!(db_name, "user-user-test----------");
     }
 }
-

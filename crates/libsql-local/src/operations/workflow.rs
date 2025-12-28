@@ -280,4 +280,3 @@ impl LocalClient {
         Ok(affected > 0)
     }
 }
-

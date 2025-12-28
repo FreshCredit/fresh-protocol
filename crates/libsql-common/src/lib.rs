@@ -35,4 +35,3 @@ mod url_builder;
 
 pub use connection_factory::{with_retry, RetryConfig};
 pub use url_builder::TursoUrlBuilder;
-

@@ -113,7 +113,10 @@ impl CloudClient {
 
     /// Sync financial report to cloud (uses reports table - BlockID)
     pub async fn sync_financial_report(&self, report: &FinancialReport) -> FreshCreditResult<()> {
-        info!("Syncing financial report to cloud for user: {}", report.user_id);
+        info!(
+            "Syncing financial report to cloud for user: {}",
+            report.user_id
+        );
 
         let data = serde_json::to_string(report)
             .map_err(|e| freshcredit_types::FreshCreditError::InternalError(e.to_string()))?;
@@ -139,7 +142,10 @@ impl CloudClient {
         &self,
         user_id: &UserId,
     ) -> FreshCreditResult<Option<FinancialReport>> {
-        info!("Retrieving financial report from cloud for user: {}", user_id);
+        info!(
+            "Retrieving financial report from cloud for user: {}",
+            user_id
+        );
 
         let mut rows = self.connection.query(
             "SELECT report_data FROM reports WHERE user_id = ? ORDER BY created_at DESC LIMIT 1",

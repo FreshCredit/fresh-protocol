@@ -14,7 +14,10 @@ use crate::LocalClient;
 impl LocalClient {
     /// Store financial report locally (uses reports table - BlockID)
     pub async fn store_financial_report(&self, report: &FinancialReport) -> FreshCreditResult<()> {
-        info!("Storing financial report locally for user: {}", report.user_id);
+        info!(
+            "Storing financial report locally for user: {}",
+            report.user_id
+        );
 
         let data = serde_json::to_string(report)
             .map_err(|e| freshcredit_types::FreshCreditError::InternalError(e.to_string()))?;
@@ -40,7 +43,10 @@ impl LocalClient {
         &self,
         user_id: &UserId,
     ) -> FreshCreditResult<Option<FinancialReport>> {
-        info!("Retrieving financial report from local storage for user: {}", user_id);
+        info!(
+            "Retrieving financial report from local storage for user: {}",
+            user_id
+        );
 
         let mut rows = self.connection.query(
             "SELECT report_data FROM reports WHERE user_id = ? ORDER BY created_at DESC LIMIT 1",
@@ -64,4 +70,3 @@ impl LocalClient {
         }
     }
 }
-

@@ -149,13 +149,21 @@ mod tests {
         };
 
         // Attempt 0: 1000ms
-        assert_eq!(config.delay_for_attempt(0), Some(Duration::from_millis(1000)));
+        assert_eq!(
+            config.delay_for_attempt(0),
+            Some(Duration::from_millis(1000))
+        );
         // Attempt 1: 2000ms
-        assert_eq!(config.delay_for_attempt(1), Some(Duration::from_millis(2000)));
+        assert_eq!(
+            config.delay_for_attempt(1),
+            Some(Duration::from_millis(2000))
+        );
         // Attempt 2: 4000ms
-        assert_eq!(config.delay_for_attempt(2), Some(Duration::from_millis(4000)));
+        assert_eq!(
+            config.delay_for_attempt(2),
+            Some(Duration::from_millis(4000))
+        );
         // Attempt 5: None (max attempts reached)
         assert_eq!(config.delay_for_attempt(5), None);
     }
 }
-

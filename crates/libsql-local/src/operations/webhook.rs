@@ -251,4 +251,3 @@ impl LocalClient {
         Ok(counts)
     }
 }
-
