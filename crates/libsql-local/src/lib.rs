@@ -1,8 +1,8 @@
 //! Local LibSQL database operations for FreshCredit
 //!
 //! This module implements the unified database schema for FreshCredit,
-//! // HARDCODED_SCHEMA: 64 tables - update if schema changes
-//! containing 64 tables that support:
+//! // HARDCODED_SCHEMA: 79 tables - update if schema changes (58 + 6 LinkedIn + 6 HealthKit + 3 Correlation + 6 Apple Music)
+//! containing 79 tables that support:
 //! - User profile and authentication (Entra ID + Verified ID)
 //! - All 11 Plaid products (Accounts, Transactions, Auth, Identity, etc.)
 //! - Payment processing (Stripe Connect ACH)
@@ -2646,8 +2646,161 @@ impl LocalClient {
         self.connection.execute(
             "CREATE INDEX IF NOT EXISTS idx_correlation_metrics_type ON correlation_metrics(metric_type)", ()).await?;
 
-        // HARDCODED_SCHEMA: 73 tables - update if schema changes (58 + 6 LinkedIn + 6 HealthKit + 3 Correlation)
-        info!("Unified database schema initialization completed (73 tables)");
+        // ============================================================================
+        // SECTION: APPLE MUSIC TABLES (AM1: Multi-Source Integration)
+        // ============================================================================
+
+        // Create apple_music_profiles table for user's Apple Music profile
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS apple_music_profiles (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL REFERENCES user_profile(id),
+                    apple_music_id TEXT,
+                    display_name TEXT,
+                    subscription_type TEXT,
+                    storefront TEXT,
+                    country_code TEXT,
+                    connected_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    last_sync_at TEXT,
+                    sync_status TEXT DEFAULT 'pending',
+                    raw_profile_data TEXT,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )",
+                (),
+            )
+            .await?;
+
+        // Create apple_music_library_songs table for user's library songs
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS apple_music_library_songs (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL REFERENCES user_profile(id),
+                    catalog_id TEXT,
+                    title TEXT NOT NULL,
+                    artist_name TEXT,
+                    album_name TEXT,
+                    duration_ms INTEGER,
+                    genre_names TEXT,
+                    release_date TEXT,
+                    artwork_url TEXT,
+                    play_count INTEGER DEFAULT 0,
+                    date_added TEXT,
+                    last_played_at TEXT,
+                    is_favorite BOOLEAN DEFAULT FALSE,
+                    raw_song_data TEXT,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )",
+                (),
+            )
+            .await?;
+
+        // Create apple_music_library_albums table for user's library albums
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS apple_music_library_albums (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL REFERENCES user_profile(id),
+                    catalog_id TEXT,
+                    title TEXT NOT NULL,
+                    artist_name TEXT,
+                    track_count INTEGER,
+                    genre_names TEXT,
+                    release_date TEXT,
+                    artwork_url TEXT,
+                    date_added TEXT,
+                    is_complete BOOLEAN DEFAULT FALSE,
+                    raw_album_data TEXT,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )",
+                (),
+            )
+            .await?;
+
+        // Create apple_music_playlists table for user's playlists
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS apple_music_playlists (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL REFERENCES user_profile(id),
+                    catalog_id TEXT,
+                    name TEXT NOT NULL,
+                    description TEXT,
+                    track_count INTEGER DEFAULT 0,
+                    is_public BOOLEAN DEFAULT FALSE,
+                    curator_name TEXT,
+                    artwork_url TEXT,
+                    date_added TEXT,
+                    last_modified_at TEXT,
+                    raw_playlist_data TEXT,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )",
+                (),
+            )
+            .await?;
+
+        // Create apple_music_recently_played table for listening history
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS apple_music_recently_played (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL REFERENCES user_profile(id),
+                    content_type TEXT NOT NULL,
+                    content_id TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    artist_name TEXT,
+                    album_name TEXT,
+                    artwork_url TEXT,
+                    played_at TEXT NOT NULL,
+                    duration_ms INTEGER,
+                    raw_play_data TEXT,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )",
+                (),
+            )
+            .await?;
+
+        // Create apple_music_genre_stats table for aggregated genre statistics
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS apple_music_genre_stats (
+                    id TEXT PRIMARY KEY,
+                    user_id TEXT NOT NULL REFERENCES user_profile(id),
+                    genre_name TEXT NOT NULL,
+                    song_count INTEGER DEFAULT 0,
+                    total_play_count INTEGER DEFAULT 0,
+                    total_duration_ms INTEGER DEFAULT 0,
+                    percentage REAL DEFAULT 0.0,
+                    period_start TEXT,
+                    period_end TEXT,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )",
+                (),
+            )
+            .await?;
+
+        // Create indexes for Apple Music tables
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_apple_music_profiles_user ON apple_music_profiles(user_id)", ()).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_apple_music_songs_user ON apple_music_library_songs(user_id)", ()).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_apple_music_albums_user ON apple_music_library_albums(user_id)", ()).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_apple_music_playlists_user ON apple_music_playlists(user_id)", ()).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_apple_music_recently_played_user ON apple_music_recently_played(user_id)", ()).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_apple_music_genre_stats_user ON apple_music_genre_stats(user_id)", ()).await?;
+
+        // HARDCODED_SCHEMA: 79 tables - update if schema changes (58 + 6 LinkedIn + 6 HealthKit + 3 Correlation + 6 Apple Music)
+        info!("Unified database schema initialization completed (79 tables)");
         Ok(())
     }
 
@@ -2810,8 +2963,8 @@ impl WebhookEventCounts {
 mod tests {
     use super::*;
 
-    /// Test that the schema contains exactly 73 tables as documented
-    /// HARDCODED_SCHEMA: 73 tables - update if schema changes (58 + 6 LinkedIn + 6 HealthKit + 3 Correlation)
+    /// Test that the schema contains exactly 79 tables as documented
+    /// HARDCODED_SCHEMA: 79 tables - update if schema changes (58 + 6 LinkedIn + 6 HealthKit + 3 Correlation + 6 Apple Music)
     #[tokio::test]
     async fn test_schema_table_count() {
         let client = LocalClient::new_in_memory().await.unwrap();
@@ -2828,8 +2981,8 @@ mod tests {
 
         let row = rows.next().await.unwrap().unwrap();
         let count: i64 = row.get(0).unwrap();
-        // HARDCODED_SCHEMA: 73 tables (58 + 6 LinkedIn + 6 HealthKit + 3 Correlation)
-        assert_eq!(count, 73, "Schema should contain exactly 73 tables");
+        // HARDCODED_SCHEMA: 79 tables (58 + 6 LinkedIn + 6 HealthKit + 3 Correlation + 6 Apple Music)
+        assert_eq!(count, 79, "Schema should contain exactly 79 tables");
     }
 
     /// Test that critical tables exist in the schema
@@ -2867,6 +3020,13 @@ mod tests {
             "healthkit_activity_summaries",
             "healthkit_clinical_records",
             "healthkit_correlations",
+            // Apple Music tables (AM1: Multi-Source Integration)
+            "apple_music_profiles",
+            "apple_music_library_songs",
+            "apple_music_library_albums",
+            "apple_music_playlists",
+            "apple_music_recently_played",
+            "apple_music_genre_stats",
         ];
 
         for table in critical_tables {
