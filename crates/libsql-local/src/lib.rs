@@ -20,7 +20,16 @@
 //! - SQL file: migrations/unified_schema.sql
 //! - Cloud database: freshcredit-unified-schema-v1 (Turso)
 //!
+//! Module structure (REFACTORING IN PROGRESS):
+//! - lib.rs (this file): Main entry point with LocalClient and all operations
+//! - schema/: Schema definitions organized by domain (target structure)
+//! - operations/: CRUD operations organized by domain (target structure)
+//!
 //! Schema Version: unified-v1 (2025-12-05)
+
+// Submodules for incremental extraction
+pub mod schema;
+pub mod operations;
 
 use anyhow::Result;
 use freshcredit_types::{FinancialReport, FreshCreditResult, UserId};
