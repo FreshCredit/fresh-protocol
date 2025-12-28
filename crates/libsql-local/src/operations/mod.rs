@@ -22,9 +22,7 @@ pub mod file;
 pub mod financial;
 pub mod preferences;
 pub mod profile;
+pub mod report;
 pub mod webhook;
 pub mod workflow;
-
-// Remaining operations still in lib.rs (to be extracted):
-// pub mod report;
 
