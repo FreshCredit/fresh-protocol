@@ -23,6 +23,7 @@ pub mod financial;
 pub mod preferences;
 pub mod profile;
 pub mod report;
+pub mod validation;
 pub mod webhook;
 pub mod workflow;
 
