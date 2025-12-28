@@ -45,11 +45,12 @@ async fn setup_test_user_with_account(client: &LocalClient) -> Result<TestReport
         ]
     ).await?;
 
-    // Create linked account
+    // Create linked account - note: 'id' is primary key, 'account_id' is separate UNIQUE column
+    // The transactions table FK references accounts(account_id), so we must set account_id column
     client.execute(
-        "INSERT INTO accounts (id, user_id, account_type, balance, currency, institution_name, created_at)
-         VALUES (?, ?, 'checking', 5000.00, 'USD', 'Test Bank', CURRENT_TIMESTAMP)",
-        vec![Value::Text(account_id.clone()), Value::Text(user_id.clone())]
+        "INSERT INTO accounts (id, user_id, account_id, account_type, balance, currency, institution_name, created_at)
+         VALUES (?, ?, ?, 'checking', 5000.00, 'USD', 'Test Bank', CURRENT_TIMESTAMP)",
+        vec![Value::Text(uuid::Uuid::new_v4().to_string()), Value::Text(user_id.clone()), Value::Text(account_id.clone())]
     ).await?;
 
     // Create some transactions for the account
