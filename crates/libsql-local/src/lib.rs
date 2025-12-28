@@ -2398,8 +2398,175 @@ impl LocalClient {
         self.connection.execute(
             "CREATE INDEX IF NOT EXISTS idx_linkedin_skills_profile ON linkedin_skills(linkedin_profile_id)", ()).await?;
 
-        // HARDCODED_SCHEMA: 64 tables - update if schema changes (58 + 6 LinkedIn)
-        info!("Unified database schema initialization completed (64 tables)");
+        // =====================================================================
+        // Section 20: HealthKit Tables (Apple Health data from XML export)
+        // =====================================================================
+
+        // Create healthkit_profiles table for user health profile metadata
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS healthkit_profiles (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL UNIQUE,
+                export_date DATETIME,
+                date_of_birth TEXT,
+                biological_sex TEXT,
+                blood_type TEXT,
+                fitzpatrick_skin_type TEXT,
+                wheelchair_use TEXT,
+                raw_profile_data TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
+            )",
+                (),
+            )
+            .await?;
+
+        // Create healthkit_records table for health records (steps, heart rate, etc.)
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS healthkit_records (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                healthkit_profile_id TEXT NOT NULL,
+                record_type TEXT NOT NULL,
+                source_name TEXT,
+                source_version TEXT,
+                device TEXT,
+                unit TEXT,
+                value REAL,
+                start_date DATETIME NOT NULL,
+                end_date DATETIME NOT NULL,
+                creation_date DATETIME,
+                metadata TEXT,
+                raw_record_data TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
+                FOREIGN KEY (healthkit_profile_id) REFERENCES healthkit_profiles (id) ON DELETE CASCADE
+            )",
+                (),
+            )
+            .await?;
+
+        // Create healthkit_workouts table for workout sessions
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS healthkit_workouts (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                healthkit_profile_id TEXT NOT NULL,
+                workout_activity_type TEXT NOT NULL,
+                duration REAL,
+                duration_unit TEXT,
+                total_distance REAL,
+                distance_unit TEXT,
+                total_energy_burned REAL,
+                energy_unit TEXT,
+                source_name TEXT,
+                source_version TEXT,
+                device TEXT,
+                start_date DATETIME NOT NULL,
+                end_date DATETIME NOT NULL,
+                creation_date DATETIME,
+                metadata TEXT,
+                raw_workout_data TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
+                FOREIGN KEY (healthkit_profile_id) REFERENCES healthkit_profiles (id) ON DELETE CASCADE
+            )",
+                (),
+            )
+            .await?;
+
+        // Create healthkit_activity_summaries table for daily activity rings
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS healthkit_activity_summaries (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                healthkit_profile_id TEXT NOT NULL,
+                date_components TEXT NOT NULL,
+                active_energy_burned REAL,
+                active_energy_burned_goal REAL,
+                active_energy_burned_unit TEXT,
+                apple_move_time REAL,
+                apple_move_time_goal REAL,
+                apple_exercise_time REAL,
+                apple_exercise_time_goal REAL,
+                apple_stand_hours REAL,
+                apple_stand_hours_goal REAL,
+                raw_summary_data TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
+                FOREIGN KEY (healthkit_profile_id) REFERENCES healthkit_profiles (id) ON DELETE CASCADE
+            )",
+                (),
+            )
+            .await?;
+
+        // Create healthkit_clinical_records table for clinical health records
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS healthkit_clinical_records (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                healthkit_profile_id TEXT NOT NULL,
+                clinical_type TEXT NOT NULL,
+                identifier TEXT,
+                source_name TEXT,
+                source_url TEXT,
+                fhir_resource_type TEXT,
+                fhir_resource_data TEXT,
+                start_date DATETIME,
+                end_date DATETIME,
+                raw_clinical_data TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
+                FOREIGN KEY (healthkit_profile_id) REFERENCES healthkit_profiles (id) ON DELETE CASCADE
+            )",
+                (),
+            )
+            .await?;
+
+        // Create healthkit_correlations table for correlated health data
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS healthkit_correlations (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                healthkit_profile_id TEXT NOT NULL,
+                correlation_type TEXT NOT NULL,
+                source_name TEXT,
+                start_date DATETIME NOT NULL,
+                end_date DATETIME NOT NULL,
+                objects TEXT,
+                metadata TEXT,
+                raw_correlation_data TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
+                FOREIGN KEY (healthkit_profile_id) REFERENCES healthkit_profiles (id) ON DELETE CASCADE
+            )",
+                (),
+            )
+            .await?;
+
+        // Create indexes for HealthKit tables
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_healthkit_profiles_user_id ON healthkit_profiles(user_id)", ()).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_healthkit_records_profile ON healthkit_records(healthkit_profile_id)", ()).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_healthkit_records_type ON healthkit_records(record_type)", ()).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_healthkit_records_date ON healthkit_records(start_date)", ()).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_healthkit_workouts_profile ON healthkit_workouts(healthkit_profile_id)", ()).await?;
+        self.connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_healthkit_activity_profile ON healthkit_activity_summaries(healthkit_profile_id)", ()).await?;
+
+        // HARDCODED_SCHEMA: 70 tables - update if schema changes (58 + 6 LinkedIn + 6 HealthKit)
+        info!("Unified database schema initialization completed (70 tables)");
         Ok(())
     }
 
@@ -3982,7 +4149,8 @@ mod tests {
         let row = rows.next().await.unwrap().unwrap();
         let count: i64 = row.get(0).unwrap();
         // HARDCODED_SCHEMA: 64 tables - update if schema changes (58 + 6 LinkedIn)
-        assert_eq!(count, 64, "Schema should contain exactly 64 tables");
+        // HARDCODED_SCHEMA: 70 tables (58 + 6 LinkedIn + 6 HealthKit)
+        assert_eq!(count, 70, "Schema should contain exactly 70 tables");
     }
 
     /// Test that critical tables exist in the schema
@@ -4013,6 +4181,13 @@ mod tests {
             "linkedin_skills",
             "linkedin_certifications",
             "linkedin_languages",
+            // HealthKit tables (H1: Multi-Source Integration)
+            "healthkit_profiles",
+            "healthkit_records",
+            "healthkit_workouts",
+            "healthkit_activity_summaries",
+            "healthkit_clinical_records",
+            "healthkit_correlations",
         ];
 
         for table in critical_tables {
