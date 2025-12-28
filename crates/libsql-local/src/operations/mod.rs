@@ -2,7 +2,8 @@
 //!
 //! Module structure (REFACTORING IN PROGRESS):
 //! - mod.rs (this file): Module exports
-//! - user.rs: User profile and preferences operations
+//! - profile.rs: User profile operations ✅ EXTRACTED
+//! - user.rs: User preferences operations
 //! - financial.rs: Account and transaction operations
 //! - report.rs: Financial report operations
 //! - file.rs: File upload operations
@@ -17,6 +18,7 @@
 
 // Operation submodules - extracted from lib.rs LocalClient impl block
 pub mod conversation;
+pub mod profile;
 pub mod webhook;
 pub mod workflow;
 
