@@ -8,19 +8,21 @@
 //! - file.rs: File upload operations
 //! - conversation.rs: AI conversation operations
 //! - workflow.rs: Workflow and scoring model operations
-//! - webhook.rs: Webhook event operations
+//! - webhook.rs: Webhook event operations ✅ EXTRACTED
 //!
 //! NOTE: Operations are currently defined in lib.rs LocalClient impl block.
 //! This module will contain extracted operations once refactoring is complete.
 //!
 //! COMPLIANCE: §10 Unified Database Schema Architecture
 
-// Operation submodules will be added as methods are extracted from lib.rs
+// Operation submodules - extracted from lib.rs LocalClient impl block
+pub mod webhook;
+
+// Remaining operations still in lib.rs (to be extracted):
 // pub mod user;
 // pub mod financial;
 // pub mod report;
 // pub mod file;
 // pub mod conversation;
 // pub mod workflow;
-// pub mod webhook;
 
