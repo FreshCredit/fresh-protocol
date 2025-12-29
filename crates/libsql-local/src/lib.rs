@@ -3040,8 +3040,8 @@ mod tests {
 
         let row = rows.next().await.unwrap().unwrap();
         let count: i64 = row.get(0).unwrap();
-        // HARDCODED_SCHEMA: 79 tables (58 + 6 LinkedIn + 6 HealthKit + 3 Correlation + 6 Apple Music)
-        assert_eq!(count, 79, "Schema should contain exactly 79 tables");
+        // HARDCODED_SCHEMA: 83 tables (62 + 6 LinkedIn + 6 HealthKit + 3 Correlation + 6 Apple Music)
+        assert_eq!(count, 83, "Schema should contain exactly 83 tables");
     }
 
     /// Test that critical tables exist in the schema
