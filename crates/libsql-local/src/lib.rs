@@ -185,9 +185,34 @@ impl LocalClient {
         &self.connection
     }
 
-    /// Initialize database schema using production schema
+    /// Initialize database schema using modular schema definitions
+    ///
+    /// This function delegates to the schema module for table creation.
+    /// All table definitions are in `schema/` submodules for maintainability.
+    ///
+    /// HARDCODED_SCHEMA: 79 tables total across all modules
+    /// See `schema/mod.rs` for the complete table inventory.
     pub async fn initialize_schema(&self) -> Result<()> {
-        info!("Initializing local database schema with production schema");
+        info!("Initializing local database schema with modular schema definitions");
+
+        // Delegate to the modular schema initialization
+        schema::initialize_all_schema_tables(&self.connection).await?;
+
+        // HARDCODED_SCHEMA: 79 tables - update if schema changes
+        info!("Unified database schema initialization completed (79 tables)");
+        Ok(())
+    }
+
+    /// Initialize database schema using legacy inline SQL (deprecated)
+    ///
+    /// This function is preserved for reference and testing purposes.
+    /// New code should use `initialize_schema()` which delegates to modular schema definitions.
+    ///
+    /// DEPRECATED: Use initialize_schema() instead
+    #[deprecated(since = "0.2.0", note = "Use initialize_schema() instead")]
+    #[allow(dead_code)]
+    pub async fn initialize_schema_legacy(&self) -> Result<()> {
+        info!("Initializing local database schema with legacy inline SQL");
 
         // Enable foreign key constraints first
         self.connection
