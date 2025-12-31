@@ -253,4 +253,132 @@ mod tests {
         assert_eq!(retrieved.email, "test@example.com");
         assert_eq!(retrieved.role, "consumer");
     }
+
+    /// Test query execution returns rows
+    #[tokio::test]
+    async fn test_query_execution() {
+        let client = LocalClient::new_in_memory().await.unwrap();
+        client.initialize_schema().await.unwrap();
+
+        let mut rows = client
+            .query("SELECT 1 as value", vec![])
+            .await
+            .unwrap();
+
+        let row = rows.next().await.unwrap().unwrap();
+        let value: i64 = row.get(0).unwrap();
+        assert_eq!(value, 1);
+    }
+
+    /// Test execute returns affected rows
+    #[tokio::test]
+    async fn test_execute_returns_rows_affected() {
+        let client = LocalClient::new_in_memory().await.unwrap();
+        client.initialize_schema().await.unwrap();
+
+        // Create a simple test table without foreign key constraints
+        client
+            .execute(
+                "CREATE TABLE IF NOT EXISTS test_execute_table (id TEXT PRIMARY KEY, value TEXT)",
+                vec![],
+            )
+            .await
+            .unwrap();
+
+        // Insert a test row
+        let result = client
+            .execute(
+                "INSERT INTO test_execute_table (id, value) VALUES ('test-id', 'test-value')",
+                vec![],
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(result, 1); // 1 row affected
+    }
+
+    /// Test schema idempotency - running initialize twice should not error
+    #[tokio::test]
+    async fn test_schema_initialization_idempotent() {
+        let client = LocalClient::new_in_memory().await.unwrap();
+
+        // Initialize twice
+        client.initialize_schema().await.unwrap();
+        client.initialize_schema().await.unwrap();
+
+        // Verify schema still valid
+        let mut rows = client
+            .query(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table'",
+                vec![],
+            )
+            .await
+            .unwrap();
+
+        let row = rows.next().await.unwrap().unwrap();
+        let count: i64 = row.get(0).unwrap();
+        assert!(count > 0);
+    }
+
+    /// Test user profile update
+    #[tokio::test]
+    async fn test_user_profile_update() {
+        let client = LocalClient::new_in_memory().await.unwrap();
+        client.initialize_schema().await.unwrap();
+
+        let now = chrono::Utc::now().to_rfc3339();
+        let mut profile = UserProfile {
+            id: "update-test-user".to_string(),
+            platform_user_id: "platform-update-123".to_string(),
+            azure_id: "azure-update-123".to_string(),
+            email: "update@example.com".to_string(),
+            display_name: "Original Name".to_string(),
+            given_name: None,
+            family_name: None,
+            surname: None,
+            mobile_phone: None,
+            job_title: None,
+            street_address: None,
+            city: None,
+            state_province: None,
+            postal_code: None,
+            country_region: None,
+            date_of_birth: None,
+            ssn_last_four: None,
+            employment_status: None,
+            annual_income: None,
+            role: "consumer".to_string(),
+            is_admin: false,
+            provider_onboarding_complete: false,
+            tenant_id: "tenant".to_string(),
+            object_id: "object".to_string(),
+            verified_id_credential_id: None,
+            verified_id_status: "pending".to_string(),
+            verified_id_issued_at: None,
+            created_at: now.clone(),
+            updated_at: now.clone(),
+        };
+
+        // Store initial profile
+        client.store_user_profile(&profile).await.unwrap();
+
+        // Update and store again
+        profile.display_name = "Updated Name".to_string();
+        profile.updated_at = chrono::Utc::now().to_rfc3339();
+        client.store_user_profile(&profile).await.unwrap();
+
+        // Verify update
+        let retrieved = client.get_user_profile("platform-update-123").await.unwrap().unwrap();
+        assert_eq!(retrieved.display_name, "Updated Name");
+    }
+
+    /// Test user profile not found
+    #[tokio::test]
+    async fn test_user_profile_not_found() {
+        let client = LocalClient::new_in_memory().await.unwrap();
+        client.initialize_schema().await.unwrap();
+
+        let result = client.get_user_profile("nonexistent-user").await.unwrap();
+        assert!(result.is_none());
+    }
 }
