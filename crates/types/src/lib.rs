@@ -167,6 +167,144 @@ pub enum FreshCreditError {
     InternalError(String),
 }
 
+/// RFC 7807 Problem Details for HTTP APIs
+/// <https://datatracker.ietf.org/doc/html/rfc7807>
+///
+/// This standardized error format provides machine-readable error responses
+/// with optional human-readable descriptions.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProblemDetails {
+    /// A URI reference that identifies the problem type (RFC 7807 §3.1)
+    /// Example: "https://freshcredit.com/problems/validation-error"
+    #[serde(rename = "type")]
+    pub problem_type: String,
+
+    /// A short, human-readable summary of the problem type (RFC 7807 §3.1)
+    pub title: String,
+
+    /// The HTTP status code (RFC 7807 §3.1)
+    pub status: u16,
+
+    /// A human-readable explanation of this specific problem (RFC 7807 §3.1)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
+
+    /// A URI reference that identifies the specific occurrence (RFC 7807 §3.1)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub instance: Option<String>,
+
+    /// Additional context about the error (extension member)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub context: Option<serde_json::Value>,
+
+    /// Request ID for tracing (extension member)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub request_id: Option<String>,
+}
+
+impl ProblemDetails {
+    /// Create a new ProblemDetails with required fields
+    pub fn new(problem_type: &str, title: &str, status: u16) -> Self {
+        Self {
+            problem_type: problem_type.to_string(),
+            title: title.to_string(),
+            status,
+            detail: None,
+            instance: None,
+            context: None,
+            request_id: None,
+        }
+    }
+
+    /// Create a validation error (400 Bad Request)
+    pub fn validation_error(detail: &str) -> Self {
+        Self::new(
+            "https://freshcredit.com/problems/validation-error",
+            "Validation Error",
+            400,
+        )
+        .with_detail(detail)
+    }
+
+    /// Create an authentication error (401 Unauthorized)
+    pub fn unauthorized(detail: &str) -> Self {
+        Self::new(
+            "https://freshcredit.com/problems/unauthorized",
+            "Unauthorized",
+            401,
+        )
+        .with_detail(detail)
+    }
+
+    /// Create an authorization error (403 Forbidden)
+    pub fn forbidden(detail: &str) -> Self {
+        Self::new(
+            "https://freshcredit.com/problems/forbidden",
+            "Forbidden",
+            403,
+        )
+        .with_detail(detail)
+    }
+
+    /// Create a not found error (404 Not Found)
+    pub fn not_found(detail: &str) -> Self {
+        Self::new(
+            "https://freshcredit.com/problems/not-found",
+            "Not Found",
+            404,
+        )
+        .with_detail(detail)
+    }
+
+    /// Create an internal server error (500 Internal Server Error)
+    pub fn internal_error(detail: &str) -> Self {
+        Self::new(
+            "https://freshcredit.com/problems/internal-error",
+            "Internal Server Error",
+            500,
+        )
+        .with_detail(detail)
+    }
+
+    /// Add detail to the problem
+    pub fn with_detail(mut self, detail: &str) -> Self {
+        self.detail = Some(detail.to_string());
+        self
+    }
+
+    /// Add instance URI to the problem
+    pub fn with_instance(mut self, instance: &str) -> Self {
+        self.instance = Some(instance.to_string());
+        self
+    }
+
+    /// Add context to the problem
+    pub fn with_context(mut self, context: serde_json::Value) -> Self {
+        self.context = Some(context);
+        self
+    }
+
+    /// Add request ID for tracing
+    pub fn with_request_id(mut self, request_id: &str) -> Self {
+        self.request_id = Some(request_id.to_string());
+        self
+    }
+}
+
+impl From<FreshCreditError> for ProblemDetails {
+    fn from(error: FreshCreditError) -> Self {
+        match error {
+            FreshCreditError::ValidationError(msg) => Self::validation_error(&msg),
+            FreshCreditError::DatabaseError(msg) => Self::internal_error(&msg),
+            FreshCreditError::ExternalApiError(msg) => Self::internal_error(&msg),
+            FreshCreditError::AuthenticationError(msg) => Self::unauthorized(&msg),
+            FreshCreditError::AuthorizationError(msg) => Self::forbidden(&msg),
+            FreshCreditError::NotFoundError(msg) => Self::not_found(&msg),
+            FreshCreditError::InternalError(msg) => Self::internal_error(&msg),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -283,5 +421,96 @@ mod tests {
         let parsed: Account = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed.balance, Some(1000.50));
         assert!(matches!(parsed.account_type, AccountType::Savings));
+    }
+
+    #[test]
+    fn test_problem_details_new() {
+        let problem = ProblemDetails::new(
+            "https://freshcredit.com/problems/test",
+            "Test Error",
+            400,
+        );
+        assert_eq!(problem.problem_type, "https://freshcredit.com/problems/test");
+        assert_eq!(problem.title, "Test Error");
+        assert_eq!(problem.status, 400);
+        assert!(problem.detail.is_none());
+    }
+
+    #[test]
+    fn test_problem_details_validation_error() {
+        let problem = ProblemDetails::validation_error("Email is required");
+        assert_eq!(problem.status, 400);
+        assert_eq!(problem.title, "Validation Error");
+        assert_eq!(problem.detail, Some("Email is required".to_string()));
+    }
+
+    #[test]
+    fn test_problem_details_unauthorized() {
+        let problem = ProblemDetails::unauthorized("Invalid token");
+        assert_eq!(problem.status, 401);
+        assert_eq!(problem.title, "Unauthorized");
+    }
+
+    #[test]
+    fn test_problem_details_forbidden() {
+        let problem = ProblemDetails::forbidden("Access denied");
+        assert_eq!(problem.status, 403);
+        assert_eq!(problem.title, "Forbidden");
+    }
+
+    #[test]
+    fn test_problem_details_not_found() {
+        let problem = ProblemDetails::not_found("User not found");
+        assert_eq!(problem.status, 404);
+        assert_eq!(problem.title, "Not Found");
+    }
+
+    #[test]
+    fn test_problem_details_internal_error() {
+        let problem = ProblemDetails::internal_error("Database connection failed");
+        assert_eq!(problem.status, 500);
+        assert_eq!(problem.title, "Internal Server Error");
+    }
+
+    #[test]
+    fn test_problem_details_with_context() {
+        let problem = ProblemDetails::validation_error("Invalid field")
+            .with_context(serde_json::json!({
+                "field": "email",
+                "reason": "invalid_format"
+            }))
+            .with_request_id("req_12345");
+
+        assert!(problem.context.is_some());
+        assert_eq!(problem.request_id, Some("req_12345".to_string()));
+    }
+
+    #[test]
+    fn test_problem_details_serialization() {
+        let problem = ProblemDetails::validation_error("Email is required")
+            .with_instance("/api/v1/users/123");
+
+        let json = serde_json::to_string(&problem).unwrap();
+        assert!(json.contains("\"type\":\"https://freshcredit.com/problems/validation-error\""));
+        assert!(json.contains("\"title\":\"Validation Error\""));
+        assert!(json.contains("\"status\":400"));
+        assert!(json.contains("\"detail\":\"Email is required\""));
+        assert!(json.contains("\"instance\":\"/api/v1/users/123\""));
+    }
+
+    #[test]
+    fn test_problem_details_from_freshcredit_error() {
+        let error = FreshCreditError::ValidationError("Invalid input".to_string());
+        let problem: ProblemDetails = error.into();
+        assert_eq!(problem.status, 400);
+        assert_eq!(problem.detail, Some("Invalid input".to_string()));
+
+        let error = FreshCreditError::NotFoundError("User not found".to_string());
+        let problem: ProblemDetails = error.into();
+        assert_eq!(problem.status, 404);
+
+        let error = FreshCreditError::AuthenticationError("Token expired".to_string());
+        let problem: ProblemDetails = error.into();
+        assert_eq!(problem.status, 401);
     }
 }
