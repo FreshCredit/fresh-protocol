@@ -2,8 +2,23 @@
 //!
 //! This module provides tools to detect schema drift between staging, local, and cloud databases.
 //! It ensures all three database types maintain the same schema structure.
+//!
+//! ## Schema Sources
+//! - Rust schema definitions: `crates/db/libsql/local/src/schema/*.rs`
+//! - SQL migration file: `migrations/unified_schema.sql`
+//! - Turso cloud database: `freshcredit-unified-schema-v1`
+//!
+//! ## Usage
+//! Run the validator binary: `cargo run --bin validate-schema`
+//! Or use the library programmatically in tests.
 
 use anyhow::Result;
+
+// Re-export test utilities for external tests
+pub mod tests;
+pub use tests::schema_sync_test::{
+    compare_schemas, load_migration_schema, parse_sql_schema, SchemaColumn, TableDef,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use tracing::info;

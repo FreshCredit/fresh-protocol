@@ -17,7 +17,12 @@ tracing-subscriber = "0.3"
 chrono = { version = "0.4", features = ["serde"] }
 thiserror = "2.0"
 tokio = { version = "1", features = ["full"] }
+regex = "1.10"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }
+
+[features]
+default = []
+schema-sync-tests = []
 
