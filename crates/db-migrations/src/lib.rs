@@ -66,7 +66,9 @@ impl MigrationRunner {
             let entry = entry?;
             let path = entry.path();
             if path.extension().map(|e| e == "sql").unwrap_or(false) {
-                let filename = path.file_stem().unwrap().to_string_lossy();
+                let filename = path.file_stem()
+                    .ok_or_else(|| anyhow::anyhow!("Invalid filename: {:?}", path))?
+                    .to_string_lossy();
                 if filename.ends_with(".up") {
                     let (version, name) = parse_migration_filename(&filename.replace(".up", ""))?;
                     let sql = std::fs::read_to_string(&path)?;

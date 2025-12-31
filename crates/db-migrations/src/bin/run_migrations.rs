@@ -75,7 +75,8 @@ async fn main() -> Result<()> {
         if current.join("migrations").exists() {
             current.join("migrations")
         } else if current.parent().map(|p| p.join("migrations").exists()).unwrap_or(false) {
-            current.parent().unwrap().join("migrations")
+            // Safe: we just checked parent exists in the condition above
+            current.parent().expect("parent checked above").join("migrations")
         } else {
             // Check from workspace root
             let workspace_root = current.ancestors()
