@@ -199,7 +199,8 @@ impl SchemaCategory {
 /// - Correlation: 3 tables (correlation_preferences, etc.)
 /// - Platform: 4 tables (data_approval_hashes, referrals, etc.)
 ///
-/// HARDCODED_SCHEMA: 79 tables total across all modules
+/// HARDCODED_SCHEMA: 83 unique tables total across all modules (verified 2025-12-31)
+/// Note: Some tables appear in multiple modules but SQLite IF NOT EXISTS handles deduplication.
 pub async fn initialize_all_schema_tables(conn: &Connection) -> Result<()> {
     // Enable foreign key constraints first
     conn.execute("PRAGMA foreign_keys = ON", ()).await?;

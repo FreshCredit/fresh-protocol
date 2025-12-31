@@ -1,8 +1,8 @@
 //! Local LibSQL database operations for FreshCredit
 //!
 //! This module implements the unified database schema for FreshCredit,
-//! // HARDCODED_SCHEMA: 79 tables - update if schema changes (58 + 6 LinkedIn + 6 HealthKit + 3 Correlation + 6 Apple Music)
-//! containing 79 tables that support:
+//! // HARDCODED_SCHEMA: 83 tables in Rust modular schema, 84 in unified_schema.sql (+1 browser-specific blockchain_proofs)
+//! containing 83 tables that support:
 //! - User profile and authentication (Entra ID + Verified ID)
 //! - All 11 Plaid products (Accounts, Transactions, Auth, Identity, etc.)
 //! - Payment processing (Stripe Connect ACH)
@@ -190,7 +190,7 @@ impl LocalClient {
     /// This function delegates to the schema module for table creation.
     /// All table definitions are in `schema/` submodules for maintainability.
     ///
-    /// HARDCODED_SCHEMA: 79 tables total across all modules
+    /// HARDCODED_SCHEMA: 83 tables total across all modules (verified 2025-12-31)
     /// See `schema/mod.rs` for the complete table inventory.
     pub async fn initialize_schema(&self) -> Result<()> {
         info!("Initializing local database schema with modular schema definitions");
@@ -198,8 +198,8 @@ impl LocalClient {
         // Delegate to the modular schema initialization
         schema::initialize_all_schema_tables(&self.connection).await?;
 
-        // HARDCODED_SCHEMA: 79 tables - update if schema changes
-        info!("Unified database schema initialization completed (79 tables)");
+        // HARDCODED_SCHEMA: 83 tables in Rust modular schema
+        info!("Unified database schema initialization completed (83 tables)");
         Ok(())
     }
 
@@ -2860,8 +2860,8 @@ impl LocalClient {
         self.connection.execute(
             "CREATE INDEX IF NOT EXISTS idx_apple_music_genre_stats_user ON apple_music_genre_stats(user_id)", ()).await?;
 
-        // HARDCODED_SCHEMA: 79 tables - update if schema changes (58 + 6 LinkedIn + 6 HealthKit + 3 Correlation + 6 Apple Music)
-        info!("Unified database schema initialization completed (79 tables)");
+        // HARDCODED_SCHEMA: 79 tables in legacy inline schema (DEPRECATED - use modular schema/*.rs which has 83 tables)
+        info!("Legacy inline schema initialization completed (79 tables - DEPRECATED)");
         Ok(())
     }
 
@@ -3022,8 +3022,8 @@ impl WebhookEventCounts {
 mod tests {
     use super::*;
 
-    /// Test that the schema contains exactly 79 tables as documented
-    /// HARDCODED_SCHEMA: 79 tables - update if schema changes (58 + 6 LinkedIn + 6 HealthKit + 3 Correlation + 6 Apple Music)
+    /// Test that the schema contains exactly 83 tables as documented
+    /// HARDCODED_SCHEMA: 83 unique tables in modular schema (verified 2025-12-31)
     #[tokio::test]
     async fn test_schema_table_count() {
         let client = LocalClient::new_in_memory().await.unwrap();
