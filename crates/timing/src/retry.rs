@@ -139,6 +139,44 @@ impl<S: RetryStrategy> RetryExecutor<S> {
     }
 }
 
+/// Convenience wrapper for database operations with default retry logic
+///
+/// # Example
+/// ```ignore
+/// let result = with_retry(|| async {
+///     db.query("SELECT * FROM users WHERE id = ?", params![user_id]).await
+/// }).await?;
+/// ```
+pub async fn with_retry<F, Fut, T, E>(operation: F) -> Result<T, E>
+where
+    F: FnMut() -> Fut,
+    Fut: std::future::Future<Output = Result<T, E>>,
+{
+    let executor = RetryExecutor::new(ExponentialBackoff::default());
+    executor.execute(operation).await
+}
+
+/// Convenience wrapper with custom max attempts
+///
+/// # Example
+/// ```ignore
+/// let result = with_retry_attempts(5, || async {
+///     external_api.call().await
+/// }).await?;
+/// ```
+pub async fn with_retry_attempts<F, Fut, T, E>(max_attempts: u32, operation: F) -> Result<T, E>
+where
+    F: FnMut() -> Fut,
+    Fut: std::future::Future<Output = Result<T, E>>,
+{
+    let strategy = ExponentialBackoff {
+        max_attempts,
+        ..Default::default()
+    };
+    let executor = RetryExecutor::new(strategy);
+    executor.execute(operation).await
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
