@@ -77,13 +77,15 @@ impl BusinessDayCalendar {
         let result_date = self.add_business_days(start_date, days as i32);
 
         // Preserve the time component
+        // Safe: 0,0,0 is always a valid time; Utc is unambiguous timezone
         start
             .with_timezone(&chrono::Utc)
             .date_naive()
             .and_hms_opt(0, 0, 0)
-            .unwrap()
+            .expect("midnight is always valid")
             .and_local_timezone(chrono::Utc)
-            .unwrap()
+            .single()
+            .expect("UTC is unambiguous")
             + chrono::Duration::days((result_date - start_date).num_days())
     }
 
