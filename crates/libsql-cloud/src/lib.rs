@@ -1,7 +1,7 @@
 //! Cloud LibSQL (Turso) database operations for FreshCredit
 //!
-//! // HARDCODED_SCHEMA: 84 tables in unified_schema.sql (83 Rust + 1 browser-specific blockchain_proofs)
-//! Uses the unified 84-table schema from migrations/unified_schema.sql.
+//! // HARDCODED_SCHEMA: 87 tables in unified_schema.sql (86 Rust + 1 browser-specific blockchain_proofs) (verified 2026-01-02)
+//! Uses the unified 87-table schema from migrations/unified_schema.sql.
 //! Cloud databases are per-user Turso instances with identical schema to local.
 
 use anyhow::Result;
@@ -9,7 +9,7 @@ use freshcredit_types::{Account, FinancialReport, FreshCreditResult, Transaction
 use tracing::info;
 
 /// Unified schema SQL embedded at compile time
-/// // HARDCODED_SCHEMA: 84 tables (verified 2025-12-31)
+/// // HARDCODED_SCHEMA: 87 tables (verified 2026-01-02)
 /// Source: migrations/unified_schema.sql
 const UNIFIED_SCHEMA_SQL: &str = include_str!("../../../../../migrations/unified_schema.sql");
 
@@ -32,9 +32,9 @@ impl CloudClient {
     }
 
     /// Initialize cloud database schema using unified schema
-    /// // HARDCODED_SCHEMA: 84 tables (verified 2025-12-31)
+    /// // HARDCODED_SCHEMA: 87 tables (verified 2026-01-02)
     pub async fn initialize_schema(&self) -> Result<()> {
-        info!("Initializing cloud database with unified schema (84 tables)");
+        info!("Initializing cloud database with unified schema (87 tables)");
 
         // Check if schema already exists by looking for key tables
         let key_tables = vec!["user_profile", "accounts", "transactions", "reports"];

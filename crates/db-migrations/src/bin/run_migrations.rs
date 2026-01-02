@@ -87,18 +87,18 @@ async fn main() -> Result<()> {
         }
     };
 
-    println!("📁 Migrations directory: {:?}", mig_dir);
+    println!("📁 Migrations directory: {mig_dir:?}");
 
     // Build database connection
     let conn = if let Some(path) = local_path {
-        println!("📦 Connecting to local database: {}", path);
+        println!("📦 Connecting to local database: {path}");
         let db = libsql::Builder::new_local(&path).build().await?;
         db.connect()?
     } else if let Some(url) = cloud_url {
         let token = auth_token.unwrap_or_else(|| {
             env::var("TURSO_AUTH_TOKEN").unwrap_or_default()
         });
-        println!("☁️  Connecting to cloud database: {}", url);
+        println!("☁️  Connecting to cloud database: {url}");
         let db = libsql::Builder::new_remote(url, token).build().await?;
         db.connect()?
     } else {

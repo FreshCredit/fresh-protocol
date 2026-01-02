@@ -76,7 +76,7 @@ impl TursoUrlBuilder {
     /// - Truncates to 28 characters
     pub fn user_database_name(&self, user_id: &str) -> String {
         let sanitized = self.sanitize_user_id(user_id);
-        format!("user-{}", sanitized)
+        format!("user-{sanitized}")
     }
 
     /// Generate the full Turso URL for a user's database.

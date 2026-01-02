@@ -188,7 +188,7 @@ impl SchemaCategory {
 /// - Workflow: 1 table (workflows)
 /// - Webhook: 2 tables (webhook_events, notifications)
 /// - Plaid: 20 tables (items, accounts, identities, assets, etc.)
-/// - Payments: 5 tables (customers, funding_sources, payments, etc.)
+/// - Payments: 8 tables (customers, funding_sources, payments, crypto_wallets, crypto_payments, arc_receipts, etc.)
 /// - Reports: 8 tables (reports, scores, offers, disputes, etc.)
 /// - Ticketing: 4 tables (tickets, ticket_comments, etc.)
 /// - Compliance: 4 tables (compliance_scans, compliance_rules, etc.)
@@ -199,7 +199,8 @@ impl SchemaCategory {
 /// - Correlation: 3 tables (correlation_preferences, etc.)
 /// - Platform: 4 tables (data_approval_hashes, referrals, etc.)
 ///
-/// HARDCODED_SCHEMA: 83 unique tables total across all modules (verified 2025-12-31)
+/// HARDCODED_SCHEMA: 86 unique tables total across all modules (verified 2026-01-02)
+/// Added: crypto_wallets, crypto_payments, arc_receipts
 /// Note: Some tables appear in multiple modules but SQLite IF NOT EXISTS handles deduplication.
 pub async fn initialize_all_schema_tables(conn: &Connection) -> Result<()> {
     // Enable foreign key constraints first

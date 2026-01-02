@@ -8,6 +8,7 @@
 //! - virtual_accounts: Virtual account numbers
 //! - crypto_wallets: User crypto wallet connections (WalletConnect/Circle)
 //! - crypto_payments: Crypto payment transactions with Arc settlement
+//! - arc_receipts: Circle Arc L1 settlement receipts (gated by Substrate L0)
 //!
 //! COMPLIANCE: §10 Unified Database Schema Architecture
 //! COMPLIANCE: §1 Money, Custody, and Transactions - NO internal wallets or balances
@@ -254,6 +255,77 @@ pub async fn initialize_payment_tables(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_crypto_payments_tx_hash
          ON crypto_payments(tx_hash)",
+        (),
+    )
+    .await?;
+
+    // Arc receipts - L1 settlement receipts on Circle Arc
+    // COMPLIANCE: §1 - Arc is receipt layer, NOT payment processing
+    // All receipts are gated by Substrate L0 verification (substrate_hash required)
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS arc_receipts (
+            id TEXT PRIMARY KEY,
+            -- Receipt type: CONSENT_GRANTED, REPORT_ACCESSED, ESCROW_CREATED, SETTLEMENT_COMPLETED, REFUND_ISSUED
+            receipt_type TEXT NOT NULL,
+            -- Arc transaction hash (the on-chain receipt)
+            arc_tx_hash TEXT UNIQUE,
+            -- Arc block number where receipt was included
+            arc_block_number INTEGER,
+            -- Substrate anchor hash (L0 verification - REQUIRED)
+            substrate_hash TEXT NOT NULL,
+            -- Substrate block number
+            substrate_block_number INTEGER NOT NULL,
+            -- User who initiated the action
+            user_id TEXT,
+            -- Provider involved (if applicable)
+            provider_id TEXT,
+            -- Related deal/transaction ID
+            deal_id TEXT,
+            -- Amount in cents (for payment-related receipts)
+            amount_cents INTEGER,
+            -- Gas used for the Arc transaction
+            gas_used TEXT,
+            -- Receipt status: pending, queued, written, failed
+            status TEXT NOT NULL DEFAULT 'pending',
+            -- Error message if failed
+            failure_reason TEXT,
+            -- Retry count for failed receipts
+            retry_count INTEGER DEFAULT 0,
+            -- Next retry time (for exponential backoff)
+            next_retry_at DATETIME,
+            -- Optional metadata (JSON)
+            metadata TEXT,
+            -- Timestamps
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            written_at DATETIME,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE SET NULL
+        )",
+        (),
+    )
+    .await?;
+
+    // Index for Arc receipt lookups
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_arc_receipts_user_id ON arc_receipts(user_id)",
+        (),
+    )
+    .await?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_arc_receipts_substrate_hash ON arc_receipts(substrate_hash)",
+        (),
+    )
+    .await?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_arc_receipts_status ON arc_receipts(status)",
+        (),
+    )
+    .await?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_arc_receipts_receipt_type ON arc_receipts(receipt_type)",
         (),
     )
     .await?;

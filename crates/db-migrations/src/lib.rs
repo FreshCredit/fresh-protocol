@@ -55,7 +55,7 @@ impl MigrationRunner {
     /// Load migrations from a directory
     pub fn load_migrations_from_dir(&mut self, dir: &Path) -> Result<()> {
         if !dir.exists() {
-            return Err(anyhow::anyhow!("Migration directory not found: {:?}", dir));
+            return Err(anyhow::anyhow!("Migration directory not found: {dir:?}"));
         }
 
         let entries = std::fs::read_dir(dir)?;
@@ -67,7 +67,7 @@ impl MigrationRunner {
             let path = entry.path();
             if path.extension().map(|e| e == "sql").unwrap_or(false) {
                 let filename = path.file_stem()
-                    .ok_or_else(|| anyhow::anyhow!("Invalid filename: {:?}", path))?
+                    .ok_or_else(|| anyhow::anyhow!("Invalid filename: {path:?}"))?
                     .to_string_lossy();
                 if filename.ends_with(".up") {
                     let (version, name) = parse_migration_filename(&filename.replace(".up", ""))?;
@@ -150,7 +150,7 @@ impl MigrationRunner {
             if !applied_versions.contains(version) {
                 info!("Applying migration {}: {}", version, migration.name);
                 self.apply_migration(migration).await
-                    .with_context(|| format!("Failed to apply migration {}", version))?;
+                    .with_context(|| format!("Failed to apply migration {version}"))?;
                 applied_now.push(*version);
             }
         }
@@ -192,12 +192,12 @@ impl MigrationRunner {
         let migration = self
             .migrations
             .get(&version)
-            .ok_or_else(|| anyhow::anyhow!("Migration {} not found", version))?;
+            .ok_or_else(|| anyhow::anyhow!("Migration {version} not found"))?;
 
         let down_sql = migration
             .down_sql
             .as_ref()
-            .ok_or_else(|| anyhow::anyhow!("No down migration for version {}", version))?;
+            .ok_or_else(|| anyhow::anyhow!("No down migration for version {version}"))?;
 
         info!("Rolling back migration {}: {}", version, migration.name);
 
@@ -247,8 +247,7 @@ fn parse_migration_filename(filename: &str) -> Result<(i64, String)> {
     let parts: Vec<&str> = filename.splitn(2, '_').collect();
     if parts.len() != 2 {
         return Err(anyhow::anyhow!(
-            "Invalid migration filename format: {}. Expected: {{version}}_{{name}}",
-            filename
+            "Invalid migration filename format: {filename}. Expected: {{version}}_{{name}}"
         ));
     }
     let version: i64 = parts[0]
