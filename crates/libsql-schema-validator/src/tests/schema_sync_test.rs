@@ -134,8 +134,7 @@ pub fn compare_schemas(
     for table_name in source.keys() {
         if !target.contains_key(table_name) {
             differences.push(format!(
-                "Table '{}' exists in {} but not in {}",
-                table_name, source_name, target_name
+                "Table '{table_name}' exists in {source_name} but not in {target_name}"
             ));
         }
     }
@@ -149,8 +148,7 @@ pub fn compare_schemas(
             // Columns in source but not target
             for col in source_cols.difference(&target_cols) {
                 differences.push(format!(
-                    "Column '{}.{}' exists in {} but not in {}",
-                    table_name, col, source_name, target_name
+                    "Column '{table_name}.{col}' exists in {source_name} but not in {target_name}"
                 ));
             }
         }
