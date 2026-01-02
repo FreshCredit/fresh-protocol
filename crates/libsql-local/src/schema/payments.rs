@@ -56,9 +56,11 @@ pub async fn initialize_payment_tables(conn: &Connection) -> Result<()> {
             bank_name TEXT,
             bank_account_type TEXT,
             name TEXT,
+            last_four TEXT,
             status TEXT DEFAULT 'unverified',
             verification_type TEXT,
             is_default BOOLEAN DEFAULT FALSE,
+            is_active BOOLEAN DEFAULT TRUE,
             raw_funding_source_data TEXT NOT NULL,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -166,6 +168,8 @@ pub async fn initialize_payment_tables(conn: &Connection) -> Result<()> {
             label TEXT,
             -- Whether this is the default wallet for payments
             is_default BOOLEAN DEFAULT FALSE,
+            -- Whether this wallet is active (user can disable without deleting)
+            is_active BOOLEAN DEFAULT TRUE,
             -- Active/disconnected status
             status TEXT DEFAULT 'active',
             -- Last used timestamp for cleanup
