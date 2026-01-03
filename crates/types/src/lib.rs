@@ -172,6 +172,9 @@ pub enum FreshCreditError {
 ///
 /// This standardized error format provides machine-readable error responses
 /// with optional human-readable descriptions.
+///
+/// HARDCODED_URL: Problem type URIs use https://freshcredit.com/problems/* namespace
+/// per RFC 7807. Update all helper methods if domain changes.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProblemDetails {
     /// A URI reference that identifies the problem type (RFC 7807 §3.1)
