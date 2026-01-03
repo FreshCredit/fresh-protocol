@@ -7,6 +7,8 @@
 use anyhow::Result;
 use libsql::Connection;
 
+use super::try_create_index;
+
 /// Initialize identity-related tables
 pub async fn initialize_identity_tables(conn: &Connection) -> Result<()> {
     // Create identity_verification table for Plaid IDV (singular)
@@ -66,32 +68,12 @@ pub async fn initialize_identity_tables(conn: &Connection) -> Result<()> {
     )
     .await?;
 
-    // Create indexes for identity tables
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_identity_verification_user_id ON identity_verification(user_id)",
-        (),
-    )
-    .await?;
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_identity_verification_status ON identity_verification(status)",
-        (),
-    )
-    .await?;
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_verified_credentials_user_id ON verified_credentials(user_id)",
-        (),
-    )
-    .await?;
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_verified_credentials_did_uri ON verified_credentials(did_uri)",
-        (),
-    )
-    .await?;
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_verified_credentials_type ON verified_credentials(credential_type)",
-        (),
-    )
-    .await?;
+    // Create indexes for identity tables (using defensive helper for cloud schema compatibility)
+    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_identity_verification_user_id ON identity_verification(user_id)").await?;
+    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_identity_verification_status ON identity_verification(status)").await?;
+    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_verified_credentials_user_id ON verified_credentials(user_id)").await?;
+    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_verified_credentials_did_uri ON verified_credentials(did_uri)").await?;
+    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_verified_credentials_type ON verified_credentials(credential_type)").await?;
 
     Ok(())
 }

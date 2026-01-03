@@ -7,6 +7,8 @@
 use anyhow::Result;
 use libsql::Connection;
 
+use super::try_create_index;
+
 /// Initialize workflow-related tables
 pub async fn initialize_workflow_tables(conn: &Connection) -> Result<()> {
     // Create workflows table for BlockID workflows
@@ -41,22 +43,10 @@ pub async fn initialize_workflow_tables(conn: &Connection) -> Result<()> {
     )
     .await?;
 
-    // Create indexes for workflow tables
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_workflows_user_id ON workflows(user_id)",
-        (),
-    )
-    .await?;
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_workflows_status ON workflows(status)",
-        (),
-    )
-    .await?;
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_workflows_type ON workflows(workflow_type)",
-        (),
-    )
-    .await?;
+    // Create indexes for workflow tables (using defensive helper for cloud schema compatibility)
+    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_workflows_user_id ON workflows(user_id)").await?;
+    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_workflows_status ON workflows(status)").await?;
+    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_workflows_type ON workflows(workflow_type)").await?;
 
     Ok(())
 }

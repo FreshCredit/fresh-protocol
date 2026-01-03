@@ -13,6 +13,8 @@
 use anyhow::Result;
 use libsql::Connection;
 
+use super::try_create_index;
+
 /// Initialize core tables (user_profile and related)
 ///
 /// Creates 6 core tables: user_profile, user_preferences, auth_tokens,
@@ -172,14 +174,14 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
 
 /// Initialize core table indexes
 pub async fn initialize_core_indexes(conn: &Connection) -> Result<()> {
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_user_profile_email ON user_profile(email)", ()).await?;
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_user_profile_azure_id ON user_profile(azure_id)", ()).await?;
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_user_preferences_user ON user_preferences(user_id)", ()).await?;
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_api_keys_user_id ON api_keys(user_id)", ()).await?;
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_api_keys_key_prefix ON api_keys(key_prefix)", ()).await?;
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_webauthn_credentials_user_id ON webauthn_credentials(user_id)", ()).await?;
-    conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_webauthn_credentials_credential_id ON webauthn_credentials(credential_id)", ()).await?;
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_kilt_dids_did_uri ON kilt_dids(did_uri)", ()).await?;
+    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_user_profile_email ON user_profile(email)").await?;
+    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_user_profile_azure_id ON user_profile(azure_id)").await?;
+    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_user_preferences_user ON user_preferences(user_id)").await?;
+    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_api_keys_user_id ON api_keys(user_id)").await?;
+    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_api_keys_key_prefix ON api_keys(key_prefix)").await?;
+    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_webauthn_credentials_user_id ON webauthn_credentials(user_id)").await?;
+    try_create_index(conn, "CREATE UNIQUE INDEX IF NOT EXISTS idx_webauthn_credentials_credential_id ON webauthn_credentials(credential_id)").await?;
+    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_kilt_dids_did_uri ON kilt_dids(did_uri)").await?;
     Ok(())
 }
 

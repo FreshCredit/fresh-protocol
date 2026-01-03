@@ -18,6 +18,8 @@
 use anyhow::Result;
 use libsql::Connection;
 
+use super::try_create_index;
+
 /// Initialize IP records table (canonical snapshots from public registries)
 pub async fn initialize_ip_records_table(conn: &Connection) -> Result<()> {
     conn.execute(
@@ -41,17 +43,8 @@ pub async fn initialize_ip_records_table(conn: &Connection) -> Result<()> {
     )
     .await?;
 
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_ip_records_type ON ip_records(ip_type)",
-        (),
-    )
-    .await?;
-
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_ip_records_external_id ON ip_records(external_id)",
-        (),
-    )
-    .await?;
+    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_ip_records_type ON ip_records(ip_type)").await?;
+    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_ip_records_external_id ON ip_records(external_id)").await?;
 
     Ok(())
 }
@@ -80,17 +73,8 @@ pub async fn initialize_ip_claims_table(conn: &Connection) -> Result<()> {
     )
     .await?;
 
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_ip_claims_user_id ON ip_claims(user_id)",
-        (),
-    )
-    .await?;
-
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_ip_claims_status ON ip_claims(status)",
-        (),
-    )
-    .await?;
+    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_ip_claims_user_id ON ip_claims(user_id)").await?;
+    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_ip_claims_status ON ip_claims(status)").await?;
 
     Ok(())
 }
@@ -113,11 +97,7 @@ pub async fn initialize_ip_evidence_table(conn: &Connection) -> Result<()> {
     )
     .await?;
 
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_ip_evidence_claim_id ON ip_evidence(claim_id)",
-        (),
-    )
-    .await?;
+    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_ip_evidence_claim_id ON ip_evidence(claim_id)").await?;
 
     Ok(())
 }
@@ -138,17 +118,8 @@ pub async fn initialize_ip_events_table(conn: &Connection) -> Result<()> {
     )
     .await?;
 
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_ip_events_claim_id ON ip_events(claim_id)",
-        (),
-    )
-    .await?;
-
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_ip_events_created_at ON ip_events(created_at)",
-        (),
-    )
-    .await?;
+    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_ip_events_claim_id ON ip_events(claim_id)").await?;
+    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_ip_events_created_at ON ip_events(created_at)").await?;
 
     Ok(())
 }

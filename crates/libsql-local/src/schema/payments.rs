@@ -19,6 +19,8 @@
 use anyhow::Result;
 use libsql::Connection;
 
+use super::try_create_index;
+
 /// Initialize all payment tables
 pub async fn initialize_payment_tables(conn: &Connection) -> Result<()> {
     conn.execute(
@@ -182,20 +184,9 @@ pub async fn initialize_payment_tables(conn: &Connection) -> Result<()> {
     )
     .await?;
 
-    // Index for fast wallet lookups
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_crypto_wallets_user_id
-         ON crypto_wallets(user_id)",
-        (),
-    )
-    .await?;
-
-    conn.execute(
-        "CREATE UNIQUE INDEX IF NOT EXISTS idx_crypto_wallets_address_network
-         ON crypto_wallets(wallet_address, network)",
-        (),
-    )
-    .await?;
+    // Index for fast wallet lookups (using defensive helper for cloud schema compatibility)
+    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_crypto_wallets_user_id ON crypto_wallets(user_id)").await?;
+    try_create_index(conn, "CREATE UNIQUE INDEX IF NOT EXISTS idx_crypto_wallets_address_network ON crypto_wallets(wallet_address, network)").await?;
 
     // Crypto payment transactions with Arc settlement
     // COMPLIANCE: §1 - Payments via external wallets, receipts on Arc
@@ -241,27 +232,10 @@ pub async fn initialize_payment_tables(conn: &Connection) -> Result<()> {
     )
     .await?;
 
-    // Index for payment lookups
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_crypto_payments_user_id
-         ON crypto_payments(user_id)",
-        (),
-    )
-    .await?;
-
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_crypto_payments_status
-         ON crypto_payments(status)",
-        (),
-    )
-    .await?;
-
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_crypto_payments_tx_hash
-         ON crypto_payments(tx_hash)",
-        (),
-    )
-    .await?;
+    // Index for payment lookups (using defensive helper for cloud schema compatibility)
+    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_crypto_payments_user_id ON crypto_payments(user_id)").await?;
+    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_crypto_payments_status ON crypto_payments(status)").await?;
+    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_crypto_payments_tx_hash ON crypto_payments(tx_hash)").await?;
 
     // Arc receipts - L1 settlement receipts on Circle Arc
     // COMPLIANCE: §1 - Arc is receipt layer, NOT payment processing
@@ -309,30 +283,11 @@ pub async fn initialize_payment_tables(conn: &Connection) -> Result<()> {
     )
     .await?;
 
-    // Index for Arc receipt lookups
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_arc_receipts_user_id ON arc_receipts(user_id)",
-        (),
-    )
-    .await?;
-
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_arc_receipts_substrate_hash ON arc_receipts(substrate_hash)",
-        (),
-    )
-    .await?;
-
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_arc_receipts_status ON arc_receipts(status)",
-        (),
-    )
-    .await?;
-
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_arc_receipts_receipt_type ON arc_receipts(receipt_type)",
-        (),
-    )
-    .await?;
+    // Index for Arc receipt lookups (using defensive helper for cloud schema compatibility)
+    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_arc_receipts_user_id ON arc_receipts(user_id)").await?;
+    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_arc_receipts_substrate_hash ON arc_receipts(substrate_hash)").await?;
+    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_arc_receipts_status ON arc_receipts(status)").await?;
+    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_arc_receipts_receipt_type ON arc_receipts(receipt_type)").await?;
 
     Ok(())
 }

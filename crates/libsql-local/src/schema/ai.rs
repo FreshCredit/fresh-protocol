@@ -13,6 +13,8 @@
 //! COMPLIANCE: §10 Unified Database Schema Architecture
 
 use anyhow::Result;
+
+use super::try_create_index;
 use libsql::Connection;
 
 /// Initialize AI-related tables
@@ -170,81 +172,23 @@ pub async fn initialize_ai_tables(conn: &Connection) -> Result<()> {
     )
     .await?;
 
-    // Create indexes for AI tables
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_uploaded_files_user_id ON uploaded_files(user_id)",
-        (),
-    )
-    .await?;
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_uploaded_files_conversation ON uploaded_files(conversation_id)",
-        (),
-    )
-    .await?;
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_ai_conversations_user_id ON ai_conversations(user_id)",
-        (),
-    )
-    .await?;
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_ai_messages_conversation ON ai_messages(conversation_id)",
-        (),
-    )
-    .await?;
+    // Create indexes for AI tables (using defensive helper for cloud schema compatibility)
+    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_uploaded_files_user_id ON uploaded_files(user_id)").await?;
+    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_uploaded_files_conversation ON uploaded_files(conversation_id)").await?;
+    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_ai_conversations_user_id ON ai_conversations(user_id)").await?;
+    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_ai_messages_conversation ON ai_messages(conversation_id)").await?;
 
     // Create indexes for new AI metrics tables
-    conn.execute(
-        "CREATE UNIQUE INDEX IF NOT EXISTS idx_ai_usage_metrics_user_date_model
-         ON ai_usage_metrics(user_id, metric_date, model)",
-        (),
-    )
-    .await?;
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_ai_usage_metrics_date ON ai_usage_metrics(metric_date)",
-        (),
-    )
-    .await?;
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_ai_request_logs_user_id ON ai_request_logs(user_id)",
-        (),
-    )
-    .await?;
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_ai_request_logs_created_at ON ai_request_logs(created_at)",
-        (),
-    )
-    .await?;
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_ai_request_logs_status ON ai_request_logs(status)",
-        (),
-    )
-    .await?;
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_ai_feedback_user_id ON ai_feedback(user_id)",
-        (),
-    )
-    .await?;
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_ai_feedback_type ON ai_feedback(feedback_type)",
-        (),
-    )
-    .await?;
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_ai_feedback_created_at ON ai_feedback(created_at)",
-        (),
-    )
-    .await?;
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_ai_model_configs_user_id ON ai_model_configs(user_id)",
-        (),
-    )
-    .await?;
-    conn.execute(
-        "CREATE UNIQUE INDEX IF NOT EXISTS idx_ai_model_configs_user_model
-         ON ai_model_configs(user_id, model_name)",
-        (),
-    )
-    .await?;
+    try_create_index(conn, "CREATE UNIQUE INDEX IF NOT EXISTS idx_ai_usage_metrics_user_date_model ON ai_usage_metrics(user_id, metric_date, model)").await?;
+    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_ai_usage_metrics_date ON ai_usage_metrics(metric_date)").await?;
+    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_ai_request_logs_user_id ON ai_request_logs(user_id)").await?;
+    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_ai_request_logs_created_at ON ai_request_logs(created_at)").await?;
+    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_ai_request_logs_status ON ai_request_logs(status)").await?;
+    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_ai_feedback_user_id ON ai_feedback(user_id)").await?;
+    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_ai_feedback_type ON ai_feedback(feedback_type)").await?;
+    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_ai_feedback_created_at ON ai_feedback(created_at)").await?;
+    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_ai_model_configs_user_id ON ai_model_configs(user_id)").await?;
+    try_create_index(conn, "CREATE UNIQUE INDEX IF NOT EXISTS idx_ai_model_configs_user_model ON ai_model_configs(user_id, model_name)").await?;
 
     Ok(())
 }

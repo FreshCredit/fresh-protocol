@@ -5,6 +5,8 @@
 use anyhow::Result;
 use libsql::Connection;
 
+use super::try_create_index;
+
 /// Initialize webhook-related tables
 pub async fn initialize_webhook_tables(conn: &Connection) -> Result<()> {
     // Create webhook_events table
@@ -46,32 +48,12 @@ pub async fn initialize_webhook_tables(conn: &Connection) -> Result<()> {
     )
     .await?;
 
-    // Create indexes for webhook tables
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_webhook_events_user_id ON webhook_events(user_id)",
-        (),
-    )
-    .await?;
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_webhook_events_status ON webhook_events(status)",
-        (),
-    )
-    .await?;
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_webhook_events_provider ON webhook_events(provider)",
-        (),
-    )
-    .await?;
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id)",
-        (),
-    )
-    .await?;
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_notifications_read_status ON notifications(read_status)",
-        (),
-    )
-    .await?;
+    // Create indexes for webhook tables (using defensive helper for cloud schema compatibility)
+    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_webhook_events_user_id ON webhook_events(user_id)").await?;
+    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_webhook_events_status ON webhook_events(status)").await?;
+    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_webhook_events_provider ON webhook_events(provider)").await?;
+    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id)").await?;
+    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_notifications_read_status ON notifications(read_status)").await?;
 
     Ok(())
 }
