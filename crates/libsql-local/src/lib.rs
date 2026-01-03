@@ -23,10 +23,10 @@
 //! Module structure:
 //! - lib.rs (this file): Main entry point with LocalClient
 //! - types.rs: All type definitions (UserProfile, UserPreferences, AI, Workflow, Webhook types)
-//! - schema/: Schema definitions organized by domain (83 tables total)
+//! - schema/: Schema definitions organized by domain
 //! - operations/: CRUD operations organized by domain
 //!
-//! Schema Version: unified-v1 (2025-12-05)
+//! HARDCODED_SCHEMA: 91 unique tables in modular schema (verified 2026-01-02)
 
 // Submodules for incremental extraction
 pub mod operations;
