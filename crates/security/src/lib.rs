@@ -1,6 +1,15 @@
 //! Security utilities for FreshCredit
+//!
+//! Provides cryptographic utilities:
+//! - Blake2b hashing for data integrity
+//! - AES-256-GCM encryption for sensitive tokens
+//! - Time-based security utilities
 
 pub mod clock;
+pub mod encryption;
+
+// Re-export commonly used items
+pub use encryption::{TokenEncryptor, generate_hex_key, generate_base64_key, KEY_SIZE};
 
 use anyhow::Result;
 use blake2::{Blake2b512, Digest};
