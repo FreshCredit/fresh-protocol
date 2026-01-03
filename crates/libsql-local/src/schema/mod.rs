@@ -75,6 +75,7 @@ pub mod correlation;
 pub mod healthkit;
 pub mod ip;
 pub mod linkedin;
+pub mod publications;
 
 // Platform and infrastructure modules
 pub mod indexes;
@@ -90,6 +91,7 @@ pub use financial::initialize_financial_tables;
 pub use healthkit::initialize_healthkit_tables;
 pub use identity::initialize_identity_tables;
 pub use ip::initialize_ip_tables;
+pub use publications::initialize_publication_tables;
 pub use indexes::initialize_all_indexes;
 pub use linkedin::initialize_linkedin_tables;
 pub use notifications::initialize_notification_tables;
@@ -139,6 +141,7 @@ pub enum SchemaCategory {
     HealthKit,
     LinkedIn,
     Ip,
+    Publications,
     Correlation,
     AppleMusic,
     Platform,
@@ -164,6 +167,7 @@ impl SchemaCategory {
             SchemaCategory::HealthKit,
             SchemaCategory::LinkedIn,
             SchemaCategory::Ip,
+            SchemaCategory::Publications,
             SchemaCategory::Correlation,
             SchemaCategory::AppleMusic,
             SchemaCategory::Platform,
@@ -189,6 +193,7 @@ impl SchemaCategory {
             SchemaCategory::HealthKit => "healthkit",
             SchemaCategory::LinkedIn => "linkedin",
             SchemaCategory::Ip => "ip",
+            SchemaCategory::Publications => "publications",
             SchemaCategory::Correlation => "correlation",
             SchemaCategory::AppleMusic => "apple_music",
             SchemaCategory::Platform => "platform",
@@ -221,12 +226,13 @@ impl SchemaCategory {
 /// - LinkedIn: 6 tables (linkedin_profiles, etc.)
 /// - HealthKit: 6 tables (healthkit_profiles, etc.)
 /// - IP: 5 tables (ip_records, ip_claims, ip_evidence, ip_events, ip_disputes)
+/// - Publications: 7 tables (publication_records, publication_claims, orcid_connections, publication_evidence, publication_events, publication_disputes, publication_shares)
 /// - Apple Music: 6 tables (apple_music_profiles, etc.)
 /// - Correlation: 3 tables (correlation_preferences, etc.)
 /// - Platform: 4 tables (data_approval_hashes, referrals, etc.)
 ///
-/// HARDCODED_SCHEMA: 91 unique tables total across all modules (verified 2026-01-02)
-/// Added: crypto_wallets, crypto_payments, arc_receipts, ip_records, ip_claims, ip_evidence, ip_events, ip_disputes
+/// HARDCODED_SCHEMA: 98 unique tables total across all modules (verified 2026-01-03)
+/// Added: publication_records, publication_claims, orcid_connections, publication_evidence, publication_events, publication_disputes, publication_shares
 /// Note: Some tables appear in multiple modules but SQLite IF NOT EXISTS handles deduplication.
 pub async fn initialize_all_schema_tables(conn: &Connection) -> Result<()> {
     // Enable foreign key constraints first
@@ -267,6 +273,7 @@ pub async fn initialize_all_schema_tables(conn: &Connection) -> Result<()> {
     initialize_linkedin_tables(conn).await?;
     initialize_healthkit_tables(conn).await?;
     initialize_ip_tables(conn).await?;
+    initialize_publication_tables(conn).await?;
     initialize_apple_music_tables(conn).await?;
     initialize_correlation_tables(conn).await?;
 
@@ -300,10 +307,10 @@ mod tests {
     #[test]
     fn test_schema_category_all() {
         let categories = SchemaCategory::all();
-        // 19 categories: Core, Financial, Identity, Plaid, Payments, Reports,
-        // Ticketing, Compliance, Notifications, HealthKit, LinkedIn, Ip, Correlation,
-        // AppleMusic, Platform, Ai, Workflow, Webhook, Indexes
-        assert_eq!(categories.len(), 19);
+        // 20 categories: Core, Financial, Identity, Plaid, Payments, Reports,
+        // Ticketing, Compliance, Notifications, HealthKit, LinkedIn, Ip, Publications,
+        // Correlation, AppleMusic, Platform, Ai, Workflow, Webhook, Indexes
+        assert_eq!(categories.len(), 20);
     }
 
     #[test]
@@ -313,6 +320,7 @@ mod tests {
         assert_eq!(SchemaCategory::Plaid.name(), "plaid");
         assert_eq!(SchemaCategory::Payments.name(), "payments");
         assert_eq!(SchemaCategory::Reports.name(), "reports");
+        assert_eq!(SchemaCategory::Publications.name(), "publications");
         assert_eq!(SchemaCategory::Indexes.name(), "indexes");
     }
 
