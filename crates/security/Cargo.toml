@@ -13,3 +13,14 @@ anyhow = { workspace = true }
 aes-gcm = "0.10"
 rand = "0.8"
 base64 = "0.22"
+tracing.workspace = true
+clap = { version = "4.5", features = ["derive"], optional = true }
+
+[features]
+default = []
+cli = ["clap"]
+
+[[bin]]
+name = "fc-security"
+path = "src/bin/fc_security.rs"
+required-features = ["cli"]

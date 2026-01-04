@@ -3,11 +3,16 @@
 //! Provides authenticated encryption for sensitive tokens (ORCID, Plaid, etc.)
 //! Uses AES-256-GCM with a 256-bit key and 96-bit nonce.
 //!
+//! # Configuration
+//! - `FRESHCREDIT_ENCRYPTION_ENABLED`: Set to "false" to disable encryption (testing only)
+//! - `FRESHCREDIT_TOKEN_ENCRYPTION_KEY`: 64-character hex key for encryption
+//!
 //! # Security Notes
 //! - Key must be stored securely (GCP Secret Manager, env var, etc.)
 //! - Each encryption uses a random nonce
 //! - Ciphertext includes authentication tag to detect tampering
 //! - Output format: base64(nonce || ciphertext || tag)
+//! - NEVER disable encryption in production!
 
 use aes_gcm::{
     aead::{Aead, KeyInit},
@@ -16,6 +21,7 @@ use aes_gcm::{
 use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use rand::RngCore;
+use std::sync::OnceLock;
 
 /// Nonce size for AES-GCM (96 bits = 12 bytes)
 const NONCE_SIZE: usize = 12;
@@ -23,9 +29,138 @@ const NONCE_SIZE: usize = 12;
 /// Key size for AES-256 (256 bits = 32 bytes)
 pub const KEY_SIZE: usize = 32;
 
+/// Global encryption configuration (initialized once)
+static ENCRYPTION_CONFIG: OnceLock<EncryptionConfig> = OnceLock::new();
+
+/// Encryption configuration for the application
+#[derive(Debug, Clone)]
+pub struct EncryptionConfig {
+    /// Whether encryption is enabled (should be true in production)
+    pub enabled: bool,
+    /// The encryption key (if encryption is enabled)
+    pub encryptor: Option<TokenEncryptor>,
+}
+
+impl EncryptionConfig {
+    /// Load encryption configuration from environment variables
+    ///
+    /// Environment variables:
+    /// - `FRESHCREDIT_ENCRYPTION_ENABLED`: "true" (default) or "false"
+    /// - `FRESHCREDIT_TOKEN_ENCRYPTION_KEY`: 64-character hex key
+    pub fn from_env() -> Result<Self> {
+        let enabled = std::env::var("FRESHCREDIT_ENCRYPTION_ENABLED")
+            .map(|v| v.to_lowercase() != "false")
+            .unwrap_or(true); // Enabled by default
+
+        if !enabled {
+            tracing::warn!("⚠️ Token encryption is DISABLED. This should only be used for testing!");
+            return Ok(Self {
+                enabled: false,
+                encryptor: None,
+            });
+        }
+
+        // Try to load encryption key
+        let encryptor = match std::env::var("FRESHCREDIT_TOKEN_ENCRYPTION_KEY") {
+            Ok(hex_key) => {
+                let enc = TokenEncryptor::from_hex_key(&hex_key)?;
+                tracing::info!("✅ Token encryption enabled with configured key");
+                Some(enc)
+            }
+            Err(_) => {
+                tracing::warn!("⚠️ FRESHCREDIT_TOKEN_ENCRYPTION_KEY not set. Tokens stored in plaintext.");
+                None
+            }
+        };
+
+        Ok(Self { enabled, encryptor })
+    }
+
+    /// Check if encryption is actually available (enabled AND key is configured)
+    pub fn is_available(&self) -> bool {
+        self.enabled && self.encryptor.is_some()
+    }
+
+    /// Encrypt a token if encryption is available
+    pub fn encrypt(&self, plaintext: &str) -> String {
+        match &self.encryptor {
+            Some(enc) if self.enabled => {
+                enc.encrypt(plaintext).unwrap_or_else(|e| {
+                    tracing::error!("Encryption failed, storing plaintext: {e}");
+                    plaintext.to_string()
+                })
+            }
+            _ => plaintext.to_string(),
+        }
+    }
+
+    /// Decrypt a token if encryption is available
+    ///
+    /// Handles both encrypted and plaintext tokens gracefully
+    pub fn decrypt(&self, ciphertext: &str) -> String {
+        match &self.encryptor {
+            Some(enc) if self.enabled => {
+                // Try to decrypt; if it fails, assume it's already plaintext
+                enc.decrypt(ciphertext).unwrap_or_else(|_| {
+                    // This is expected for plaintext tokens or tokens encrypted with different key
+                    ciphertext.to_string()
+                })
+            }
+            _ => ciphertext.to_string(),
+        }
+    }
+}
+
+/// Get or initialize the global encryption configuration
+pub fn get_encryption_config() -> &'static EncryptionConfig {
+    ENCRYPTION_CONFIG.get_or_init(|| {
+        EncryptionConfig::from_env().unwrap_or_else(|e| {
+            tracing::error!("Failed to load encryption config: {e}");
+            EncryptionConfig {
+                enabled: false,
+                encryptor: None,
+            }
+        })
+    })
+}
+
+/// Encrypt a token using the global configuration
+///
+/// This is the primary API for encrypting tokens throughout the application.
+pub fn encrypt_token(plaintext: &str) -> String {
+    get_encryption_config().encrypt(plaintext)
+}
+
+/// Decrypt a token using the global configuration
+///
+/// This is the primary API for decrypting tokens throughout the application.
+/// Handles both encrypted and plaintext tokens gracefully.
+pub fn decrypt_token(ciphertext: &str) -> String {
+    get_encryption_config().decrypt(ciphertext)
+}
+
 /// Token encryptor using AES-256-GCM
 pub struct TokenEncryptor {
     cipher: Aes256Gcm,
+    /// Store key for Clone implementation
+    key: [u8; KEY_SIZE],
+}
+
+impl std::fmt::Debug for TokenEncryptor {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TokenEncryptor")
+            .field("key", &"[REDACTED]")
+            .finish()
+    }
+}
+
+impl Clone for TokenEncryptor {
+    fn clone(&self) -> Self {
+        Self {
+            cipher: Aes256Gcm::new_from_slice(&self.key).expect("Key already validated"),
+            key: self.key,
+        }
+    }
 }
 
 impl TokenEncryptor {
@@ -47,7 +182,10 @@ impl TokenEncryptor {
         let cipher = Aes256Gcm::new_from_slice(key)
             .map_err(|e| anyhow!("Failed to create cipher: {e}"))?;
 
-        Ok(Self { cipher })
+        let mut stored_key = [0u8; KEY_SIZE];
+        stored_key.copy_from_slice(key);
+
+        Ok(Self { cipher, key: stored_key })
     }
 
     /// Create a TokenEncryptor from a hex-encoded key
@@ -152,5 +290,68 @@ mod tests {
 
         assert_eq!(plaintext, decrypted);
     }
-}
 
+    #[test]
+    fn test_hex_key_roundtrip() {
+        let hex_key = generate_hex_key();
+        assert_eq!(hex_key.len(), 64); // 32 bytes = 64 hex chars
+
+        let encryptor = TokenEncryptor::from_hex_key(&hex_key).unwrap();
+        let plaintext = "test-token";
+        let encrypted = encryptor.encrypt(plaintext).unwrap();
+        let decrypted = encryptor.decrypt(&encrypted).unwrap();
+
+        assert_eq!(plaintext, decrypted);
+    }
+
+    #[test]
+    fn test_encryption_config_encrypt_decrypt() {
+        // Test with no encryption (fallback)
+        let config = EncryptionConfig {
+            enabled: true,
+            encryptor: None,
+        };
+        let plaintext = "test-token";
+        let encrypted = config.encrypt(plaintext);
+        assert_eq!(plaintext, encrypted); // No encryption = plaintext
+
+        // Test with encryption disabled
+        let config = EncryptionConfig {
+            enabled: false,
+            encryptor: Some(TokenEncryptor::new(&generate_key()).unwrap()),
+        };
+        let encrypted = config.encrypt(plaintext);
+        assert_eq!(plaintext, encrypted); // Disabled = plaintext
+    }
+
+    #[test]
+    fn test_encryption_config_with_key() {
+        let config = EncryptionConfig {
+            enabled: true,
+            encryptor: Some(TokenEncryptor::new(&generate_key()).unwrap()),
+        };
+
+        let plaintext = "my-secret-oauth-token";
+        let encrypted = config.encrypt(plaintext);
+
+        // Encrypted should be different from plaintext
+        assert_ne!(plaintext, encrypted);
+
+        // Should decrypt back to original
+        let decrypted = config.decrypt(&encrypted);
+        assert_eq!(plaintext, decrypted);
+    }
+
+    #[test]
+    fn test_decrypt_handles_plaintext_gracefully() {
+        let config = EncryptionConfig {
+            enabled: true,
+            encryptor: Some(TokenEncryptor::new(&generate_key()).unwrap()),
+        };
+
+        // Decrypting plaintext (not encrypted) should return as-is
+        let plaintext = "already-plaintext-token";
+        let decrypted = config.decrypt(plaintext);
+        assert_eq!(plaintext, decrypted);
+    }
+}

@@ -4,12 +4,40 @@
 //! - Blake2b hashing for data integrity
 //! - AES-256-GCM encryption for sensitive tokens
 //! - Time-based security utilities
+//!
+//! # Token Encryption
+//!
+//! The encryption module provides AES-256-GCM encryption for OAuth tokens.
+//!
+//! ## Configuration
+//! - `FRESHCREDIT_ENCRYPTION_ENABLED`: Set to "false" to disable (testing only)
+//! - `FRESHCREDIT_TOKEN_ENCRYPTION_KEY`: 64-character hex key
+//!
+//! ## Usage
+//! ```rust,ignore
+//! use freshcredit_security::{encrypt_token, decrypt_token};
+//!
+//! // Encrypt a token before storage
+//! let encrypted = encrypt_token("my-access-token");
+//!
+//! // Decrypt when retrieving
+//! let decrypted = decrypt_token(&encrypted);
+//! ```
 
 pub mod clock;
 pub mod encryption;
 
 // Re-export commonly used items
-pub use encryption::{TokenEncryptor, generate_hex_key, generate_base64_key, KEY_SIZE};
+pub use encryption::{
+    TokenEncryptor,
+    EncryptionConfig,
+    generate_hex_key,
+    generate_base64_key,
+    get_encryption_config,
+    encrypt_token,
+    decrypt_token,
+    KEY_SIZE,
+};
 
 use anyhow::Result;
 use blake2::{Blake2b512, Digest};
