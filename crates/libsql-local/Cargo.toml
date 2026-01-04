@@ -15,3 +15,9 @@ chrono = { workspace = true }
 
 # Internal dependencies
 freshcredit-types = { path = "../../../core/types" }
+
+[dev-dependencies]
+sha2 = "0.10"
+hex = { workspace = true }
+urlencoding = "2.1"
+base64 = { workspace = true }
