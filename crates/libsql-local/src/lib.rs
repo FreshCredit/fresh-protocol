@@ -26,7 +26,7 @@
 //! - schema/: Schema definitions organized by domain
 //! - operations/: CRUD operations organized by domain
 //!
-//! HARDCODED_SCHEMA: 98 unique tables in modular schema (verified 2026-01-04)
+//! HARDCODED_SCHEMA: 104 unique tables in modular schema (verified 2026-01-05)
 
 // Submodules for incremental extraction
 pub mod operations;
