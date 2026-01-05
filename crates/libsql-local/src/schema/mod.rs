@@ -80,6 +80,7 @@ pub mod publications;
 // Platform and infrastructure modules
 pub mod indexes;
 pub mod platform;
+pub mod security;
 
 // Re-exports for convenience
 pub use ai::initialize_ai_tables;
@@ -99,6 +100,7 @@ pub use payments::initialize_payment_tables;
 pub use plaid::initialize_all_plaid_tables;
 pub use platform::initialize_platform_tables;
 pub use reports::initialize_all_reports_tables;
+pub use security::initialize_security_tables;
 pub use ticketing::initialize_ticketing_tables;
 pub use webhook::initialize_webhook_tables;
 pub use workflow::initialize_workflow_tables;
@@ -148,6 +150,7 @@ pub enum SchemaCategory {
     Ai,
     Workflow,
     Webhook,
+    Security,
     Indexes,
 }
 
@@ -174,6 +177,7 @@ impl SchemaCategory {
             SchemaCategory::Ai,
             SchemaCategory::Workflow,
             SchemaCategory::Webhook,
+            SchemaCategory::Security,
             SchemaCategory::Indexes,
         ]
     }
@@ -200,6 +204,7 @@ impl SchemaCategory {
             SchemaCategory::Ai => "ai",
             SchemaCategory::Workflow => "workflow",
             SchemaCategory::Webhook => "webhook",
+            SchemaCategory::Security => "security",
             SchemaCategory::Indexes => "indexes",
         }
     }
@@ -230,9 +235,10 @@ impl SchemaCategory {
 /// - Apple Music: 6 tables (apple_music_profiles, etc.)
 /// - Correlation: 3 tables (correlation_preferences, etc.)
 /// - Platform: 4 tables (data_approval_hashes, referrals, etc.)
+/// - Security: 5 tables (ip_blocks, rate_limit_events, step_up_auth_requests, user_devices, compliance_digests)
 ///
-/// HARDCODED_SCHEMA: 98 unique tables total across all modules (verified 2026-01-03)
-/// Added: publication_records, publication_claims, orcid_connections, publication_evidence, publication_events, publication_disputes, publication_shares
+/// HARDCODED_SCHEMA: 104 unique tables total across all modules (verified 2026-01-05)
+/// Added: ip_blocks, rate_limit_events, step_up_auth_requests, user_devices, compliance_digests
 /// Note: Some tables appear in multiple modules but SQLite IF NOT EXISTS handles deduplication.
 pub async fn initialize_all_schema_tables(conn: &Connection) -> Result<()> {
     // Enable foreign key constraints first
@@ -280,6 +286,9 @@ pub async fn initialize_all_schema_tables(conn: &Connection) -> Result<()> {
     // Platform tables
     initialize_platform_tables(conn).await?;
 
+    // Security tables (ip_blocks, rate_limit_events, step_up_auth, user_devices, compliance_digests)
+    initialize_security_tables(conn).await?;
+
     // All remaining indexes (organized by category)
     initialize_all_indexes(conn).await?;
 
@@ -307,10 +316,10 @@ mod tests {
     #[test]
     fn test_schema_category_all() {
         let categories = SchemaCategory::all();
-        // 20 categories: Core, Financial, Identity, Plaid, Payments, Reports,
+        // 21 categories: Core, Financial, Identity, Plaid, Payments, Reports,
         // Ticketing, Compliance, Notifications, HealthKit, LinkedIn, Ip, Publications,
-        // Correlation, AppleMusic, Platform, Ai, Workflow, Webhook, Indexes
-        assert_eq!(categories.len(), 20);
+        // Correlation, AppleMusic, Platform, Ai, Workflow, Webhook, Security, Indexes
+        assert_eq!(categories.len(), 21);
     }
 
     #[test]
