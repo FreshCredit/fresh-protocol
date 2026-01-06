@@ -1,8 +1,8 @@
 //! Local LibSQL database operations for FreshCredit
 //!
 //! This module implements the unified database schema for FreshCredit,
-//! // HARDCODED_SCHEMA: 104 tables in Rust modular schema, 105 in unified_schema.sql (+1 browser-specific blockchain_proofs) (verified 2026-01-05)
-//! containing 104 tables that support:
+//! // HARDCODED_SCHEMA: 114 tables in Rust modular schema, 115 in unified_schema.sql (+1 browser-specific blockchain_proofs) (verified 2026-01-06)
+//! containing 114 tables that support:
 //! - User profile and authentication (Entra ID + Verified ID)
 //! - All 11 Plaid products (Accounts, Transactions, Auth, Identity, etc.)
 //! - Payment processing (Stripe Connect ACH)
@@ -26,7 +26,7 @@
 //! - schema/: Schema definitions organized by domain
 //! - operations/: CRUD operations organized by domain
 //!
-//! HARDCODED_SCHEMA: 104 unique tables in modular schema (verified 2026-01-05)
+//! HARDCODED_SCHEMA: 114 unique tables in modular schema (verified 2026-01-06)
 
 // Submodules for incremental extraction
 pub mod operations;
@@ -79,7 +79,7 @@ impl LocalClient {
     /// This function delegates to the schema module for table creation.
     /// All table definitions are in `schema/` submodules for maintainability.
     ///
-    /// HARDCODED_SCHEMA: 104 tables total across all modules (verified 2026-01-05)
+    /// HARDCODED_SCHEMA: 114 tables total across all modules (verified 2026-01-06)
     /// See `schema/mod.rs` for the complete table inventory.
     #[must_use = "this returns a Result that should be handled"]
     pub async fn initialize_schema(&self) -> Result<()> {
@@ -88,8 +88,8 @@ impl LocalClient {
         // Delegate to the modular schema initialization
         schema::initialize_all_schema_tables(&self.connection).await?;
 
-        // HARDCODED_SCHEMA: 104 tables in Rust modular schema (verified 2026-01-05)
-        info!("Unified database schema initialization completed (104 tables)");
+        // HARDCODED_SCHEMA: 114 tables in Rust modular schema (verified 2026-01-06)
+        info!("Unified database schema initialization completed (114 tables)");
         Ok(())
     }
 
@@ -116,9 +116,11 @@ impl LocalClient {
 mod tests {
     use super::*;
 
-    /// Test that the schema contains exactly 104 tables as documented
-    /// HARDCODED_SCHEMA: 104 unique tables in modular schema (verified 2026-01-05)
-    /// Added: ip_blocks, rate_limit_events, step_up_auth_requests, user_devices, compliance_digests
+    /// Test that the schema contains exactly 114 tables as documented
+    /// HARDCODED_SCHEMA: 114 unique tables in modular schema (verified 2026-01-06)
+    /// Added: provider_teams, team_members, team_invites (Teams)
+    /// Added: customer_activities, customer_segments, customer_segment_memberships, customer_communications (Customers)
+    /// Added: offer_analytics, offer_ab_test_results, offer_events (Offer Analytics)
     #[tokio::test]
     async fn test_schema_table_count() {
         let client = LocalClient::new_in_memory().await.unwrap();
@@ -135,9 +137,11 @@ mod tests {
 
         let row = rows.next().await.unwrap().unwrap();
         let count: i64 = row.get(0).unwrap();
-        // HARDCODED_SCHEMA: 104 tables (67 core + 6 LinkedIn + 6 HealthKit + 3 Correlation + 6 Apple Music + 3 crypto/Arc + 5 IP + 7 Publications + 5 Security + 1 audit_events) (verified 2026-01-05)
-        // Security tables: ip_blocks, rate_limit_events, step_up_auth_requests, user_devices, compliance_digests
-        assert_eq!(count, 104, "Schema should contain exactly 104 tables");
+        // HARDCODED_SCHEMA: 114 tables (104 base + 3 Teams + 4 Customers + 3 Offer Analytics) (verified 2026-01-06)
+        // Teams: provider_teams, team_members, team_invites
+        // Customers: customer_activities, customer_segments, customer_segment_memberships, customer_communications
+        // Offer Analytics: offer_analytics, offer_ab_test_results, offer_events
+        assert_eq!(count, 114, "Schema should contain exactly 114 tables");
     }
 
     /// Test that critical tables exist in the schema

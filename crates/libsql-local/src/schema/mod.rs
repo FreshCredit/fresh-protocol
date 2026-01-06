@@ -65,8 +65,10 @@ pub mod plaid;
 
 // Business logic modules
 pub mod compliance;
+pub mod customers;
 pub mod notifications;
 pub mod reports;
+pub mod teams;
 pub mod ticketing;
 
 // Data source modules
@@ -88,6 +90,7 @@ pub use apple_music::initialize_apple_music_tables;
 pub use compliance::initialize_compliance_tables;
 pub use core::{initialize_core_indexes, initialize_core_tables};
 pub use correlation::initialize_correlation_tables;
+pub use customers::{initialize_customer_indexes, initialize_customer_tables};
 pub use financial::initialize_financial_tables;
 pub use healthkit::initialize_healthkit_tables;
 pub use identity::initialize_identity_tables;
@@ -101,6 +104,7 @@ pub use plaid::initialize_all_plaid_tables;
 pub use platform::initialize_platform_tables;
 pub use reports::initialize_all_reports_tables;
 pub use security::initialize_security_tables;
+pub use teams::{initialize_teams_indexes, initialize_teams_tables};
 pub use ticketing::initialize_ticketing_tables;
 pub use webhook::initialize_webhook_tables;
 pub use workflow::initialize_workflow_tables;
@@ -147,6 +151,8 @@ pub enum SchemaCategory {
     Correlation,
     AppleMusic,
     Platform,
+    Teams,
+    Customers,
     Ai,
     Workflow,
     Webhook,
@@ -174,6 +180,8 @@ impl SchemaCategory {
             SchemaCategory::Correlation,
             SchemaCategory::AppleMusic,
             SchemaCategory::Platform,
+            SchemaCategory::Teams,
+            SchemaCategory::Customers,
             SchemaCategory::Ai,
             SchemaCategory::Workflow,
             SchemaCategory::Webhook,
@@ -201,6 +209,8 @@ impl SchemaCategory {
             SchemaCategory::Correlation => "correlation",
             SchemaCategory::AppleMusic => "apple_music",
             SchemaCategory::Platform => "platform",
+            SchemaCategory::Teams => "teams",
+            SchemaCategory::Customers => "customers",
             SchemaCategory::Ai => "ai",
             SchemaCategory::Workflow => "workflow",
             SchemaCategory::Webhook => "webhook",
@@ -235,10 +245,14 @@ impl SchemaCategory {
 /// - Apple Music: 6 tables (apple_music_profiles, etc.)
 /// - Correlation: 3 tables (correlation_preferences, etc.)
 /// - Platform: 4 tables (data_approval_hashes, referrals, etc.)
+/// - Teams: 3 tables (provider_teams, team_members, team_invites)
+/// - Customers: 4 tables (customer_activities, customer_segments, customer_segment_memberships, customer_communications)
 /// - Security: 5 tables (ip_blocks, rate_limit_events, step_up_auth_requests, user_devices, compliance_digests)
 ///
-/// HARDCODED_SCHEMA: 104 unique tables total across all modules (verified 2026-01-05)
-/// Added: ip_blocks, rate_limit_events, step_up_auth_requests, user_devices, compliance_digests
+/// HARDCODED_SCHEMA: 114 unique tables total across all modules (verified 2026-01-06)
+/// Added: provider_teams, team_members, team_invites (Teams module)
+/// Added: customer_activities, customer_segments, customer_segment_memberships, customer_communications (Customers module)
+/// Added: offer_analytics, offer_ab_test_results, offer_events (Offer Analytics in Reports module)
 /// Note: Some tables appear in multiple modules but SQLite IF NOT EXISTS handles deduplication.
 pub async fn initialize_all_schema_tables(conn: &Connection) -> Result<()> {
     // Enable foreign key constraints first
@@ -286,6 +300,14 @@ pub async fn initialize_all_schema_tables(conn: &Connection) -> Result<()> {
     // Platform tables
     initialize_platform_tables(conn).await?;
 
+    // Teams tables (provider_teams, team_members, team_invites)
+    initialize_teams_tables(conn).await?;
+    initialize_teams_indexes(conn).await?;
+
+    // Customer management tables (customer_activities, customer_segments, etc.)
+    initialize_customer_tables(conn).await?;
+    initialize_customer_indexes(conn).await?;
+
     // Security tables (ip_blocks, rate_limit_events, step_up_auth, user_devices, compliance_digests)
     initialize_security_tables(conn).await?;
 
@@ -316,10 +338,10 @@ mod tests {
     #[test]
     fn test_schema_category_all() {
         let categories = SchemaCategory::all();
-        // 21 categories: Core, Financial, Identity, Plaid, Payments, Reports,
+        // 23 categories: Core, Financial, Identity, Plaid, Payments, Reports,
         // Ticketing, Compliance, Notifications, HealthKit, LinkedIn, Ip, Publications,
-        // Correlation, AppleMusic, Platform, Ai, Workflow, Webhook, Security, Indexes
-        assert_eq!(categories.len(), 21);
+        // Correlation, AppleMusic, Platform, Teams, Customers, Ai, Workflow, Webhook, Security, Indexes
+        assert_eq!(categories.len(), 23);
     }
 
     #[test]
