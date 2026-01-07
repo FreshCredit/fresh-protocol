@@ -93,13 +93,14 @@ impl LocalClient {
                 plaid_connection_skipped = excluded.plaid_connection_skipped,
                 plaid_reminder_dismissed_until = excluded.plaid_reminder_dismissed_until,
                 updated_at = excluded.updated_at",
+                // TASK 4 FIX: AI agent defaults to TRUE (enabled)
                 libsql::params![
                     id,
                     user_id,
-                    prefs.ai_agent_enabled.unwrap_or(false) as i64,
-                    prefs.ai_feedback_enabled.unwrap_or(false) as i64,
-                    prefs.ai_offers_enabled.unwrap_or(false) as i64,
-                    prefs.ai_lenders_enabled.unwrap_or(false) as i64,
+                    prefs.ai_agent_enabled.unwrap_or(true) as i64,  // Default TRUE
+                    prefs.ai_feedback_enabled.unwrap_or(true) as i64,  // Default TRUE
+                    prefs.ai_offers_enabled.unwrap_or(true) as i64,  // Default TRUE
+                    prefs.ai_lenders_enabled.unwrap_or(true) as i64,  // Default TRUE
                     prefs.cloud_sync_enabled.unwrap_or(true) as i64,
                     prefs.blockchain_enabled.unwrap_or(true) as i64,
                     prefs.email_notifications_enabled.unwrap_or(true) as i64,
