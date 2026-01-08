@@ -16,7 +16,7 @@
 //! - `balances` table stores balance history; `accounts` table columns store current balance
 //!
 //! SCHEMA SOURCE OF TRUTH:
-//! - Rust code: crates/db/libsql/local/src/lib.rs (this file, initialize_schema function)
+//! - Rust code: `crates/db/libsql/local/src/schema/` modules (invoked by `initialize_schema` in this file)
 //! - SQL file: migrations/unified_schema.sql
 //! - Cloud database: freshcredit-unified-schema-v1 (Turso)
 //!
