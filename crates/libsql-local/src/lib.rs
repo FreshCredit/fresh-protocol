@@ -88,8 +88,9 @@ impl LocalClient {
         // Delegate to the modular schema initialization
         schema::initialize_all_schema_tables(&self.connection).await?;
 
-        // HARDCODED_SCHEMA: 117 tables in Rust modular schema (verified 2026-01-15)
-        info!("Unified database schema initialization completed (117 tables)");
+        // HARDCODED_SCHEMA: 124 tables in Rust modular schema (verified 2026-01-15)
+        // Added: 4 agent tables + 3 UCP tables = 7 new tables
+        info!("Unified database schema initialization completed (124 tables)");
         Ok(())
     }
 
@@ -138,12 +139,14 @@ mod tests {
 
         let row = rows.next().await.unwrap().unwrap();
         let count: i64 = row.get(0).unwrap();
-        // HARDCODED_SCHEMA: 117 tables (104 base + 3 Teams + 4 Customers + 3 Offer Analytics + 3 Circle Arc Phase 2) (verified 2026-01-15)
+        // HARDCODED_SCHEMA: 124 tables (104 base + 3 Teams + 4 Customers + 3 Offer Analytics + 3 Circle Arc Phase 2 + 4 Security + 3 UCP) (verified 2026-01-15)
         // Teams: provider_teams, team_members, team_invites
         // Customers: customer_activities, customer_segments, customer_segment_memberships, customer_communications
         // Offer Analytics: offer_analytics, offer_ab_test_results, offer_events
         // Circle Arc Phase 2: bridge_transfers, gateway_sessions, gateway_transactions
-        assert_eq!(count, 117, "Schema should contain exactly 117 tables");
+        // Security: user_devices, ip_blocks, step_up_auth_sessions, security_events
+        // UCP: ucp_checkout_sessions, ucp_orders, ucp_identity_links
+        assert_eq!(count, 124, "Schema should contain exactly 124 tables");
     }
 
     /// Test that critical tables exist in the schema

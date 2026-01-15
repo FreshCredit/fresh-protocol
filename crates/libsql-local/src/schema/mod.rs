@@ -84,8 +84,15 @@ pub mod indexes;
 pub mod platform;
 pub mod security;
 
+// Commerce modules (UCP)
+pub mod ucp;
+
+// Agent modules
+pub mod agent;
+
 // Re-exports for convenience
 pub use ai::initialize_ai_tables;
+pub use agent::initialize_agent_tables;
 pub use apple_music::initialize_apple_music_tables;
 pub use compliance::initialize_compliance_tables;
 pub use core::{initialize_core_indexes, initialize_core_tables};
@@ -106,6 +113,7 @@ pub use reports::initialize_all_reports_tables;
 pub use security::initialize_security_tables;
 pub use teams::{initialize_teams_indexes, initialize_teams_tables};
 pub use ticketing::initialize_ticketing_tables;
+pub use ucp::initialize_ucp_tables;
 pub use webhook::initialize_webhook_tables;
 pub use workflow::initialize_workflow_tables;
 
@@ -249,10 +257,12 @@ impl SchemaCategory {
 /// - Customers: 4 tables (customer_activities, customer_segments, customer_segment_memberships, customer_communications)
 /// - Security: 5 tables (ip_blocks, rate_limit_events, step_up_auth_requests, user_devices, compliance_digests)
 ///
-/// HARDCODED_SCHEMA: 114 unique tables total across all modules (verified 2026-01-06)
+/// HARDCODED_SCHEMA: 124 unique tables total across all modules (verified 2026-01-15)
 /// Added: provider_teams, team_members, team_invites (Teams module)
 /// Added: customer_activities, customer_segments, customer_segment_memberships, customer_communications (Customers module)
 /// Added: offer_analytics, offer_ab_test_results, offer_events (Offer Analytics in Reports module)
+/// Added: agent_bindings, agent_memories, agent_interactions, agent_audit_events (Agent module)
+/// Added: ucp_checkout_sessions, ucp_orders, ucp_identity_links (UCP module)
 /// Note: Some tables appear in multiple modules but SQLite IF NOT EXISTS handles deduplication.
 pub async fn initialize_all_schema_tables(conn: &Connection) -> Result<()> {
     // Enable foreign key constraints first
@@ -310,6 +320,13 @@ pub async fn initialize_all_schema_tables(conn: &Connection) -> Result<()> {
 
     // Security tables (ip_blocks, rate_limit_events, step_up_auth, user_devices, compliance_digests)
     initialize_security_tables(conn).await?;
+
+    // Agent tables (agent_bindings, agent_memories, agent_interactions, agent_audit_events)
+    initialize_agent_tables(conn).await?;
+
+    // UCP tables (ucp_checkout_sessions, ucp_orders, ucp_identity_links)
+    // COMPLIANCE: AGENT-004 - All UCP tables include user_id for data access control
+    initialize_ucp_tables(conn).await?;
 
     // All remaining indexes (organized by category)
     initialize_all_indexes(conn).await?;
