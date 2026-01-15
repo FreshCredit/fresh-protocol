@@ -1,8 +1,8 @@
 //! Local LibSQL database operations for FreshCredit
 //!
 //! This module implements the unified database schema for FreshCredit,
-//! // HARDCODED_SCHEMA: 114 tables in Rust modular schema, 115 in unified_schema.sql (+1 browser-specific blockchain_proofs) (verified 2026-01-06)
-//! containing 114 tables that support:
+//! // HARDCODED_SCHEMA: 117 tables in Rust modular schema, 118 in unified_schema.sql (+1 browser-specific blockchain_proofs) (verified 2026-01-15)
+//! containing 117 tables that support:
 //! - User profile and authentication (Entra ID + Verified ID)
 //! - All 11 Plaid products (Accounts, Transactions, Auth, Identity, etc.)
 //! - Payment processing (Stripe Connect ACH)
@@ -26,7 +26,7 @@
 //! - schema/: Schema definitions organized by domain
 //! - operations/: CRUD operations organized by domain
 //!
-//! HARDCODED_SCHEMA: 114 unique tables in modular schema (verified 2026-01-06)
+//! HARDCODED_SCHEMA: 117 unique tables in modular schema (verified 2026-01-15)
 
 // Submodules for incremental extraction
 pub mod operations;
@@ -79,7 +79,7 @@ impl LocalClient {
     /// This function delegates to the schema module for table creation.
     /// All table definitions are in `schema/` submodules for maintainability.
     ///
-    /// HARDCODED_SCHEMA: 114 tables total across all modules (verified 2026-01-06)
+    /// HARDCODED_SCHEMA: 117 tables total across all modules (verified 2026-01-15)
     /// See `schema/mod.rs` for the complete table inventory.
     #[must_use = "this returns a Result that should be handled"]
     pub async fn initialize_schema(&self) -> Result<()> {
@@ -88,8 +88,8 @@ impl LocalClient {
         // Delegate to the modular schema initialization
         schema::initialize_all_schema_tables(&self.connection).await?;
 
-        // HARDCODED_SCHEMA: 114 tables in Rust modular schema (verified 2026-01-06)
-        info!("Unified database schema initialization completed (114 tables)");
+        // HARDCODED_SCHEMA: 117 tables in Rust modular schema (verified 2026-01-15)
+        info!("Unified database schema initialization completed (117 tables)");
         Ok(())
     }
 
@@ -116,11 +116,12 @@ impl LocalClient {
 mod tests {
     use super::*;
 
-    /// Test that the schema contains exactly 114 tables as documented
-    /// HARDCODED_SCHEMA: 114 unique tables in modular schema (verified 2026-01-06)
+    /// Test that the schema contains exactly 117 tables as documented
+    /// HARDCODED_SCHEMA: 117 unique tables in modular schema (verified 2026-01-15)
     /// Added: provider_teams, team_members, team_invites (Teams)
     /// Added: customer_activities, customer_segments, customer_segment_memberships, customer_communications (Customers)
     /// Added: offer_analytics, offer_ab_test_results, offer_events (Offer Analytics)
+    /// Added: bridge_transfers, gateway_sessions, gateway_transactions (Circle Arc Phase 2)
     #[tokio::test]
     async fn test_schema_table_count() {
         let client = LocalClient::new_in_memory().await.unwrap();
@@ -137,11 +138,12 @@ mod tests {
 
         let row = rows.next().await.unwrap().unwrap();
         let count: i64 = row.get(0).unwrap();
-        // HARDCODED_SCHEMA: 114 tables (104 base + 3 Teams + 4 Customers + 3 Offer Analytics) (verified 2026-01-06)
+        // HARDCODED_SCHEMA: 117 tables (104 base + 3 Teams + 4 Customers + 3 Offer Analytics + 3 Circle Arc Phase 2) (verified 2026-01-15)
         // Teams: provider_teams, team_members, team_invites
         // Customers: customer_activities, customer_segments, customer_segment_memberships, customer_communications
         // Offer Analytics: offer_analytics, offer_ab_test_results, offer_events
-        assert_eq!(count, 114, "Schema should contain exactly 114 tables");
+        // Circle Arc Phase 2: bridge_transfers, gateway_sessions, gateway_transactions
+        assert_eq!(count, 117, "Schema should contain exactly 117 tables");
     }
 
     /// Test that critical tables exist in the schema
