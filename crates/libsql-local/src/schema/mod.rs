@@ -90,6 +90,9 @@ pub mod ucp;
 // Agent modules
 pub mod agent;
 
+// Governance modules
+pub mod governance;
+
 // Re-exports for convenience
 pub use ai::initialize_ai_tables;
 pub use agent::initialize_agent_tables;
@@ -116,6 +119,7 @@ pub use ticketing::initialize_ticketing_tables;
 pub use ucp::initialize_ucp_tables;
 pub use webhook::initialize_webhook_tables;
 pub use workflow::initialize_workflow_tables;
+pub use governance::{initialize_governance_tables, initialize_governance_indexes};
 
 use anyhow::Result;
 use libsql::Connection;
@@ -165,6 +169,7 @@ pub enum SchemaCategory {
     Workflow,
     Webhook,
     Security,
+    Governance,
     Indexes,
 }
 
@@ -194,6 +199,7 @@ impl SchemaCategory {
             SchemaCategory::Workflow,
             SchemaCategory::Webhook,
             SchemaCategory::Security,
+            SchemaCategory::Governance,
             SchemaCategory::Indexes,
         ]
     }
@@ -223,6 +229,7 @@ impl SchemaCategory {
             SchemaCategory::Workflow => "workflow",
             SchemaCategory::Webhook => "webhook",
             SchemaCategory::Security => "security",
+            SchemaCategory::Governance => "governance",
             SchemaCategory::Indexes => "indexes",
         }
     }
@@ -328,6 +335,11 @@ pub async fn initialize_all_schema_tables(conn: &Connection) -> Result<()> {
     // COMPLIANCE: AGENT-004 - All UCP tables include user_id for data access control
     initialize_ucp_tables(conn).await?;
 
+    // Governance tables (governance_proposals, governance_votes, governance_delegations, etc.)
+    // COMPLIANCE: §7 - Uses neutral governance terminology
+    initialize_governance_tables(conn).await?;
+    initialize_governance_indexes(conn).await?;
+
     // All remaining indexes (organized by category)
     initialize_all_indexes(conn).await?;
 
@@ -355,10 +367,10 @@ mod tests {
     #[test]
     fn test_schema_category_all() {
         let categories = SchemaCategory::all();
-        // 23 categories: Core, Financial, Identity, Plaid, Payments, Reports,
+        // 24 categories: Core, Financial, Identity, Plaid, Payments, Reports,
         // Ticketing, Compliance, Notifications, HealthKit, LinkedIn, Ip, Publications,
-        // Correlation, AppleMusic, Platform, Teams, Customers, Ai, Workflow, Webhook, Security, Indexes
-        assert_eq!(categories.len(), 23);
+        // Correlation, AppleMusic, Platform, Teams, Customers, Ai, Workflow, Webhook, Security, Governance, Indexes
+        assert_eq!(categories.len(), 24);
     }
 
     #[test]
