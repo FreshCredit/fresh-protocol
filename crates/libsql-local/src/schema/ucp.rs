@@ -4,6 +4,7 @@
 //! - ucp_checkout_sessions: Checkout session lifecycle
 //! - ucp_orders: Completed orders from checkout sessions
 //! - ucp_identity_links: OAuth 2.0 identity linking
+//! - user_offer_engagements: User journey tracking from offer view to tradeline
 //!
 //! COMPLIANCE: §10 Unified Database Schema Architecture
 //! COMPLIANCE: AGENT-004 - All queries include user_id filter
@@ -145,6 +146,71 @@ pub async fn initialize_ucp_tables(conn: &Connection) -> Result<()> {
     try_create_index(
         conn,
         "CREATE INDEX IF NOT EXISTS idx_ucp_links_client ON ucp_identity_links (client_id)",
+    )
+    .await?;
+
+    // User Offer Engagements
+    // Tracks the complete user journey: offer view → checkout → payment → tradeline
+    // This enables analytics and provides a unified view of user engagement
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS user_offer_engagements (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            offer_id TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'viewed',
+
+            -- Journey timestamps
+            viewed_at DATETIME,
+            selected_at DATETIME,
+            checkout_started_at DATETIME,
+            payment_completed_at DATETIME,
+            tradeline_created_at DATETIME,
+
+            -- Reference IDs (progressively populated)
+            checkout_session_id TEXT,
+            payment_id TEXT,
+            ucp_order_id TEXT,
+            tradeline_account_id TEXT,
+
+            -- Offer terms snapshot (captured at engagement time)
+            loan_amount REAL,
+            apr REAL,
+            term_months INTEGER,
+            monthly_payment REAL,
+
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+            FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
+            FOREIGN KEY (checkout_session_id) REFERENCES ucp_checkout_sessions (session_id),
+            FOREIGN KEY (ucp_order_id) REFERENCES ucp_orders (order_id)
+        )",
+        (),
+    )
+    .await?;
+
+    // Indexes for user_offer_engagements
+    try_create_index(
+        conn,
+        "CREATE INDEX IF NOT EXISTS idx_engagements_user_id ON user_offer_engagements (user_id)",
+    )
+    .await?;
+
+    try_create_index(
+        conn,
+        "CREATE INDEX IF NOT EXISTS idx_engagements_offer_id ON user_offer_engagements (offer_id)",
+    )
+    .await?;
+
+    try_create_index(
+        conn,
+        "CREATE INDEX IF NOT EXISTS idx_engagements_status ON user_offer_engagements (status)",
+    )
+    .await?;
+
+    try_create_index(
+        conn,
+        "CREATE INDEX IF NOT EXISTS idx_engagements_user_offer ON user_offer_engagements (user_id, offer_id)",
     )
     .await?;
 

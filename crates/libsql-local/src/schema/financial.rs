@@ -1,10 +1,16 @@
 //! Financial schema definitions: accounts, transactions
 //!
 //! Tables in this module:
-//! - accounts: Linked financial accounts (Plaid integration)
+//! - accounts: Linked financial accounts (Plaid integration) + FreshCredit tradelines
 //! - transactions: Financial transaction records
 //!
 //! NOTE: balances table is in plaid.rs as it's part of Plaid Balance product
+//!
+//! TRADELINE SUPPORT:
+//! Accounts with account_type = 'loan_tradeline' or 'credit_tradeline' are
+//! FreshCredit-originated tradelines from UCP credit product purchases.
+//! These use the origination_* and apr/term columns for tradeline tracking.
+//! Only products with product_category = 'credit' create tradelines.
 //!
 //! COMPLIANCE: §10 Unified Database Schema Architecture
 
@@ -46,6 +52,17 @@ pub async fn initialize_financial_tables(conn: &Connection) -> Result<()> {
             is_active BOOLEAN DEFAULT TRUE,
             date_opened DATE,
             credit_limit DECIMAL(12,2),
+            -- Tradeline columns (for FreshCredit-originated accounts)
+            -- Only populated when account_type = 'loan_tradeline' or 'credit_tradeline'
+            origination_date DATE,
+            origination_amount REAL,
+            apr REAL,
+            term_months INTEGER,
+            monthly_payment REAL,
+            offer_id TEXT,
+            product_category TEXT,
+            ucp_order_id TEXT,
+            payment_id TEXT,
             blockchain_hash TEXT,
             block_number INTEGER,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
