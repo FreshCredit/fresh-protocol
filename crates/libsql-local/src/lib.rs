@@ -139,14 +139,32 @@ mod tests {
 
         let row = rows.next().await.unwrap().unwrap();
         let count: i64 = row.get(0).unwrap();
-        // HARDCODED_SCHEMA: 124 tables (104 base + 3 Teams + 4 Customers + 3 Offer Analytics + 3 Circle Arc Phase 2 + 4 Security + 3 UCP) (verified 2026-01-15)
-        // Teams: provider_teams, team_members, team_invites
-        // Customers: customer_activities, customer_segments, customer_segment_memberships, customer_communications
-        // Offer Analytics: offer_analytics, offer_ab_test_results, offer_events
-        // Circle Arc Phase 2: bridge_transfers, gateway_sessions, gateway_transactions
-        // Security: user_devices, ip_blocks, step_up_auth_sessions, security_events
-        // UCP: ucp_checkout_sessions, ucp_orders, ucp_identity_links
-        assert_eq!(count, 124, "Schema should contain exactly 124 tables");
+        // HARDCODED_SCHEMA: 134 tables (verified 2026-01-18)
+        // Core: 6 tables (user_profile, user_preferences, api_keys, webauthn_credentials, kilt_dids, auth_tokens)
+        // Financial: 3 tables (accounts, transactions, balances)
+        // Identity: 2 tables (identity_verification, verified_credentials)
+        // AI: 7 tables (ai_conversations, ai_messages, uploaded_files, ai_feedback, ai_model_configs, ai_request_logs, ai_usage_metrics)
+        // Workflow: 1 table (workflows)
+        // Webhook: 2 tables (webhook_events, notifications)
+        // Plaid: 20 tables (items, identities, assets, income, income_verification, employment, layer, enrich, monitor, signal_evaluations, consumer_reports, phone_verification_codes, liabilities, statements, investments_holdings, investments_securities, investments_transactions, recurring_transactions, transactions_sync, verification_requests)
+        // Payments: 11 tables (customers, funding_sources, payments, crypto_wallets, crypto_payments, arc_receipts, bridge_transfers, gateway_sessions, gateway_transactions, virtual_accounts, stripe_plaid_payments)
+        // Reports: 11 tables (reports, scores, offers, provider_offers, user_offer_engagements, disputes, offer_analytics, offer_ab_test_results, offer_events, audit_events, data_approval_hashes)
+        // Ticketing: 4 tables (tickets, ticket_comments, ticket_assignments, ticket_sla_events)
+        // Compliance: 5 tables (compliance_scans, compliance_rules, compliance_findings, compliance_evidence, compliance_digests)
+        // LinkedIn: 6 tables (linkedin_profiles, linkedin_experiences, linkedin_education, linkedin_skills, linkedin_certifications, linkedin_languages)
+        // HealthKit: 6 tables (healthkit_profiles, healthkit_records, healthkit_workouts, healthkit_activity_summaries, healthkit_clinical_records, healthkit_correlations)
+        // IP: 5 tables (ip_records, ip_claims, ip_evidence, ip_events, ip_disputes)
+        // Publications: 7 tables (publication_records, publication_claims, orcid_connections, publication_evidence, publication_events, publication_disputes, publication_shares)
+        // Apple Music: 6 tables (apple_music_profiles, apple_music_library_songs, apple_music_library_albums, apple_music_playlists, apple_music_recently_played, apple_music_genre_stats)
+        // Correlation: 3 tables (correlation_preferences, correlation_insights, correlation_metrics)
+        // Platform: 3 tables (referrals, platform_metrics, sales_pipeline)
+        // Teams: 3 tables (provider_teams, team_members, team_invites)
+        // Customers: 4 tables (customer_activities, customer_segments, customer_segment_memberships, customer_communications)
+        // Security: 5 tables (sessions, user_devices, ip_blocks, rate_limit_events, step_up_auth_requests)
+        // UCP: 3 tables (ucp_checkout_sessions, ucp_orders, ucp_identity_links)
+        // Agent: 6 tables (agent_bindings, agent_memories, agent_interactions, agent_audit_events, agentfs_kv_store, agentfs_tool_calls)
+        // Governance: 6 tables (governance_proposals, governance_votes, governance_delegations, governance_treasury, governance_treasury_transactions, governance_stewards)
+        assert_eq!(count, 134, "Schema should contain exactly 134 tables");
     }
 
     /// Test that critical tables exist in the schema

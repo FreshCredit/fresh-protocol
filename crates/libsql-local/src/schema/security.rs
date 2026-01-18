@@ -1,6 +1,7 @@
 //! Security monitoring schema definitions
 //!
 //! Contains security tables:
+//! - sessions: Server-side session storage for authenticated users
 //! - ip_blocks: Blocked IP addresses for brute force protection
 //! - rate_limit_events: Rate limiting event records
 //! - step_up_auth_requests: Step-up authentication requests for sensitive actions
@@ -16,6 +17,24 @@ use libsql::Connection;
 
 /// Initialize security monitoring tables
 pub async fn initialize_security_tables(conn: &Connection) -> Result<()> {
+    // Sessions table for server-side session storage
+    // Used in conjunction with JWT tokens for session activity tracking
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS sessions (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            created_at INTEGER NOT NULL,
+            last_activity INTEGER NOT NULL,
+            expires_at INTEGER NOT NULL,
+            data TEXT NOT NULL,
+            ip_address TEXT,
+            user_agent TEXT,
+            FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
+        )",
+        (),
+    )
+    .await?;
+
     // IP blocks table for brute force protection
     conn.execute(
         "CREATE TABLE IF NOT EXISTS ip_blocks (
@@ -108,6 +127,20 @@ pub async fn initialize_security_tables(conn: &Connection) -> Result<()> {
     .await?;
 
     // Create indexes for security tables
+
+    // Sessions table indexes
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id)",
+        (),
+    )
+    .await?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at)",
+        (),
+    )
+    .await?;
+
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_ip_blocks_ip_address ON ip_blocks(ip_address)",
         (),

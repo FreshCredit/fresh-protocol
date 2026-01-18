@@ -264,13 +264,14 @@ impl SchemaCategory {
 /// - Customers: 4 tables (customer_activities, customer_segments, customer_segment_memberships, customer_communications)
 /// - Security: 5 tables (ip_blocks, rate_limit_events, step_up_auth_requests, user_devices, compliance_digests)
 ///
-/// HARDCODED_SCHEMA: 124 unique tables total across all modules (verified 2026-01-15)
-/// Added: provider_teams, team_members, team_invites (Teams module)
-/// Added: customer_activities, customer_segments, customer_segment_memberships, customer_communications (Customers module)
-/// Added: offer_analytics, offer_ab_test_results, offer_events (Offer Analytics in Reports module)
-/// Added: agent_bindings, agent_memories, agent_interactions, agent_audit_events (Agent module)
-/// Added: ucp_checkout_sessions, ucp_orders, ucp_identity_links (UCP module)
-/// Note: Some tables appear in multiple modules but SQLite IF NOT EXISTS handles deduplication.
+/// HARDCODED_SCHEMA: 133 unique tables total across all modules (verified 2026-01-18)
+/// Core: 6 tables (user_profile, user_preferences, api_keys, webauthn_credentials, kilt_dids, auth_tokens)
+/// Financial: 3 tables | Identity: 2 tables | AI: 7 tables | Workflow: 1 table | Webhook: 2 tables
+/// Plaid: 20 tables | Payments: 11 tables | Reports: 11 tables | Ticketing: 4 tables | Compliance: 5 tables
+/// LinkedIn: 6 tables | HealthKit: 6 tables | IP: 5 tables | Publications: 7 tables | Apple Music: 6 tables
+/// Correlation: 3 tables | Platform: 3 tables | Teams: 3 tables | Customers: 4 tables | Security: 4 tables
+/// UCP: 3 tables | Agent: 6 tables | Governance: 6 tables
+/// Note: SQLite IF NOT EXISTS handles deduplication for tables appearing in multiple modules.
 pub async fn initialize_all_schema_tables(conn: &Connection) -> Result<()> {
     // Enable foreign key constraints first
     conn.execute("PRAGMA foreign_keys = ON", ()).await?;
