@@ -4,6 +4,7 @@
 //! - ucp_checkout_sessions: Checkout session lifecycle
 //! - ucp_orders: Completed orders from checkout sessions
 //! - ucp_identity_links: OAuth 2.0 identity linking
+//! - ucp_merchants: Verified merchant directory for UCP discovery
 //! - user_offer_engagements: User journey tracking from offer view to tradeline
 //!
 //! COMPLIANCE: §10 Unified Database Schema Architecture
@@ -211,6 +212,35 @@ pub async fn initialize_ucp_tables(conn: &Connection) -> Result<()> {
     try_create_index(
         conn,
         "CREATE INDEX IF NOT EXISTS idx_engagements_user_offer ON user_offer_engagements (user_id, offer_id)",
+    )
+    .await?;
+
+    // UCP Merchants
+    // Verified merchant directory for UCP discovery protocol
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS ucp_merchants (
+            id TEXT PRIMARY KEY,
+            domain TEXT NOT NULL UNIQUE,
+            profile_url TEXT NOT NULL,
+            display_name TEXT NOT NULL,
+            is_verified INTEGER NOT NULL DEFAULT 0,
+            capabilities TEXT NOT NULL DEFAULT '[]',
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        )",
+        (),
+    )
+    .await?;
+
+    try_create_index(
+        conn,
+        "CREATE INDEX IF NOT EXISTS idx_ucp_merchants_domain ON ucp_merchants(domain)",
+    )
+    .await?;
+
+    try_create_index(
+        conn,
+        "CREATE INDEX IF NOT EXISTS idx_ucp_merchants_verified ON ucp_merchants(is_verified)",
     )
     .await?;
 

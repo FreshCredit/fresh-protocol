@@ -8,6 +8,7 @@
 //! - disputes: Consumer disputes
 //! - verification_requests: Data verification requests
 //! - phone_verification_codes: SMS verification
+//! - blockchain_proofs: NOMT/Substrate proof storage for offline verification
 //!
 //! COMPLIANCE: §2 - Neutral matching only, no recommendations
 //! COMPLIANCE: §10 Unified Database Schema Architecture
@@ -343,6 +344,51 @@ pub async fn initialize_offer_analytics_indexes(conn: &Connection) -> Result<()>
     Ok(())
 }
 
+/// Initialize blockchain proofs table
+/// Stores NOMT/Substrate proofs for offline verification via smoldot
+/// COMPLIANCE: §1 - blockchain_proofs is browser-side for offline verification
+async fn initialize_blockchain_proofs_table(conn: &Connection) -> Result<()> {
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS blockchain_proofs (
+            id TEXT PRIMARY KEY,
+            hash TEXT NOT NULL UNIQUE,
+            user_id TEXT,
+            proof_type TEXT NOT NULL DEFAULT 'nomt',
+            nomt_root TEXT,
+            substrate_block_number INTEGER,
+            substrate_block_hash TEXT,
+            leaf_hash TEXT,
+            siblings TEXT,
+            path TEXT,
+            verified_at DATETIME,
+            verification_method TEXT,
+            is_trustless INTEGER DEFAULT 0,
+            latency_ms INTEGER,
+            raw_proof_data TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
+        )",
+        (),
+    )
+    .await?;
+
+    // Indexes for blockchain_proofs
+    super::try_create_index(
+        conn,
+        "CREATE INDEX IF NOT EXISTS idx_blockchain_proofs_hash ON blockchain_proofs (hash)",
+    )
+    .await?;
+
+    super::try_create_index(
+        conn,
+        "CREATE INDEX IF NOT EXISTS idx_blockchain_proofs_user_id ON blockchain_proofs (user_id)",
+    )
+    .await?;
+
+    Ok(())
+}
+
 /// Initialize all reports and provider tables
 pub async fn initialize_all_reports_tables(conn: &Connection) -> Result<()> {
     initialize_reports_tables(conn).await?;
@@ -350,6 +396,7 @@ pub async fn initialize_all_reports_tables(conn: &Connection) -> Result<()> {
     initialize_verification_tables(conn).await?;
     initialize_offer_analytics_tables(conn).await?;
     initialize_offer_analytics_indexes(conn).await?;
+    initialize_blockchain_proofs_table(conn).await?;
     Ok(())
 }
 
