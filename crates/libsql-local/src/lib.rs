@@ -139,7 +139,7 @@ mod tests {
 
         let row = rows.next().await.unwrap().unwrap();
         let count: i64 = row.get(0).unwrap();
-        // HARDCODED_SCHEMA: 134 tables (verified 2026-01-18)
+        // HARDCODED_SCHEMA: 136 tables (verified 2026-01-21)
         // Core: 6 tables (user_profile, user_preferences, api_keys, webauthn_credentials, kilt_dids, auth_tokens)
         // Financial: 3 tables (accounts, transactions, balances)
         // Identity: 2 tables (identity_verification, verified_credentials)
@@ -154,6 +154,7 @@ mod tests {
         // LinkedIn: 6 tables (linkedin_profiles, linkedin_experiences, linkedin_education, linkedin_skills, linkedin_certifications, linkedin_languages)
         // HealthKit: 6 tables (healthkit_profiles, healthkit_records, healthkit_workouts, healthkit_activity_summaries, healthkit_clinical_records, healthkit_correlations)
         // IP: 5 tables (ip_records, ip_claims, ip_evidence, ip_events, ip_disputes)
+        // Note: 2 additional tables from tech debt remediation (ARCH-P2-001 profile schema alignment)
         // Publications: 7 tables (publication_records, publication_claims, orcid_connections, publication_evidence, publication_events, publication_disputes, publication_shares)
         // Apple Music: 6 tables (apple_music_profiles, apple_music_library_songs, apple_music_library_albums, apple_music_playlists, apple_music_recently_played, apple_music_genre_stats)
         // Correlation: 3 tables (correlation_preferences, correlation_insights, correlation_metrics)
@@ -164,7 +165,7 @@ mod tests {
         // UCP: 3 tables (ucp_checkout_sessions, ucp_orders, ucp_identity_links)
         // Agent: 6 tables (agent_bindings, agent_memories, agent_interactions, agent_audit_events, agentfs_kv_store, agentfs_tool_calls)
         // Governance: 6 tables (governance_proposals, governance_votes, governance_delegations, governance_treasury, governance_treasury_transactions, governance_stewards)
-        assert_eq!(count, 134, "Schema should contain exactly 134 tables");
+        assert_eq!(count, 136, "Schema should contain exactly 136 tables");
     }
 
     /// Test that critical tables exist in the schema
@@ -255,6 +256,12 @@ mod tests {
             ssn_last_four: None,
             employment_status: None,
             annual_income: None,
+            // ARCH-P2-001: Extended profile fields
+            phone_number: None,
+            preferred_name: None,
+            emergency_contact_name: None,
+            emergency_contact_phone: None,
+            employer_name: None,
             role: "consumer".to_string(),
             is_admin: false,
             provider_onboarding_complete: false,
@@ -376,6 +383,12 @@ mod tests {
             ssn_last_four: None,
             employment_status: None,
             annual_income: None,
+            // ARCH-P2-001: Extended profile fields
+            phone_number: None,
+            preferred_name: None,
+            emergency_contact_name: None,
+            emergency_contact_phone: None,
+            employer_name: None,
             role: "consumer".to_string(),
             is_admin: false,
             provider_onboarding_complete: false,

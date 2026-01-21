@@ -23,6 +23,8 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
     // Create user_profile table first (referenced by other tables)
     // P0p: Added is_admin column for first provider user admin rule (§27.4)
     // P0g: Added provider_onboarding_complete for §28.1 nav visibility
+    // ARCH-P2-001: Added phone_number, preferred_name, emergency_contact_name,
+    //              emergency_contact_phone, employer_name for web schema alignment
     conn.execute(
         "CREATE TABLE IF NOT EXISTS user_profile (
             id TEXT PRIMARY KEY,
@@ -44,6 +46,11 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
             ssn_last_four TEXT,
             employment_status TEXT,
             annual_income INTEGER,
+            phone_number TEXT,
+            preferred_name TEXT,
+            emergency_contact_name TEXT,
+            emergency_contact_phone TEXT,
+            employer_name TEXT,
             role TEXT DEFAULT 'consumer',
             is_admin BOOLEAN DEFAULT FALSE,
             provider_onboarding_complete BOOLEAN DEFAULT FALSE,
@@ -67,6 +74,27 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
     ).await;
     let _ = conn.execute(
         "ALTER TABLE user_profile ADD COLUMN provider_onboarding_complete BOOLEAN DEFAULT FALSE",
+        (),
+    ).await;
+    // ARCH-P2-001: Migration for new profile fields
+    let _ = conn.execute(
+        "ALTER TABLE user_profile ADD COLUMN phone_number TEXT",
+        (),
+    ).await;
+    let _ = conn.execute(
+        "ALTER TABLE user_profile ADD COLUMN preferred_name TEXT",
+        (),
+    ).await;
+    let _ = conn.execute(
+        "ALTER TABLE user_profile ADD COLUMN emergency_contact_name TEXT",
+        (),
+    ).await;
+    let _ = conn.execute(
+        "ALTER TABLE user_profile ADD COLUMN emergency_contact_phone TEXT",
+        (),
+    ).await;
+    let _ = conn.execute(
+        "ALTER TABLE user_profile ADD COLUMN employer_name TEXT",
         (),
     ).await;
 

@@ -59,6 +59,8 @@ use serde::{Deserialize, Serialize};
 /// Combines Entra ID claims with extended profile and Verified ID fields
 /// P0p: Added is_admin for first provider user admin rule (§27.4)
 /// P0g: Added provider_onboarding_complete for nav visibility (§28.1)
+/// ARCH-P2-001: Added phone_number, preferred_name, emergency_contact_name,
+///              emergency_contact_phone, employer_name for web schema alignment
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserProfile {
     pub id: String,
@@ -80,6 +82,17 @@ pub struct UserProfile {
     pub ssn_last_four: Option<String>,
     pub employment_status: Option<String>,
     pub annual_income: Option<i32>,
+    // ARCH-P2-001: Extended profile fields for web schema alignment
+    /// Alternative phone number (separate from mobile_phone)
+    pub phone_number: Option<String>,
+    /// User's preferred display name (nickname)
+    pub preferred_name: Option<String>,
+    /// Emergency contact full name
+    pub emergency_contact_name: Option<String>,
+    /// Emergency contact phone number
+    pub emergency_contact_phone: Option<String>,
+    /// Employer/company name
+    pub employer_name: Option<String>,
     pub role: String,
     /// P0p: First provider user is admin by default (§27.4)
     #[serde(default)]
