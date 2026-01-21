@@ -36,6 +36,12 @@
 //!     ssn_last_four: None,
 //!     employment_status: None,
 //!     annual_income: None,
+//!     // ARCH-P2-001: Extended profile fields
+//!     phone_number: None,
+//!     preferred_name: None,
+//!     emergency_contact_name: None,
+//!     emergency_contact_phone: None,
+//!     employer_name: None,
 //!     role: "consumer".to_string(),
 //!     is_admin: false,
 //!     provider_onboarding_complete: false,
