@@ -678,4 +678,120 @@ impl CloudClient {
 
         Ok(transactions)
     }
+
+    /// Get Plaid access token for a user's account
+    ///
+    /// ARCHITECTURE: Retrieves the encrypted access token for Plaid API calls.
+    /// S2.3: Added for payment flow to retrieve real access tokens.
+    pub async fn get_plaid_access_token(
+        &self,
+        user_id: &str,
+    ) -> FreshCreditResult<Option<String>> {
+        info!("Getting Plaid access token for user: {}", user_id);
+
+        let mut rows = self
+            .connection
+            .query(
+                "SELECT plaid_access_token FROM accounts WHERE user_id = ? AND plaid_access_token IS NOT NULL LIMIT 1",
+                libsql::params![user_id.to_string()],
+            )
+            .await
+            .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?;
+
+        if let Some(row) = rows
+            .next()
+            .await
+            .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?
+        {
+            let access_token: Option<String> = row.get(0).ok();
+            return Ok(access_token);
+        }
+
+        Ok(None)
+    }
+
+    /// Get Plaid access token for a specific account ID
+    ///
+    /// ARCHITECTURE: Retrieves the encrypted access token for a specific account.
+    /// S2.3: Added for payment flow to retrieve access token by account.
+    pub async fn get_plaid_access_token_for_account(
+        &self,
+        account_id: &str,
+    ) -> FreshCreditResult<Option<String>> {
+        info!("Getting Plaid access token for account: {}", account_id);
+
+        let mut rows = self
+            .connection
+            .query(
+                "SELECT plaid_access_token FROM accounts WHERE id = ? AND plaid_access_token IS NOT NULL LIMIT 1",
+                libsql::params![account_id.to_string()],
+            )
+            .await
+            .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?;
+
+        if let Some(row) = rows
+            .next()
+            .await
+            .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?
+        {
+            let access_token: Option<String> = row.get(0).ok();
+            return Ok(access_token);
+        }
+
+        Ok(None)
+    }
+
+    /// Get a specific account by ID
+    ///
+    /// ARCHITECTURE: Used by payment flow to get account details for a specific account.
+    /// S2.3: Added for proper account lookup in payment flow.
+    pub async fn get_account_by_id(
+        &self,
+        account_id: &str,
+    ) -> FreshCreditResult<Option<freshcredit_types::Account>> {
+        info!("Getting account by ID: {}", account_id);
+
+        let mut rows = self
+            .connection
+            .query(
+                "SELECT id, user_id, account_type, balance, currency, institution_name, created_at
+                 FROM accounts WHERE id = ? LIMIT 1",
+                libsql::params![account_id.to_string()],
+            )
+            .await
+            .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?;
+
+        if let Some(row) = rows
+            .next()
+            .await
+            .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?
+        {
+            let account_type_str: String = row.get(2).unwrap_or_default();
+            let account_type = match account_type_str.to_lowercase().as_str() {
+                "checking" => freshcredit_types::AccountType::Checking,
+                "savings" => freshcredit_types::AccountType::Savings,
+                "credit" => freshcredit_types::AccountType::Credit,
+                "investment" => freshcredit_types::AccountType::Investment,
+                "loan" => freshcredit_types::AccountType::Loan,
+                _ => freshcredit_types::AccountType::Checking,
+            };
+
+            let created_at_str: String = row.get(6).unwrap_or_default();
+            let created_at = chrono::DateTime::parse_from_rfc3339(&created_at_str)
+                .map(|dt| dt.with_timezone(&chrono::Utc))
+                .unwrap_or_else(|_| chrono::Utc::now());
+
+            return Ok(Some(freshcredit_types::Account {
+                id: row.get(0).unwrap_or_default(),
+                user_id: row.get(1).unwrap_or_default(),
+                account_type,
+                balance: row.get(3).ok(),
+                currency: row.get(4).unwrap_or_else(|_| "USD".to_string()),
+                institution_name: row.get(5).unwrap_or_default(),
+                created_at,
+            }));
+        }
+
+        Ok(None)
+    }
 }
