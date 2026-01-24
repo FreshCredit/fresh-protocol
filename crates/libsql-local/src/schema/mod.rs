@@ -273,8 +273,10 @@ impl SchemaCategory {
 /// UCP: 3 tables | Agent: 6 tables | Governance: 6 tables
 /// Note: SQLite IF NOT EXISTS handles deduplication for tables appearing in multiple modules.
 pub async fn initialize_all_schema_tables(conn: &Connection) -> Result<()> {
-    // Enable foreign key constraints first
-    conn.execute("PRAGMA foreign_keys = ON", ()).await?;
+    // Disable foreign key constraints during schema initialization
+    // This allows synced data from Turso cloud to load even if referenced rows
+    // arrive in a different order. We re-enable at the end.
+    conn.execute("PRAGMA foreign_keys = OFF", ()).await?;
 
     // Core tables (user_profile must be first - referenced by other tables)
     initialize_core_tables(conn).await?;
