@@ -48,6 +48,33 @@ pub async fn initialize_agent_tables(conn: &Connection) -> Result<()> {
         (),
     ).await?;
 
+    // CHATBOT-FIX: Migrations for Phase 9 columns on existing databases
+    // These columns are queried by BindingService.get_or_create_binding()
+    let _ = conn.execute(
+        "ALTER TABLE agent_bindings ADD COLUMN entra_object_id TEXT",
+        (),
+    ).await;
+    let _ = conn.execute(
+        "ALTER TABLE agent_bindings ADD COLUMN verified_credential_did TEXT",
+        (),
+    ).await;
+    let _ = conn.execute(
+        "ALTER TABLE agent_bindings ADD COLUMN last_verified_at DATETIME",
+        (),
+    ).await;
+    let _ = conn.execute(
+        "ALTER TABLE agent_bindings ADD COLUMN identity_verified INTEGER DEFAULT 0",
+        (),
+    ).await;
+    let _ = conn.execute(
+        "ALTER TABLE agent_bindings ADD COLUMN blockchain_anchor_hash TEXT",
+        (),
+    ).await;
+    let _ = conn.execute(
+        "ALTER TABLE agent_bindings ADD COLUMN binding_status TEXT NOT NULL DEFAULT 'active'",
+        (),
+    ).await;
+
     // Agent memories table - user-designated facts only (explicit "remember" requests)
     conn.execute(
         "CREATE TABLE IF NOT EXISTS agent_memories (

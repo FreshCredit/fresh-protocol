@@ -68,6 +68,18 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
     .await?;
 
     // Migrations for existing databases
+    // CHATBOT-FIX: platform_user_id is required by RBAC middleware queries
+    // This column was added to the schema but existing databases may not have it
+    let _ = conn.execute(
+        "ALTER TABLE user_profile ADD COLUMN platform_user_id TEXT",
+        (),
+    ).await;
+    // For rows with NULL platform_user_id, populate from email as fallback
+    let _ = conn.execute(
+        "UPDATE user_profile SET platform_user_id = email WHERE platform_user_id IS NULL OR platform_user_id = ''",
+        (),
+    ).await;
+
     let _ = conn.execute(
         "ALTER TABLE user_profile ADD COLUMN is_admin BOOLEAN DEFAULT FALSE",
         (),
