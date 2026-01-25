@@ -61,7 +61,10 @@ impl LocalClient {
     }
 
     /// Create a new in-memory client for testing
-    #[cfg(test)]
+    ///
+    /// This is useful for unit tests that don't need persistent storage.
+    /// Available in test builds and when `test-utils` feature is enabled.
+    #[cfg(any(test, feature = "test-utils"))]
     #[must_use = "this returns a Result that should be handled"]
     pub async fn new_in_memory() -> Result<Self> {
         let db = libsql::Builder::new_local(":memory:").build().await?;

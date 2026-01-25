@@ -95,7 +95,7 @@ pub mod governance;
 
 // Re-exports for convenience
 pub use ai::initialize_ai_tables;
-pub use agent::initialize_agent_tables;
+pub use agent::{initialize_agent_tables, check_agent_bindings_schema};
 pub use apple_music::initialize_apple_music_tables;
 pub use compliance::initialize_compliance_tables;
 pub use core::{initialize_core_indexes, initialize_core_tables};

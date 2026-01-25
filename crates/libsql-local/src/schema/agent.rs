@@ -14,6 +14,12 @@
 //! - agentfs_kv_store: Key-value store for agent state (context cache, reasoning snapshots)
 //! - agentfs_tool_calls: Append-only audit trail for tool calls
 //!
+//! Phase 9 Columns (Enterprise Identity - PR-P0-3):
+//! - entra_object_id: Entra service principal object ID
+//! - verified_credential_did: Decentralized Identifier from verified credential
+//! - last_verified_at: Last identity verification timestamp
+//! - identity_verified: Whether identity has been verified (0/1)
+//!
 //! COMPLIANCE:
 //! - AGENT-003: agentfs_tool_calls is append-only (INSERT only)
 //! - AGENT-004: All tables include user_id with mandatory filter
@@ -21,6 +27,7 @@
 
 use anyhow::Result;
 use libsql::Connection;
+use tracing::{debug, info, warn};
 
 /// Initialize agent tables
 pub async fn initialize_agent_tables(conn: &Connection) -> Result<()> {
@@ -74,6 +81,9 @@ pub async fn initialize_agent_tables(conn: &Connection) -> Result<()> {
         "ALTER TABLE agent_bindings ADD COLUMN binding_status TEXT NOT NULL DEFAULT 'active'",
         (),
     ).await;
+
+    // PR-P0-3: Validate schema after migrations
+    validate_agent_bindings_schema(conn).await;
 
     // Agent memories table - user-designated facts only (explicit "remember" requests)
     conn.execute(
@@ -185,4 +195,88 @@ pub async fn initialize_agent_indexes(conn: &Connection) -> Result<()> {
     conn.execute("CREATE INDEX IF NOT EXISTS idx_agent_audit_events_binding_id ON agent_audit_events(agent_binding_id)", ()).await?;
     conn.execute("CREATE INDEX IF NOT EXISTS idx_agent_audit_events_created_at ON agent_audit_events(created_at)", ()).await?;
     Ok(())
+}
+
+/// PR-P0-3: Validate agent_bindings schema has Phase 9 columns
+///
+/// Logs schema validation results at startup to help diagnose issues.
+/// This is non-blocking - missing columns are logged as warnings but don't fail startup.
+async fn validate_agent_bindings_schema(conn: &Connection) {
+    debug!("Validating agent_bindings schema (Phase 9 columns)");
+
+    // Query table info to check for Phase 9 columns
+    let result = conn.query("PRAGMA table_info(agent_bindings)", ()).await;
+
+    match result {
+        Ok(mut rows) => {
+            let mut columns: Vec<String> = Vec::new();
+            while let Ok(Some(row)) = rows.next().await {
+                if let Ok(name) = row.get::<String>(1) {
+                    columns.push(name);
+                }
+            }
+
+            // Check for Phase 9 columns
+            let phase9_columns = [
+                "entra_object_id",
+                "verified_credential_did",
+                "last_verified_at",
+                "identity_verified",
+            ];
+
+            let mut missing: Vec<&str> = Vec::new();
+            let mut present: Vec<&str> = Vec::new();
+
+            for col in &phase9_columns {
+                if columns.iter().any(|c| c == *col) {
+                    present.push(col);
+                } else {
+                    missing.push(col);
+                }
+            }
+
+            if missing.is_empty() {
+                info!(
+                    columns = ?present,
+                    "agent_bindings schema validated: all Phase 9 columns present"
+                );
+            } else {
+                warn!(
+                    missing = ?missing,
+                    present = ?present,
+                    "agent_bindings schema: some Phase 9 columns missing (will be added by migration)"
+                );
+            }
+
+            debug!(all_columns = ?columns, "agent_bindings table columns");
+        }
+        Err(e) => {
+            warn!(error = %e, "Failed to validate agent_bindings schema - table may not exist yet");
+        }
+    }
+}
+
+/// PR-P0-3: Public function to check if agent_bindings schema is valid
+///
+/// Returns Ok(true) if all Phase 9 columns are present, Ok(false) if some are missing,
+/// or Err if the table doesn't exist or query fails.
+pub async fn check_agent_bindings_schema(conn: &Connection) -> Result<bool> {
+    let mut rows = conn.query("PRAGMA table_info(agent_bindings)", ()).await?;
+
+    let mut columns: Vec<String> = Vec::new();
+    while let Ok(Some(row)) = rows.next().await {
+        if let Ok(name) = row.get::<String>(1) {
+            columns.push(name);
+        }
+    }
+
+    let phase9_columns = [
+        "entra_object_id",
+        "verified_credential_did",
+        "last_verified_at",
+        "identity_verified",
+    ];
+
+    let all_present = phase9_columns.iter().all(|col| columns.contains(&col.to_string()));
+    Ok(all_present)
 }
