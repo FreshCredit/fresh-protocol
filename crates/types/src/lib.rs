@@ -83,6 +83,105 @@ pub enum PaymentStatus {
     RequiresVerification,
 }
 
+/// Payment method types (consolidated from payment-services)
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum PaymentMethodType {
+    Card,
+    BankAccount,
+    CryptoWallet,
+}
+
+/// Payment processors supported by FreshCredit
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum PaymentProcessor {
+    Stripe,
+    Circle,
+    Plaid,
+}
+
+/// Card brand types
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum CardBrand {
+    Visa,
+    Mastercard,
+    Amex,
+    Discover,
+    #[serde(rename = "diners_club")]
+    DinersClub,
+    Jcb,
+    UnionPay,
+    Unknown,
+}
+
+/// Payment method information (browser-first compatible)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PaymentMethod {
+    pub id: String,
+    pub user_id: UserId,
+    /// Opaque reference (e.g., "pm_ref_xxx") - not the actual token
+    pub method_ref: String,
+    pub processor: PaymentProcessor,
+    pub method_type: PaymentMethodType,
+    /// Hash anchor for server verification (blake3 hash)
+    pub hash_anchor: String,
+    /// Display name (e.g., "Visa ending in 4242")
+    pub display_name: Option<String>,
+    /// Last 4 digits of card/account
+    pub last_four: Option<String>,
+    /// Card brand (for cards)
+    pub brand: Option<CardBrand>,
+    /// Expiry month (for cards)
+    pub expiry_month: Option<u8>,
+    /// Expiry year (for cards)
+    pub expiry_year: Option<u16>,
+    /// Whether this is the default payment method
+    pub is_default: bool,
+    /// Whether this method is active
+    pub is_active: bool,
+    /// Billing details
+    pub billing_details: Option<BillingDetails>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+/// Billing details for payment methods
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BillingDetails {
+    pub name: Option<String>,
+    pub email: Option<String>,
+    pub address: Option<Address>,
+}
+
+/// Request to create a payment method (browser-first)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreatePaymentMethodRequest {
+    pub processor: PaymentProcessor,
+    pub method_type: PaymentMethodType,
+    /// Payment provider token (Stripe pm_xxx, etc.)
+    pub token: String,
+    pub set_default: bool,
+    pub billing_details: Option<BillingDetails>,
+}
+
+/// Response after creating a payment method
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PaymentMethodResponse {
+    pub id: String,
+    pub method_ref: String,
+    pub processor: PaymentProcessor,
+    pub method_type: PaymentMethodType,
+    pub display_name: String,
+    pub last_four: Option<String>,
+    pub brand: Option<CardBrand>,
+    pub expiry_month: Option<u8>,
+    pub expiry_year: Option<u16>,
+    pub is_default: bool,
+    pub created_at: DateTime<Utc>,
+}
+
 /// Financial institution information
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Institution {
