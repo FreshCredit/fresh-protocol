@@ -14,12 +14,14 @@ use anyhow::Result;
 use libsql::Connection;
 
 use super::try_create_index;
+use tracing::info;
 
 /// Initialize core tables (user_profile and related)
 ///
 /// Creates 6 core tables: user_profile, user_preferences, auth_tokens,
 /// api_keys, webauthn_credentials, kilt_dids
 pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
+    info!("[ARCH-007] Initializing core tables");
     // Create user_profile table first (referenced by other tables)
     // P0p: Added is_admin column for first provider user admin rule (§27.4)
     // P0g: Added provider_onboarding_complete for §28.1 nav visibility

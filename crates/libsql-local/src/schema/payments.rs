@@ -23,9 +23,11 @@ use anyhow::Result;
 use libsql::Connection;
 
 use super::try_create_index;
+use tracing::info;
 
 /// Initialize all payment tables
 pub async fn initialize_payment_tables(conn: &Connection) -> Result<()> {
+    info!("[ARCH-007] Initializing payments tables");
     conn.execute(
         "CREATE TABLE IF NOT EXISTS customers (
             id TEXT PRIMARY KEY,

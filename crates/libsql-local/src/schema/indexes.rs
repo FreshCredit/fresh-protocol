@@ -12,9 +12,11 @@ use anyhow::Result;
 use libsql::Connection;
 
 use super::try_create_index;
+use tracing::info;
 
 /// Initialize Plaid table indexes
 pub async fn initialize_plaid_indexes(conn: &Connection) -> Result<()> {
+    info!("[ARCH-007] Initializing plaid indexes");
     try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_assets_user_id ON assets(user_id)").await?;
     try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_balances_account_id ON balances(account_id)").await?;
     try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_consumer_reports_user_id ON consumer_reports(user_id)").await?;
@@ -38,6 +40,7 @@ pub async fn initialize_plaid_indexes(conn: &Connection) -> Result<()> {
 
 /// Initialize payment table indexes
 pub async fn initialize_payment_indexes(conn: &Connection) -> Result<()> {
+    info!("[ARCH-007] Initializing payment indexes");
     try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_customers_user_id ON customers(user_id)").await?;
     try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_funding_sources_customer_id ON funding_sources(customer_id)").await?;
     try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_payments_customer_id ON payments(customer_id)").await?;
@@ -48,6 +51,7 @@ pub async fn initialize_payment_indexes(conn: &Connection) -> Result<()> {
 
 /// Initialize business logic table indexes
 pub async fn initialize_business_indexes(conn: &Connection) -> Result<()> {
+    info!("[ARCH-007] Initializing business indexes");
     try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_reports_user_id ON reports(user_id)").await?;
     try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_scores_user_id ON scores(user_id)").await?;
     try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_scores_provider_id ON scores(provider_id)").await?;
@@ -66,6 +70,7 @@ pub async fn initialize_business_indexes(conn: &Connection) -> Result<()> {
 
 /// Initialize notification and webhook indexes
 pub async fn initialize_notification_indexes(conn: &Connection) -> Result<()> {
+    info!("[ARCH-007] Initializing notification indexes");
     try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_webhook_events_user_id ON webhook_events(user_id)").await?;
     try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_webhook_events_status ON webhook_events(status)").await?;
     try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_webhook_events_provider ON webhook_events(provider)").await?;
@@ -76,6 +81,7 @@ pub async fn initialize_notification_indexes(conn: &Connection) -> Result<()> {
 
 /// Initialize ticketing system indexes
 pub async fn initialize_ticketing_indexes(conn: &Connection) -> Result<()> {
+    info!("[ARCH-007] Initializing ticketing indexes");
     try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_tickets_user_id ON tickets(user_id)").await?;
     try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status)").await?;
     try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_tickets_priority ON tickets(priority)").await?;
@@ -91,6 +97,7 @@ pub async fn initialize_ticketing_indexes(conn: &Connection) -> Result<()> {
 
 /// Initialize compliance monitoring indexes
 pub async fn initialize_compliance_indexes(conn: &Connection) -> Result<()> {
+    info!("[ARCH-007] Initializing compliance indexes");
     try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_compliance_scans_status ON compliance_scans(status)").await?;
     try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_compliance_scans_framework ON compliance_scans(framework)").await?;
     try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_compliance_scans_started_at ON compliance_scans(started_at)").await?;
@@ -107,6 +114,7 @@ pub async fn initialize_compliance_indexes(conn: &Connection) -> Result<()> {
 
 /// Initialize platform table indexes
 pub async fn initialize_platform_indexes(conn: &Connection) -> Result<()> {
+    info!("[ARCH-007] Initializing platform indexes");
     try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_data_approval_hashes_user_id ON data_approval_hashes(user_id)").await?;
     try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_data_approval_hashes_blockchain_hash ON data_approval_hashes(blockchain_hash)").await?;
     try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_data_approval_hashes_created_at ON data_approval_hashes(created_at)").await?;
@@ -122,6 +130,7 @@ pub async fn initialize_platform_indexes(conn: &Connection) -> Result<()> {
 
 /// Initialize LinkedIn table indexes
 pub async fn initialize_linkedin_indexes(conn: &Connection) -> Result<()> {
+    info!("[ARCH-007] Initializing linkedin indexes");
     try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_linkedin_profiles_user_id ON linkedin_profiles(user_id)").await?;
     try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_linkedin_experiences_profile ON linkedin_experiences(linkedin_profile_id)").await?;
     try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_linkedin_education_profile ON linkedin_education(linkedin_profile_id)").await?;
@@ -131,6 +140,7 @@ pub async fn initialize_linkedin_indexes(conn: &Connection) -> Result<()> {
 
 /// Initialize HealthKit table indexes
 pub async fn initialize_healthkit_indexes(conn: &Connection) -> Result<()> {
+    info!("[ARCH-007] Initializing healthkit indexes");
     try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_healthkit_profiles_user_id ON healthkit_profiles(user_id)").await?;
     try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_healthkit_records_profile ON healthkit_records(healthkit_profile_id)").await?;
     try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_healthkit_records_type ON healthkit_records(record_type)").await?;
@@ -142,6 +152,7 @@ pub async fn initialize_healthkit_indexes(conn: &Connection) -> Result<()> {
 
 /// Initialize correlation table indexes
 pub async fn initialize_correlation_indexes(conn: &Connection) -> Result<()> {
+    info!("[ARCH-007] Initializing correlation indexes");
     try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_correlation_prefs_user ON correlation_preferences(user_id)").await?;
     try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_correlation_insights_user ON correlation_insights(user_id)").await?;
     try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_correlation_insights_type ON correlation_insights(insight_type)").await?;
@@ -152,6 +163,7 @@ pub async fn initialize_correlation_indexes(conn: &Connection) -> Result<()> {
 
 /// Initialize Apple Music table indexes
 pub async fn initialize_apple_music_indexes(conn: &Connection) -> Result<()> {
+    info!("[ARCH-007] Initializing apple_music indexes");
     try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_apple_music_profiles_user ON apple_music_profiles(user_id)").await?;
     try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_apple_music_songs_user ON apple_music_library_songs(user_id)").await?;
     try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_apple_music_albums_user ON apple_music_library_albums(user_id)").await?;
@@ -163,6 +175,7 @@ pub async fn initialize_apple_music_indexes(conn: &Connection) -> Result<()> {
 
 /// Initialize all indexes
 pub async fn initialize_all_indexes(conn: &Connection) -> Result<()> {
+    info!("[ARCH-007] Initializing all indexes");
     initialize_plaid_indexes(conn).await?;
     initialize_payment_indexes(conn).await?;
     initialize_business_indexes(conn).await?;

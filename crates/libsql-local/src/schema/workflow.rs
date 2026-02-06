@@ -8,9 +8,11 @@ use anyhow::Result;
 use libsql::Connection;
 
 use super::try_create_index;
+use tracing::info;
 
 /// Initialize workflow-related tables
 pub async fn initialize_workflow_tables(conn: &Connection) -> Result<()> {
+    info!("[ARCH-007] Initializing workflow tables");
     // Create workflows table for BlockID workflows
     conn.execute(
         "CREATE TABLE IF NOT EXISTS workflows (

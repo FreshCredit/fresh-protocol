@@ -14,9 +14,11 @@ use anyhow::Result;
 use libsql::Connection;
 
 use super::try_create_index;
+use tracing::info;
 
 /// Initialize all UCP tables
 pub async fn initialize_ucp_tables(conn: &Connection) -> Result<()> {
+    info!("[ARCH-007] Initializing ucp tables");
     // UCP Checkout Sessions
     // Stores checkout session lifecycle per UCP v2026-01-11
     conn.execute(

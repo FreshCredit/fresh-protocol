@@ -12,9 +12,11 @@
 
 use anyhow::Result;
 use libsql::Connection;
+use tracing::info;
 
 /// Initialize HealthKit tables
 pub async fn initialize_healthkit_tables(conn: &Connection) -> Result<()> {
+    info!("[ARCH-007] Initializing healthkit tables");
     conn.execute(
         "CREATE TABLE IF NOT EXISTS healthkit_profiles (
             id TEXT PRIMARY KEY,

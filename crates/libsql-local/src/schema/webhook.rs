@@ -6,9 +6,11 @@ use anyhow::Result;
 use libsql::Connection;
 
 use super::try_create_index;
+use tracing::info;
 
 /// Initialize webhook-related tables
 pub async fn initialize_webhook_tables(conn: &Connection) -> Result<()> {
+    info!("[ARCH-007] Initializing webhook tables");
     // Create webhook_events table
     conn.execute(
         "CREATE TABLE IF NOT EXISTS webhook_events (

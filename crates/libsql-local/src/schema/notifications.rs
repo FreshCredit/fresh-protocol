@@ -8,9 +8,11 @@
 
 use anyhow::Result;
 use libsql::Connection;
+use tracing::info;
 
 /// Initialize webhook and notification tables
 pub async fn initialize_notification_tables(conn: &Connection) -> Result<()> {
+    info!("[ARCH-007] Initializing notifications tables");
     conn.execute(
         "CREATE TABLE IF NOT EXISTS webhook_events (
             id TEXT PRIMARY KEY,

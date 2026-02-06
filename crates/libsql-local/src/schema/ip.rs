@@ -19,6 +19,7 @@ use anyhow::Result;
 use libsql::Connection;
 
 use super::try_create_index;
+use tracing::info;
 
 /// Initialize IP records table (canonical snapshots from public registries)
 pub async fn initialize_ip_records_table(conn: &Connection) -> Result<()> {
@@ -154,6 +155,7 @@ pub async fn initialize_ip_disputes_table(conn: &Connection) -> Result<()> {
 /// - ip_events: Audit log
 /// - ip_disputes: User disputes
 pub async fn initialize_ip_tables(conn: &Connection) -> Result<()> {
+    info!("[ARCH-007] Initializing ip tables");
     initialize_ip_records_table(conn).await?;
     initialize_ip_claims_table(conn).await?;
     initialize_ip_evidence_table(conn).await?;

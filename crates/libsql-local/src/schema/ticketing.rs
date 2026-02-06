@@ -11,9 +11,11 @@
 
 use anyhow::Result;
 use libsql::Connection;
+use tracing::info;
 
 /// Initialize ticketing system tables
 pub async fn initialize_ticketing_tables(conn: &Connection) -> Result<()> {
+    info!("[ARCH-007] Initializing ticketing tables");
     conn.execute(
         "CREATE TABLE IF NOT EXISTS tickets (
             id TEXT PRIMARY KEY,

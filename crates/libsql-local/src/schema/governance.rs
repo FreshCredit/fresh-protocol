@@ -13,9 +13,11 @@
 
 use anyhow::Result;
 use libsql::Connection;
+use tracing::info;
 
 /// Initialize governance system tables
 pub async fn initialize_governance_tables(conn: &Connection) -> Result<()> {
+    info!("[ARCH-007] Initializing governance tables");
     // Governance proposals table
     conn.execute(
         "CREATE TABLE IF NOT EXISTS governance_proposals (

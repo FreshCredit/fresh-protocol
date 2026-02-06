@@ -10,9 +10,11 @@
 
 use anyhow::Result;
 use libsql::Connection;
+use tracing::info;
 
 /// Initialize platform tables
 pub async fn initialize_platform_tables(conn: &Connection) -> Result<()> {
+    info!("[ARCH-007] Initializing platform tables");
     // Data approval hashes for blockchain anchoring
     conn.execute(
         "CREATE TABLE IF NOT EXISTS data_approval_hashes (

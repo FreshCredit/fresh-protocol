@@ -4,10 +4,13 @@
 //! - customer_segment_memberships: Customer to segment mappings
 //! - customer_communications: Communication history with customers
 
+use anyhow::Result;
 use libsql::Connection;
+use tracing::info;
 
 /// Initialize customer management tables
-pub async fn initialize_customer_tables(conn: &Connection) -> Result<(), libsql::Error> {
+pub async fn initialize_customer_tables(conn: &Connection) -> Result<()> {
+    info!("[ARCH-007] Initializing customers tables");
     // Customer activities table - tracks all customer interactions
     conn.execute(
         "CREATE TABLE IF NOT EXISTS customer_activities (
@@ -87,7 +90,8 @@ pub async fn initialize_customer_tables(conn: &Connection) -> Result<(), libsql:
 }
 
 /// Initialize indexes for customer tables
-pub async fn initialize_customer_indexes(conn: &Connection) -> Result<(), libsql::Error> {
+pub async fn initialize_customer_indexes(conn: &Connection) -> Result<()> {
+    info!("[ARCH-007] Initializing customers tables");
     // Activity indexes
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_customer_activities_customer_id ON customer_activities(customer_id)",

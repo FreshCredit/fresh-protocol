@@ -18,12 +18,14 @@ use anyhow::Result;
 use libsql::Connection;
 
 use super::try_create_index;
+use tracing::info;
 
 /// Initialize financial tables
 ///
 /// Creates 2 tables: accounts, transactions
 /// NOTE: balances is in plaid.rs as part of Plaid Balance product
 pub async fn initialize_financial_tables(conn: &Connection) -> Result<()> {
+    info!("[ARCH-007] Initializing financial tables");
     // Create accounts table that matches production schema
     // Foreign key disabled to allow account creation before user_profile exists
     conn.execute(

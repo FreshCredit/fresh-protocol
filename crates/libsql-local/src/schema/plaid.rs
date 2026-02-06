@@ -23,9 +23,11 @@
 
 use anyhow::Result;
 use libsql::Connection;
+use tracing::info;
 
 /// Initialize Plaid-related tables (auth and identities)
 pub async fn initialize_plaid_auth_tables(conn: &Connection) -> Result<()> {
+    info!("[ARCH-007] Initializing plaid tables");
     // Create auth table for account authentication data
     conn.execute(
         "CREATE TABLE IF NOT EXISTS auth (
@@ -90,6 +92,7 @@ pub async fn initialize_plaid_auth_tables(conn: &Connection) -> Result<()> {
 
 /// Initialize Plaid assets and balances tables
 pub async fn initialize_plaid_assets_tables(conn: &Connection) -> Result<()> {
+    info!("[ARCH-007] Initializing plaid tables");
     conn.execute(
         "CREATE TABLE IF NOT EXISTS assets (
             id TEXT PRIMARY KEY,
@@ -138,6 +141,7 @@ pub async fn initialize_plaid_assets_tables(conn: &Connection) -> Result<()> {
 
 /// Initialize Plaid consumer reports and employment tables
 pub async fn initialize_plaid_reports_tables(conn: &Connection) -> Result<()> {
+    info!("[ARCH-007] Initializing plaid tables");
     conn.execute(
         "CREATE TABLE IF NOT EXISTS consumer_reports (
             id TEXT PRIMARY KEY,
@@ -548,6 +552,7 @@ pub async fn initialize_plaid_monitoring_tables(conn: &Connection) -> Result<()>
 
 /// Initialize all Plaid tables (convenience function)
 pub async fn initialize_all_plaid_tables(conn: &Connection) -> Result<()> {
+    info!("[ARCH-007] Initializing plaid tables");
     initialize_plaid_auth_tables(conn).await?;
     initialize_plaid_assets_tables(conn).await?;
     initialize_plaid_reports_tables(conn).await?;

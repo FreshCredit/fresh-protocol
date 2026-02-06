@@ -9,9 +9,11 @@
 
 use anyhow::Result;
 use libsql::Connection;
+use tracing::info;
 
 /// Initialize correlation engine tables
 pub async fn initialize_correlation_tables(conn: &Connection) -> Result<()> {
+    info!("[ARCH-007] Initializing correlation tables");
     conn.execute(
         "CREATE TABLE IF NOT EXISTS correlation_preferences (
             id TEXT PRIMARY KEY,

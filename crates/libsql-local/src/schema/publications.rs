@@ -20,9 +20,11 @@ use anyhow::Result;
 use libsql::Connection;
 
 use super::try_create_index;
+use tracing::info;
 
 /// Initialize publication records table (canonical snapshots from public registries)
 pub async fn initialize_publication_records_table(conn: &Connection) -> Result<()> {
+    info!("[ARCH-007] Initializing publications tables");
     conn.execute(
         "CREATE TABLE IF NOT EXISTS publication_records (
             id TEXT PRIMARY KEY,
@@ -67,6 +69,7 @@ pub async fn initialize_publication_records_table(conn: &Connection) -> Result<(
 
 /// Initialize publication claims table (user-asserted bindings)
 pub async fn initialize_publication_claims_table(conn: &Connection) -> Result<()> {
+    info!("[ARCH-007] Initializing publications tables");
     conn.execute(
         "CREATE TABLE IF NOT EXISTS publication_claims (
             id TEXT PRIMARY KEY,
@@ -101,6 +104,7 @@ pub async fn initialize_publication_claims_table(conn: &Connection) -> Result<()
 
 /// Initialize ORCID connections table (identity anchoring)
 pub async fn initialize_orcid_connections_table(conn: &Connection) -> Result<()> {
+    info!("[ARCH-007] Initializing publications tables");
     conn.execute(
         "CREATE TABLE IF NOT EXISTS orcid_connections (
             id TEXT PRIMARY KEY,
@@ -249,6 +253,7 @@ pub async fn initialize_publication_shares_table(conn: &Connection) -> Result<()
 /// - orcid_connections: ORCID identity anchoring
 /// - publication_shares: Provider consent for accessing publications
 pub async fn initialize_publication_tables(conn: &Connection) -> Result<()> {
+    info!("[ARCH-007] Initializing publications tables");
     initialize_publication_records_table(conn).await?;
     initialize_publication_claims_table(conn).await?;
     initialize_orcid_connections_table(conn).await?;

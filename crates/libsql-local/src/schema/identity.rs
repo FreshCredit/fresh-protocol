@@ -8,9 +8,11 @@ use anyhow::Result;
 use libsql::Connection;
 
 use super::try_create_index;
+use tracing::info;
 
 /// Initialize identity-related tables
 pub async fn initialize_identity_tables(conn: &Connection) -> Result<()> {
+    info!("[ARCH-007] Initializing identity tables");
     // Create identity_verification table for Plaid IDV (singular)
     conn.execute(
         "CREATE TABLE IF NOT EXISTS identity_verification (

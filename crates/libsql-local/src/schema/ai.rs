@@ -16,12 +16,14 @@ use anyhow::Result;
 
 use super::try_create_index;
 use libsql::Connection;
+use tracing::info;
 
 /// Initialize AI-related tables
 ///
 /// Creates 7 tables: ai_conversations, ai_messages, uploaded_files,
 /// ai_usage_metrics, ai_request_logs, ai_feedback, ai_model_configs
 pub async fn initialize_ai_tables(conn: &Connection) -> Result<()> {
+    info!("[ARCH-007] Initializing ai tables");
     // Create uploaded_files table for AI multimodal input
     // NOTE: Created before ai_conversations to allow foreign key reference
     conn.execute(

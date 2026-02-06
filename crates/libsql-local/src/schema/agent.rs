@@ -31,6 +31,7 @@ use tracing::{debug, info, warn};
 
 /// Initialize agent tables
 pub async fn initialize_agent_tables(conn: &Connection) -> Result<()> {
+    info!("[ARCH-007] Initializing agent tables");
     // =========================================================================
     // ACTIVE TABLES (User-Owned Data)
     // =========================================================================

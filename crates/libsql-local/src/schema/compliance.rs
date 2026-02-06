@@ -13,9 +13,11 @@
 
 use anyhow::Result;
 use libsql::Connection;
+use tracing::info;
 
 /// Initialize compliance monitoring tables
 pub async fn initialize_compliance_tables(conn: &Connection) -> Result<()> {
+    info!("[ARCH-007] Initializing compliance tables");
     conn.execute(
         "CREATE TABLE IF NOT EXISTS compliance_scans (
             id TEXT PRIMARY KEY,

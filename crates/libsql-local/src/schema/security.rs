@@ -14,9 +14,11 @@
 
 use anyhow::Result;
 use libsql::Connection;
+use tracing::info;
 
 /// Initialize security monitoring tables
 pub async fn initialize_security_tables(conn: &Connection) -> Result<()> {
+    info!("[ARCH-007] Initializing security tables");
     // Sessions table for server-side session storage
     // Used in conjunction with JWT tokens for session activity tracking
     conn.execute(

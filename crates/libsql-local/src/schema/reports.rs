@@ -15,9 +15,11 @@
 
 use anyhow::Result;
 use libsql::Connection;
+use tracing::info;
 
 /// Initialize reports and scoring tables
 pub async fn initialize_reports_tables(conn: &Connection) -> Result<()> {
+    info!("[ARCH-007] Initializing reports tables");
     conn.execute(
         "CREATE TABLE IF NOT EXISTS reports (
             id TEXT PRIMARY KEY,

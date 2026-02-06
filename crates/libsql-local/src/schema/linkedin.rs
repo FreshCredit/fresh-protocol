@@ -12,9 +12,11 @@
 
 use anyhow::Result;
 use libsql::Connection;
+use tracing::info;
 
 /// Initialize LinkedIn tables
 pub async fn initialize_linkedin_tables(conn: &Connection) -> Result<()> {
+    info!("[ARCH-007] Initializing linkedin tables");
     conn.execute(
         "CREATE TABLE IF NOT EXISTS linkedin_profiles (
             id TEXT PRIMARY KEY,

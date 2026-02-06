@@ -10,9 +10,11 @@
 
 use anyhow::Result;
 use libsql::Connection;
+use tracing::info;
 
 /// Initialize teams tables
 pub async fn initialize_teams_tables(conn: &Connection) -> Result<()> {
+    info!("[ARCH-007] Initializing teams tables");
     // Provider teams - each provider can have multiple teams
     conn.execute(
         "CREATE TABLE IF NOT EXISTS provider_teams (

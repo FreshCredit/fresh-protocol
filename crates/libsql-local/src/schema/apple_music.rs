@@ -12,9 +12,11 @@
 
 use anyhow::Result;
 use libsql::Connection;
+use tracing::info;
 
 /// Initialize Apple Music tables
 pub async fn initialize_apple_music_tables(conn: &Connection) -> Result<()> {
+    info!("[ARCH-007] Initializing apple_music tables");
     conn.execute(
         "CREATE TABLE IF NOT EXISTS apple_music_profiles (
             id TEXT PRIMARY KEY,
