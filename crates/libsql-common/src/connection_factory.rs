@@ -97,6 +97,7 @@ where
 {
     let mut attempt = 0;
 
+    // SIM-LOOP-001: Bounded retry loop - exits on success or max attempts
     loop {
         match operation().await {
             Ok(result) => {

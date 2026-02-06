@@ -122,6 +122,7 @@ impl LocalClient {
         let mut rows = self
             .connection
             .query(
+                // DB-010: EXCEPTION - Repository service implementation
                 "SELECT * FROM user_profile WHERE platform_user_id = ?",
                 libsql::params![platform_user_id],
             )
@@ -137,6 +138,7 @@ impl LocalClient {
         let mut rows = self
             .connection
             .query(
+                // DB-010: EXCEPTION - Repository service implementation
                 "SELECT * FROM user_profile WHERE azure_id = ?",
                 libsql::params![azure_id],
             )
