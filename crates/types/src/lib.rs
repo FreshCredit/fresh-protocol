@@ -83,7 +83,7 @@ pub enum PaymentStatus {
     RequiresVerification,
 }
 
-/// Payment method types (consolidated from payment-services)
+/// Payment method types
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum PaymentMethodType {
