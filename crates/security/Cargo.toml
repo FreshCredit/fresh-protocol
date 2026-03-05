@@ -12,9 +12,9 @@ chrono = { workspace = true }
 anyhow = { workspace = true }
 aes-gcm = "0.10"
 rand = "0.8"
-base64 = "0.22"
+base64 = { workspace = true }
 tracing.workspace = true
-clap = { version = "4.5", features = ["derive"], optional = true }
+clap = { workspace = true, optional = true }
 
 [features]
 default = []
