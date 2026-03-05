@@ -1,3 +1,10 @@
+---
+title: "freshcredit-core-types"
+date: "2026-03-05"
+last_reviewed: "2026-03-05"
+status: "stable"
+category: "types"
+---
 # freshcredit-core-types
 
 <!-- DOC-002: Stable -->
