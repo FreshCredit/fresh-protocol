@@ -1,3 +1,10 @@
+---
+title: "freshcredit-libsql-local"
+date: "2026-03-05"
+last_reviewed: "2026-03-05"
+status: "stable"
+category: "local"
+---
 # freshcredit-libsql-local
 
 <!-- DOC-002: Stable -->
