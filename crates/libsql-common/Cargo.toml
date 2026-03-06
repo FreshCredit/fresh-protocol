@@ -6,7 +6,7 @@ description = "Shared utilities for libSQL/Turso database connections with dual-
 
 [features]
 # Default: Direct remote + local-only (embedded replica is OPT-IN)
-default = ["remote", "local-only"]
+default = ["remote", "local-only", "embedded-replica"]
 
 # Individual features
 remote = []              # Direct HTTP connection to Turso (always available by default)
