@@ -1,8 +1,34 @@
 //! Shared utilities for libSQL/Turso database connections.
 //!
 //! This crate provides a dual-path architecture for libSQL connections:
-//! - **Direct Remote** (primary): HTTP connection to Turso Cloud
-//! - **Embedded Replica** (fallback): Local cache with background sync
+//! - **Direct Remote** (default): HTTP connection to Turso Cloud
+//! - **Embedded Replica** (opt-in): Local cache with background sync
+//!
+//! # Feature Flags
+//!
+//! - `remote` (default): Enable direct remote connections to Turso Cloud
+//! - `local-only` (default): Enable local-only SQLite connections (for testing)
+//! - `embedded-replica`: Enable embedded replica with background sync (**opt-in**)
+//! - `dual-path`: Convenience flag to enable all connection modes
+//!
+//! ## Default Behavior (No Feature Flags Needed)
+//!
+//! ```toml
+//! [dependencies]
+//! freshcredit-libsql-common = { path = "../../db/libsql/common" }
+//! ```
+//!
+//! This gives you `DirectRemote` and `LocalOnly` modes.
+//!
+//! ## Opt-In to Embedded Replica
+//!
+//! ```toml
+//! [dependencies]
+//! freshcredit-libsql-common = { 
+//!     path = "../../db/libsql/common",
+//!     features = ["embedded-replica"]
+//! }
+//! ```
 //!
 //! # Architecture
 //!
@@ -132,9 +158,15 @@ mod url_builder;
 // Re-exports for convenience
 pub use connection::{
     ConnectionConfig, ConnectionHealth, ConnectionMode, DatabaseConnection,
-    DatabaseConnectionExt, ReadConsistency,
+    DatabaseConnectionExt,
 };
-pub use connections::{LocalConnection, RemoteConnection, ReplicaConnection};
+
+#[cfg(feature = "embedded-replica")]
+pub use connection::ReadConsistency;
+pub use connections::{LocalConnection, RemoteConnection};
+
+#[cfg(feature = "embedded-replica")]
+pub use connections::ReplicaConnection;
 pub use factory::ConnectionFactory;
 pub use connection_factory::{with_retry, RetryConfig};
 pub use url_builder::TursoUrlBuilder;

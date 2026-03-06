@@ -30,15 +30,33 @@ use std::fmt;
 use std::path::PathBuf;
 
 /// Connection mode for libSQL
+///
+/// # Feature Flags
+///
+/// - `DirectRemote` and `LocalOnly` are always available (default features)
+/// - `EmbeddedReplica` and `Adaptive` require the `embedded-replica` feature
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ConnectionMode {
     /// Direct remote connection to Turso via HTTP
+    ///
+    /// **Always available** - no feature flag required
     DirectRemote,
+    
     /// Embedded replica with local cache and background sync
+    ///
+    /// **Requires `embedded-replica` feature**
+    #[cfg(feature = "embedded-replica")]
     EmbeddedReplica,
+    
     /// Local-only SQLite database
+    ///
+    /// **Always available** - no feature flag required
     LocalOnly,
+    
     /// Adaptive mode that switches between remote and replica
+    ///
+    /// **Requires `embedded-replica` feature**
+    #[cfg(feature = "embedded-replica")]
     Adaptive,
 }
 
@@ -46,8 +64,10 @@ impl fmt::Display for ConnectionMode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             ConnectionMode::DirectRemote => write!(f, "direct-remote"),
+            #[cfg(feature = "embedded-replica")]
             ConnectionMode::EmbeddedReplica => write!(f, "embedded-replica"),
             ConnectionMode::LocalOnly => write!(f, "local-only"),
+            #[cfg(feature = "embedded-replica")]
             ConnectionMode::Adaptive => write!(f, "adaptive"),
         }
     }
@@ -59,15 +79,30 @@ impl std::str::FromStr for ConnectionMode {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "remote" | "direct-remote" => Ok(ConnectionMode::DirectRemote),
-            "replica" | "embedded-replica" => Ok(ConnectionMode::EmbeddedReplica),
             "local" | "local-only" => Ok(ConnectionMode::LocalOnly),
+            
+            #[cfg(feature = "embedded-replica")]
+            "replica" | "embedded-replica" => Ok(ConnectionMode::EmbeddedReplica),
+            
+            #[cfg(feature = "embedded-replica")]
             "adaptive" => Ok(ConnectionMode::Adaptive),
+            
+            #[cfg(not(feature = "embedded-replica"))]
+            "replica" | "embedded-replica" | "adaptive" => Err(format!(
+                "Connection mode '{}' requires the 'embedded-replica' feature. \
+                 Enable it in Cargo.toml: freshcredit-libsql-common = {{ features = [\"embedded-replica\"] }}",
+                s
+            )),
+            
             _ => Err(format!("Unknown connection mode: {}", s)),
         }
     }
 }
 
 /// Read consistency level for replica mode
+///
+/// **Requires `embedded-replica` feature**
+#[cfg(feature = "embedded-replica")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ReadConsistency {
     /// Read from local replica (may be stale)
@@ -78,6 +113,7 @@ pub enum ReadConsistency {
     Adaptive,
 }
 
+#[cfg(feature = "embedded-replica")]
 impl fmt::Display for ReadConsistency {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -88,6 +124,7 @@ impl fmt::Display for ReadConsistency {
     }
 }
 
+#[cfg(feature = "embedded-replica")]
 impl std::str::FromStr for ReadConsistency {
     type Err = String;
 
@@ -156,6 +193,9 @@ pub struct ConnectionConfig {
     /// Sync interval for replica mode (seconds)
     pub sync_interval_secs: Option<u64>,
     /// Read consistency level for replica mode
+    ///
+    /// Only available when `embedded-replica` feature is enabled
+    #[cfg(feature = "embedded-replica")]
     pub read_consistency: ReadConsistency,
     /// Connection timeout in seconds
     pub timeout_secs: u64,
@@ -172,6 +212,7 @@ impl Default for ConnectionConfig {
             local_path: None,
             enable_fallback: false,
             sync_interval_secs: Some(60),
+            #[cfg(feature = "embedded-replica")]
             read_consistency: ReadConsistency::Eventual,
             timeout_secs: 30,
             max_retries: 3,
@@ -209,6 +250,7 @@ impl ConnectionConfig {
             .ok()
             .and_then(|v| v.parse::<u64>().ok());
 
+        #[cfg(feature = "embedded-replica")]
         let read_consistency = env::var("LIBSQL_READ_CONSISTENCY")
             .unwrap_or_else(|_| "eventual".to_string())
             .parse::<ReadConsistency>()
@@ -231,6 +273,7 @@ impl ConnectionConfig {
             local_path,
             enable_fallback,
             sync_interval_secs,
+            #[cfg(feature = "embedded-replica")]
             read_consistency,
             timeout_secs,
             max_retries,
@@ -240,14 +283,21 @@ impl ConnectionConfig {
     /// Validate the configuration
     pub fn validate(&self) -> anyhow::Result<()> {
         match self.mode {
-            ConnectionMode::DirectRemote | ConnectionMode::Adaptive => {
+            ConnectionMode::DirectRemote => {
                 if self.remote_url.is_empty() {
                     return Err(anyhow::anyhow!(
-                        "Remote URL is required for {} mode",
-                        self.mode
+                        "Remote URL is required for direct-remote mode"
                     ));
                 }
             }
+            ConnectionMode::LocalOnly => {
+                if self.local_path.is_none() {
+                    return Err(anyhow::anyhow!(
+                        "Local path is required for local-only mode"
+                    ));
+                }
+            }
+            #[cfg(feature = "embedded-replica")]
             ConnectionMode::EmbeddedReplica => {
                 if self.remote_url.is_empty() {
                     return Err(anyhow::anyhow!(
@@ -260,10 +310,11 @@ impl ConnectionConfig {
                     ));
                 }
             }
-            ConnectionMode::LocalOnly => {
-                if self.local_path.is_none() {
+            #[cfg(feature = "embedded-replica")]
+            ConnectionMode::Adaptive => {
+                if self.remote_url.is_empty() {
                     return Err(anyhow::anyhow!(
-                        "Local path is required for local-only mode"
+                        "Remote URL is required for adaptive mode"
                     ));
                 }
             }

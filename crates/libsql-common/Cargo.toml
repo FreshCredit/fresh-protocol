@@ -5,10 +5,20 @@ edition = "2021"
 description = "Shared utilities for libSQL/Turso database connections with dual-path architecture"
 
 [features]
-default = ["remote", "replica"]
-remote = []
-replica = []
-dual-path = ["remote", "replica"]
+# Default: Direct remote + local-only (embedded replica is OPT-IN)
+default = ["remote", "local-only"]
+
+# Individual features
+remote = []              # Direct HTTP connection to Turso (always available by default)
+embedded-replica = []    # Local cache with background sync (OPT-IN)
+local-only = []          # Pure local SQLite (for testing/fallback)
+
+# Convenience feature groups
+dual-path = ["remote", "embedded-replica", "local-only"]
+full = ["remote", "embedded-replica", "local-only"]
+
+# Deprecated: 'replica' is renamed to 'embedded-replica'
+replica = ["embedded-replica"]
 
 [dependencies]
 # Core dependencies

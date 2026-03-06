@@ -3,6 +3,12 @@
 //! This module provides a factory pattern for creating different types of
 //! database connections based on configuration.
 //!
+//! # Feature Flags
+//!
+//! - `remote` (default): Direct HTTP connections to Turso Cloud
+//! - `local-only` (default): Local SQLite connections
+//! - `embedded-replica`: Local cache with background sync (opt-in)
+//!
 //! # Example
 //!
 //! ```rust,no_run
@@ -11,12 +17,11 @@
 //! };
 //!
 //! async fn example() -> anyhow::Result<()> {
+//!     // Default: Direct remote (no feature flags needed)
 //!     let config = ConnectionConfig {
-//!         mode: ConnectionMode::EmbeddedReplica,
+//!         mode: ConnectionMode::DirectRemote,
 //!         remote_url: "libsql://my-db.turso.io".to_string(),
 //!         auth_token: "token".to_string(),
-//!         local_path: Some("/app/data/local.db".into()),
-//!         sync_interval_secs: Some(60),
 //!         ..Default::default()
 //!     };
 //!     
@@ -30,7 +35,10 @@
 use std::sync::Arc;
 
 use crate::connection::{ConnectionConfig, ConnectionMode, DatabaseConnection};
-use crate::connections::{LocalConnection, RemoteConnection, ReplicaConnection};
+use crate::connections::{LocalConnection, RemoteConnection};
+
+#[cfg(feature = "embedded-replica")]
+use crate::connections::ReplicaConnection;
 
 /// Factory for creating database connections
 pub struct ConnectionFactory;
@@ -43,17 +51,26 @@ impl ConnectionFactory {
     /// Returns an error if:
     /// - Configuration validation fails
     /// - Database connection fails
+    ///
+    /// # Feature Flags
+    ///
+    /// - `DirectRemote` and `LocalOnly` are always available
+    /// - `EmbeddedReplica` and `Adaptive` require the `embedded-replica` feature
+    ///   (if not enabled, falls back to `DirectRemote` with a warning)
     pub async fn create(config: &ConnectionConfig) -> anyhow::Result<Arc<dyn DatabaseConnection>> {
         // Validate configuration first
         config.validate()?;
 
         match config.mode {
             ConnectionMode::DirectRemote => Self::create_remote(config).await,
-            ConnectionMode::EmbeddedReplica => Self::create_replica(config).await,
             ConnectionMode::LocalOnly => Self::create_local(config).await,
+            
+            #[cfg(feature = "embedded-replica")]
+            ConnectionMode::EmbeddedReplica => Self::create_replica(config).await,
+            
+            #[cfg(feature = "embedded-replica")]
             ConnectionMode::Adaptive => {
-                // For adaptive mode, we need both remote and replica configs
-                // Default to replica as primary with remote as fallback
+                // For adaptive mode, start with replica
                 Self::create_replica(config).await
             }
         }
@@ -102,6 +119,11 @@ impl ConnectionFactory {
     ///     Ok(())
     /// }
     /// ```
+    ///
+    /// # Feature Flag
+    ///
+    /// This method requires the `embedded-replica` feature to be enabled.
+    #[cfg(feature = "embedded-replica")]
     pub async fn create_replica(config: &ConnectionConfig) -> anyhow::Result<Arc<dyn DatabaseConnection>> {
         let local_path = config
             .local_path
@@ -120,6 +142,11 @@ impl ConnectionFactory {
     }
 
     /// Create an embedded replica connection with explicit parameters
+    ///
+    /// # Feature Flag
+    ///
+    /// This method requires the `embedded-replica` feature to be enabled.
+    #[cfg(feature = "embedded-replica")]
     pub async fn create_replica_with_params(
         local_path: impl AsRef<std::path::Path>,
         remote_url: &str,
