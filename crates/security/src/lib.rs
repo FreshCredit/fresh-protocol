@@ -24,7 +24,16 @@
 //! let decrypted = decrypt_token(&encrypted);
 //! ```
 
-pub mod clock;
+// Clock re-exported from freshcredit-core-timing to avoid duplication
+// Use: freshcredit_security::Clock, freshcredit_security::MockClock, freshcredit_security::SystemClock
+pub use freshcredit_core_timing::{Clock, MockClock, SystemClock};
+
+// Backward compatibility: freshcredit_security::clock::Clock still works
+pub mod clock {
+    //! Clock module - re-exported from freshcredit-core-timing
+    pub use freshcredit_core_timing::{Clock, MockClock, SystemClock};
+}
+
 pub mod encryption;
 
 // Re-export commonly used items

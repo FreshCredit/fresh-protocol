@@ -16,6 +16,9 @@ base64 = { workspace = true }
 tracing.workspace = true
 clap = { workspace = true, optional = true }
 
+# Re-export clock from timing crate to avoid duplication
+freshcredit-core-timing = { path = "../timing" }
+
 [features]
 default = []
 cli = ["clap"]
