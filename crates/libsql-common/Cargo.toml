@@ -2,13 +2,26 @@
 name = "freshcredit-libsql-common"
 version = "0.1.0"
 edition = "2021"
-description = "Shared utilities for libSQL/Turso database connections"
+description = "Shared utilities for libSQL/Turso database connections with dual-path architecture"
+
+[features]
+default = ["remote", "replica"]
+remote = []
+replica = []
+dual-path = ["remote", "replica"]
 
 [dependencies]
-thiserror = "2.0"
-tracing = "0.1"
-tokio = { version = "1", features = ["time"] }
-rand = "0.8"
+# Core dependencies
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tokio = { workspace = true }
+chrono = { workspace = true }
+async-trait = { workspace = true }
+rand = { workspace = true }
+
+# Database
+libsql = { workspace = true }
 
 [dev-dependencies]
-
+tokio-test = "0.4"
