@@ -262,9 +262,7 @@ impl ConnectionFactory {
                     Err(e2) => {
                         tracing::error!("Fallback connection also failed: {}", e2);
                         Err(anyhow::anyhow!(
-                            "Both primary and fallback connections failed: primary={}, fallback={}",
-                            e,
-                            e2
+                            "Both primary and fallback connections failed: primary={e}, fallback={e2}"
                         ))
                     }
                 }

@@ -94,7 +94,7 @@ impl std::str::FromStr for ConnectionMode {
                 s
             )),
             
-            _ => Err(format!("Unknown connection mode: {}", s)),
+            _ => Err(format!("Unknown connection mode: {s}")),
         }
     }
 }
@@ -133,7 +133,7 @@ impl std::str::FromStr for ReadConsistency {
             "eventual" => Ok(ReadConsistency::Eventual),
             "strong" => Ok(ReadConsistency::Strong),
             "adaptive" => Ok(ReadConsistency::Adaptive),
-            _ => Err(format!("Unknown read consistency: {}", s)),
+            _ => Err(format!("Unknown read consistency: {s}")),
         }
     }
 }
