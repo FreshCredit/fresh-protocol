@@ -57,7 +57,10 @@ pub struct FinancialReport {
     pub blockchain_hash: Option<String>,
 }
 
-/// Type alias for backward compatibility during migration
+// CODE-001: Deprecated with migration path
+// Migration: Use FinancialReport instead. CreditReport is being phased out as part of
+// the naming alignment with FCRA compliance (FreshCredit does not calculate credit scores).
+// This alias is maintained for backward compatibility during the migration period.
 #[deprecated(note = "Use FinancialReport instead - CreditReport is being phased out")]
 pub type CreditReport = FinancialReport;
 
