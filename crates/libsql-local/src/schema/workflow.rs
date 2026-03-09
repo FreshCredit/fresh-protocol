@@ -46,9 +46,21 @@ pub async fn initialize_workflow_tables(conn: &Connection) -> Result<()> {
     .await?;
 
     // Create indexes for workflow tables (using defensive helper for cloud schema compatibility)
-    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_workflows_user_id ON workflows(user_id)").await?;
-    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_workflows_status ON workflows(status)").await?;
-    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_workflows_type ON workflows(workflow_type)").await?;
+    try_create_index(
+        conn,
+        "CREATE INDEX IF NOT EXISTS idx_workflows_user_id ON workflows(user_id)",
+    )
+    .await?;
+    try_create_index(
+        conn,
+        "CREATE INDEX IF NOT EXISTS idx_workflows_status ON workflows(status)",
+    )
+    .await?;
+    try_create_index(
+        conn,
+        "CREATE INDEX IF NOT EXISTS idx_workflows_type ON workflows(workflow_type)",
+    )
+    .await?;
 
     Ok(())
 }
@@ -61,4 +73,3 @@ mod tests {
         let _ = 1 + 1; // Compile-time verification
     }
 }
-

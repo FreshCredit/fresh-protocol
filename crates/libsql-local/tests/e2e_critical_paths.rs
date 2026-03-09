@@ -34,21 +34,27 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Create unique test database path
 fn test_db_path(prefix: &str) -> String {
-    let ts = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+    let ts = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
     let tid = std::thread::current().id();
     format!("/tmp/freshcredit_{prefix}_{ts}_{tid:?}.db")
 }
 
 /// Generate unique test user ID
 fn test_user_id() -> String {
-    let ts = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
+    let ts = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_millis();
     format!("test_user_{ts}")
 }
 
 /// Check if external services should be skipped
 fn skip_external() -> bool {
-    std::env::var("SKIP_EXTERNAL_SERVICES").is_ok() 
-        || std::env::var("CI").is_ok() 
+    std::env::var("SKIP_EXTERNAL_SERVICES").is_ok()
+        || std::env::var("CI").is_ok()
         || std::env::var("GITHUB_ACTIONS").is_ok()
 }
 
@@ -60,7 +66,7 @@ fn skip_external() -> bool {
 #[tokio::test]
 async fn test_auth_oauth_url_generation() -> Result<()> {
     println!("\n🧪 Test: OAuth Authorization URL Generation");
-    
+
     let tenant_id = std::env::var("ENTRA_TENANT_ID").unwrap_or("test_tenant".into());
     let client_id = std::env::var("ENTRA_CLIENT_ID").unwrap_or("test_client".into());
     let redirect_uri = "http://localhost:3002/auth/callback";
@@ -70,7 +76,8 @@ async fn test_auth_oauth_url_generation() -> Result<()> {
     let auth_url = format!(
         "https://login.microsoftonline.com/{}/oauth2/v2.0/authorize?\
         client_id={}&response_type=code&redirect_uri={}&scope={}&state={}",
-        tenant_id, client_id,
+        tenant_id,
+        client_id,
         urlencoding::encode(redirect_uri),
         urlencoding::encode(scope),
         state
@@ -78,13 +85,13 @@ async fn test_auth_oauth_url_generation() -> Result<()> {
 
     assert!(auth_url.contains("login.microsoftonline.com"));
     println!("  ✅ Authorization URL contains Microsoft domain");
-    
+
     assert!(auth_url.contains("oauth2/v2.0/authorize"));
     println!("  ✅ Uses v2.0 endpoint");
-    
+
     assert!(auth_url.contains("response_type=code"));
     println!("  ✅ Uses code response type (OAuth 2.0 auth code flow)");
-    
+
     Ok(())
 }
 
@@ -92,20 +99,20 @@ async fn test_auth_oauth_url_generation() -> Result<()> {
 #[tokio::test]
 async fn test_auth_jwt_structure() -> Result<()> {
     println!("\n🧪 Test: JWT Token Structure");
-    
+
     use base64::Engine;
-    let header = base64::engine::general_purpose::URL_SAFE_NO_PAD
-        .encode(r#"{"alg":"HS256","typ":"JWT"}"#);
+    let header =
+        base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(r#"{"alg":"HS256","typ":"JWT"}"#);
     let payload = base64::engine::general_purpose::URL_SAFE_NO_PAD
         .encode(r#"{"sub":"test_user","exp":1735603200}"#);
     let signature = "test_signature";
-    
+
     let token = format!("{header}.{payload}.{signature}");
     let parts: Vec<&str> = token.split('.').collect();
-    
+
     assert_eq!(parts.len(), 3);
     println!("  ✅ JWT has 3 parts (header.payload.signature)");
-    
+
     Ok(())
 }
 
@@ -117,22 +124,22 @@ async fn test_auth_jwt_structure() -> Result<()> {
 #[tokio::test]
 async fn test_plaid_config() -> Result<()> {
     println!("\n🧪 Test: Plaid Configuration");
-    
+
     let client_id = std::env::var("PLAID_CLIENT_ID").unwrap_or("not_set".into());
     let env = std::env::var("PLAID_ENV").unwrap_or("sandbox".into());
-    
+
     if client_id != "not_set" {
         println!("  ✅ Plaid client ID configured");
     } else {
         println!("  ⏭️  Plaid client ID not configured (skipping API tests)");
     }
-    
+
     if env == "sandbox" {
         println!("  ✅ Plaid environment is sandbox (safe for testing)");
     } else {
         println!("  ⚠️  Plaid environment is {env}");
     }
-    
+
     Ok(())
 }
 
@@ -140,18 +147,27 @@ async fn test_plaid_config() -> Result<()> {
 #[tokio::test]
 async fn test_plaid_products_support() -> Result<()> {
     println!("\n🧪 Test: Plaid Products Support");
-    
+
     // All 12 Plaid products
     let products = [
-        "transactions", "auth", "identity", "assets", "liabilities",
-        "investments", "income", "income_verification", "identity_verification",
-        "statements", "signal", "transfer"
+        "transactions",
+        "auth",
+        "identity",
+        "assets",
+        "liabilities",
+        "investments",
+        "income",
+        "income_verification",
+        "identity_verification",
+        "statements",
+        "signal",
+        "transfer",
     ];
-    
+
     for product in products {
         println!("  ✅ Product '{product}' supported");
     }
-    
+
     Ok(())
 }
 
@@ -163,33 +179,40 @@ async fn test_plaid_products_support() -> Result<()> {
 #[tokio::test]
 async fn test_database_creation_and_crud() -> Result<()> {
     println!("\n🧪 Test: Database Creation and CRUD");
-    
+
     let path = test_db_path("e2e_crud");
     let db = libsql::Builder::new_local(&path).build().await?;
     let conn = db.connect()?;
     println!("  ✅ Database created and connected");
-    
+
     // Create table
-    conn.execute("CREATE TABLE items (id INTEGER PRIMARY KEY, name TEXT, value REAL)", ()).await?;
+    conn.execute(
+        "CREATE TABLE items (id INTEGER PRIMARY KEY, name TEXT, value REAL)",
+        (),
+    )
+    .await?;
     println!("  ✅ Table created");
-    
+
     // Insert
-    conn.execute("INSERT INTO items (name, value) VALUES ('test', 100.5)", ()).await?;
+    conn.execute("INSERT INTO items (name, value) VALUES ('test', 100.5)", ())
+        .await?;
     println!("  ✅ Data inserted");
-    
+
     // Read
     let mut rows = conn.query("SELECT name, value FROM items", ()).await?;
     let row = rows.next().await?.expect("Row should exist");
     let name: String = row.get(0)?;
     assert_eq!(name, "test");
     println!("  ✅ Data read correctly");
-    
+
     // Update
-    conn.execute("UPDATE items SET value = 200.0 WHERE name = 'test'", ()).await?;
+    conn.execute("UPDATE items SET value = 200.0 WHERE name = 'test'", ())
+        .await?;
     println!("  ✅ Data updated");
-    
+
     // Delete
-    conn.execute("DELETE FROM items WHERE name = 'test'", ()).await?;
+    conn.execute("DELETE FROM items WHERE name = 'test'", ())
+        .await?;
     let mut rows = conn.query("SELECT COUNT(*) FROM items", ()).await?;
     let row = rows.next().await?.expect("Count row");
     let count: i64 = row.get(0)?;
@@ -217,8 +240,10 @@ async fn test_database_user_profile() -> Result<()> {
             role TEXT DEFAULT 'consumer',
             onboarding_complete INTEGER DEFAULT 0,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
-        )", ()
-    ).await?;
+        )",
+        (),
+    )
+    .await?;
 
     let user_id = test_user_id();
     let entra_id = format!("entra_{user_id}");
@@ -232,10 +257,15 @@ async fn test_database_user_profile() -> Result<()> {
     ).await?;
     println!("  ✅ User created");
 
-    let mut rows = conn.query(
-        &format!("SELECT email, role FROM users WHERE entra_id = '{}'", entra_id),
-        ()
-    ).await?;
+    let mut rows = conn
+        .query(
+            &format!(
+                "SELECT email, role FROM users WHERE entra_id = '{}'",
+                entra_id
+            ),
+            (),
+        )
+        .await?;
     let row = rows.next().await?.expect("User should exist");
     let email: String = row.get(0)?;
     let role: String = row.get(1)?;
@@ -376,15 +406,19 @@ async fn test_payments_platform_fee() -> Result<()> {
     const PLATFORM_FEE_PERCENT: f64 = 5.0;
 
     let test_cases = [
-        (1000, 50),    // $10.00 → $0.50 fee
-        (5000, 250),   // $50.00 → $2.50 fee
-        (10000, 500),  // $100.00 → $5.00 fee
+        (1000, 50),   // $10.00 → $0.50 fee
+        (5000, 250),  // $50.00 → $2.50 fee
+        (10000, 500), // $100.00 → $5.00 fee
     ];
 
     for (amount, expected_fee) in test_cases {
         let fee = ((amount as f64) * (PLATFORM_FEE_PERCENT / 100.0)).round() as i64;
         assert_eq!(fee, expected_fee);
-        println!("  ✅ ${:.2} → ${:.2} fee", amount as f64 / 100.0, fee as f64 / 100.0);
+        println!(
+            "  ✅ ${:.2} → ${:.2} fee",
+            amount as f64 / 100.0,
+            fee as f64 / 100.0
+        );
     }
 
     Ok(())
@@ -408,8 +442,10 @@ async fn test_workflow_user_onboarding() -> Result<()> {
             id TEXT PRIMARY KEY, entra_id TEXT UNIQUE, email TEXT,
             display_name TEXT, role TEXT DEFAULT 'consumer',
             onboarding_complete INTEGER DEFAULT 0
-        )", ()
-    ).await?;
+        )",
+        (),
+    )
+    .await?;
 
     let user_id = test_user_id();
     let entra_id = format!("entra_{user_id}");
@@ -426,15 +462,18 @@ async fn test_workflow_user_onboarding() -> Result<()> {
     // Step 2: Complete onboarding
     conn.execute(
         &format!("UPDATE users SET onboarding_complete = 1 WHERE id = '{user_id}'"),
-        ()
-    ).await?;
+        (),
+    )
+    .await?;
     println!("  ✅ Step 2: Onboarding marked complete");
 
     // Verify
-    let mut rows = conn.query(
-        &format!("SELECT role, onboarding_complete FROM users WHERE id = '{user_id}'"),
-        ()
-    ).await?;
+    let mut rows = conn
+        .query(
+            &format!("SELECT role, onboarding_complete FROM users WHERE id = '{user_id}'"),
+            (),
+        )
+        .await?;
     let row = rows.next().await?.expect("User exists");
     let role: String = row.get(0)?;
     let complete: i64 = row.get(1)?;
@@ -458,8 +497,10 @@ async fn test_workflow_report_generation() -> Result<()> {
         "CREATE TABLE reports (
             id TEXT PRIMARY KEY, user_id TEXT, report_type TEXT,
             data TEXT, blockchain_hash TEXT, status TEXT DEFAULT 'pending'
-        )", ()
-    ).await?;
+        )",
+        (),
+    )
+    .await?;
 
     let user_id = test_user_id();
     let report_id = format!("report_{}", chrono::Utc::now().timestamp_millis());
@@ -489,10 +530,12 @@ async fn test_workflow_report_generation() -> Result<()> {
     println!("  ✅ Step 3: Hash anchored, status updated");
 
     // Verify
-    let mut rows = conn.query(
-        &format!("SELECT status, blockchain_hash FROM reports WHERE id = '{report_id}'"),
-        ()
-    ).await?;
+    let mut rows = conn
+        .query(
+            &format!("SELECT status, blockchain_hash FROM reports WHERE id = '{report_id}'"),
+            (),
+        )
+        .await?;
     let row = rows.next().await?.expect("Report exists");
     let status: String = row.get(0)?;
     let stored_hash: String = row.get(1)?;
@@ -517,43 +560,52 @@ async fn test_workflow_provider_matching() -> Result<()> {
         "CREATE TABLE provider_requirements (
             id TEXT PRIMARY KEY, provider_id TEXT, requirement_name TEXT,
             min_value REAL, weight REAL DEFAULT 1.0
-        )", ()
-    ).await?;
+        )",
+        (),
+    )
+    .await?;
 
     conn.execute(
         "CREATE TABLE user_preferences (
             id TEXT PRIMARY KEY, user_id TEXT, preference_name TEXT, value REAL
-        )", ()
-    ).await?;
+        )",
+        (),
+    )
+    .await?;
 
     conn.execute(
         "CREATE TABLE matches (
             id TEXT PRIMARY KEY, user_id TEXT, provider_id TEXT, match_score REAL
-        )", ()
-    ).await?;
+        )",
+        (),
+    )
+    .await?;
     println!("  ✅ Tables created");
 
     // Provider requirements (provider-defined, not FreshCredit)
     conn.execute(
         "INSERT INTO provider_requirements VALUES ('req_1', 'provider_1', 'income', 30000, 1.0)",
-        ()
-    ).await?;
+        (),
+    )
+    .await?;
     println!("  ✅ Provider requirements inserted (provider-defined)");
 
     // User preferences
     let user_id = test_user_id();
     conn.execute(
         &format!("INSERT INTO user_preferences VALUES ('pref_1', '{user_id}', 'income', 50000)"),
-        ()
-    ).await?;
+        (),
+    )
+    .await?;
     println!("  ✅ User preferences inserted");
 
     // Create match (simple comparison, not scoring/underwriting)
     let match_id = format!("match_{}", chrono::Utc::now().timestamp_millis());
     conn.execute(
         &format!("INSERT INTO matches VALUES ('{match_id}', '{user_id}', 'provider_1', 1.0)"),
-        ()
-    ).await?;
+        (),
+    )
+    .await?;
     println!("  ✅ Match created (preferences matched requirements)");
 
     Ok(())
@@ -578,4 +630,3 @@ async fn test_e2e_critical_paths_summary() -> Result<()> {
 
     Ok(())
 }
-

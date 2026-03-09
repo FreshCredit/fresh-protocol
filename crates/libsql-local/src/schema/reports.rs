@@ -408,7 +408,9 @@ pub async fn initialize_all_reports_tables(conn: &Connection) -> Result<()> {
 /// NOTE: These are demo offers. Providers must define their own terms in production.
 async fn seed_demo_provider_offers(conn: &Connection) -> Result<()> {
     // Check if offers already exist
-    let mut rows = conn.query("SELECT COUNT(*) as count FROM provider_offers", ()).await?;
+    let mut rows = conn
+        .query("SELECT COUNT(*) as count FROM provider_offers", ())
+        .await?;
     if let Some(row) = rows.next().await? {
         let count: i64 = row.get(0)?;
         if count > 0 {
@@ -419,12 +421,36 @@ async fn seed_demo_provider_offers(conn: &Connection) -> Result<()> {
     // First, create demo provider user profiles (required for foreign key constraint)
     // These are system demo providers, not real users
     let demo_providers = [
-        ("demo_provider_001", "FlexiLoan Financial", "flexiloan@demo.freshcredit.com"),
-        ("demo_provider_002", "Rewards Plus Bank", "rewardsplus@demo.freshcredit.com"),
-        ("demo_provider_003", "AutoDrive Finance", "autodrive@demo.freshcredit.com"),
-        ("demo_provider_004", "HomeFirst Lending", "homefirst@demo.freshcredit.com"),
-        ("demo_provider_005", "EduFund Services", "edufund@demo.freshcredit.com"),
-        ("demo_provider_006", "BizFlex Capital", "bizflex@demo.freshcredit.com"),
+        (
+            "demo_provider_001",
+            "FlexiLoan Financial",
+            "flexiloan@demo.freshcredit.com",
+        ),
+        (
+            "demo_provider_002",
+            "Rewards Plus Bank",
+            "rewardsplus@demo.freshcredit.com",
+        ),
+        (
+            "demo_provider_003",
+            "AutoDrive Finance",
+            "autodrive@demo.freshcredit.com",
+        ),
+        (
+            "demo_provider_004",
+            "HomeFirst Lending",
+            "homefirst@demo.freshcredit.com",
+        ),
+        (
+            "demo_provider_005",
+            "EduFund Services",
+            "edufund@demo.freshcredit.com",
+        ),
+        (
+            "demo_provider_006",
+            "BizFlex Capital",
+            "bizflex@demo.freshcredit.com",
+        ),
     ];
 
     for (id, name, email) in demo_providers {
@@ -455,7 +481,8 @@ async fn seed_demo_provider_offers(conn: &Connection) -> Result<()> {
             'Earn 2% cashback on all purchases with no annual fee', 'CreditCard',
             50000, 2500000, 15.99, 26.99, '[]', 1, 1, datetime('now'), datetime('now'))",
         (),
-    ).await?;
+    )
+    .await?;
 
     conn.execute(
         "INSERT INTO provider_offers (id, provider_id, name, description, product_type,
@@ -476,7 +503,8 @@ async fn seed_demo_provider_offers(conn: &Connection) -> Result<()> {
             10000000, 100000000, 5.25, 7.50, '[180, 240, 360]',
             '[\"CA\", \"TX\", \"NY\", \"FL\", \"WA\"]', 0, 1, datetime('now'), datetime('now'))",
         (),
-    ).await?;
+    )
+    .await?;
 
     conn.execute(
         "INSERT INTO provider_offers (id, provider_id, name, description, product_type,

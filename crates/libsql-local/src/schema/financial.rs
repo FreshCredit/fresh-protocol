@@ -119,9 +119,21 @@ pub async fn initialize_financial_tables(conn: &Connection) -> Result<()> {
     .await?;
 
     // Create indexes for accounts and transactions tables (using defensive helper for cloud schema compatibility)
-    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_accounts_user_id ON accounts(user_id)").await?;
-    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_transactions_account_id ON transactions(account_id)").await?;
-    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date)").await?;
+    try_create_index(
+        conn,
+        "CREATE INDEX IF NOT EXISTS idx_accounts_user_id ON accounts(user_id)",
+    )
+    .await?;
+    try_create_index(
+        conn,
+        "CREATE INDEX IF NOT EXISTS idx_transactions_account_id ON transactions(account_id)",
+    )
+    .await?;
+    try_create_index(
+        conn,
+        "CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date)",
+    )
+    .await?;
     // ISSUE 7 FIX: Use plaid_transaction_id UNIQUE constraint on table instead of composite index
     try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_transactions_plaid_txn_id ON transactions(plaid_transaction_id)").await?;
 
@@ -136,4 +148,3 @@ mod tests {
         let _ = 1 + 1; // Compile-time verification
     }
 }
-

@@ -60,7 +60,11 @@ pub async fn initialize_publication_records_table(conn: &Connection) -> Result<(
     )
     .await?;
 
-    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_publication_records_doi ON publication_records(doi)").await?;
+    try_create_index(
+        conn,
+        "CREATE INDEX IF NOT EXISTS idx_publication_records_doi ON publication_records(doi)",
+    )
+    .await?;
     try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_publication_records_openalex ON publication_records(openalex_id)").await?;
     try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_publication_records_type ON publication_records(publication_type)").await?;
 
@@ -95,8 +99,16 @@ pub async fn initialize_publication_claims_table(conn: &Connection) -> Result<()
     )
     .await?;
 
-    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_publication_claims_user_id ON publication_claims(user_id)").await?;
-    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_publication_claims_status ON publication_claims(status)").await?;
+    try_create_index(
+        conn,
+        "CREATE INDEX IF NOT EXISTS idx_publication_claims_user_id ON publication_claims(user_id)",
+    )
+    .await?;
+    try_create_index(
+        conn,
+        "CREATE INDEX IF NOT EXISTS idx_publication_claims_status ON publication_claims(status)",
+    )
+    .await?;
     try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_publication_claims_visibility ON publication_claims(visibility)").await?;
 
     Ok(())
@@ -132,7 +144,11 @@ pub async fn initialize_orcid_connections_table(conn: &Connection) -> Result<()>
     .await?;
 
     try_create_index(conn, "CREATE UNIQUE INDEX IF NOT EXISTS idx_orcid_connections_orcid_id ON orcid_connections(orcid_id)").await?;
-    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_orcid_connections_status ON orcid_connections(status)").await?;
+    try_create_index(
+        conn,
+        "CREATE INDEX IF NOT EXISTS idx_orcid_connections_status ON orcid_connections(status)",
+    )
+    .await?;
 
     Ok(())
 }
@@ -235,9 +251,17 @@ pub async fn initialize_publication_shares_table(conn: &Connection) -> Result<()
     )
     .await?;
 
-    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_publication_shares_user_id ON publication_shares(user_id)").await?;
+    try_create_index(
+        conn,
+        "CREATE INDEX IF NOT EXISTS idx_publication_shares_user_id ON publication_shares(user_id)",
+    )
+    .await?;
     try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_publication_shares_provider_id ON publication_shares(provider_id)").await?;
-    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_publication_shares_status ON publication_shares(status)").await?;
+    try_create_index(
+        conn,
+        "CREATE INDEX IF NOT EXISTS idx_publication_shares_status ON publication_shares(status)",
+    )
+    .await?;
 
     Ok(())
 }
@@ -263,4 +287,3 @@ pub async fn initialize_publication_tables(conn: &Connection) -> Result<()> {
     initialize_publication_shares_table(conn).await?;
     Ok(())
 }
-

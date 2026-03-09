@@ -152,4 +152,3 @@ pub async fn initialize_customer_indexes(conn: &Connection) -> Result<()> {
 
     Ok(())
 }
-

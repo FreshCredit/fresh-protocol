@@ -66,7 +66,8 @@ impl MigrationRunner {
             let entry = entry?;
             let path = entry.path();
             if path.extension().map(|e| e == "sql").unwrap_or(false) {
-                let filename = path.file_stem()
+                let filename = path
+                    .file_stem()
                     .ok_or_else(|| anyhow::anyhow!("Invalid filename: {path:?}"))?
                     .to_string_lossy();
                 if filename.ends_with(".up") {
@@ -101,15 +102,17 @@ impl MigrationRunner {
 
     /// Ensure the schema_migrations table exists
     pub async fn ensure_migrations_table(&self) -> Result<()> {
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS schema_migrations (
+        self.connection
+            .execute(
+                "CREATE TABLE IF NOT EXISTS schema_migrations (
                 version INTEGER PRIMARY KEY,
                 name TEXT NOT NULL,
                 checksum TEXT NOT NULL,
                 applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )",
-            (),
-        ).await?;
+                (),
+            )
+            .await?;
         Ok(())
     }
 
@@ -149,7 +152,8 @@ impl MigrationRunner {
         for (version, migration) in &self.migrations {
             if !applied_versions.contains(version) {
                 info!("Applying migration {}: {}", version, migration.name);
-                self.apply_migration(migration).await
+                self.apply_migration(migration)
+                    .await
                     .with_context(|| format!("Failed to apply migration {version}"))?;
                 applied_now.push(*version);
             }
@@ -295,4 +299,3 @@ mod tests {
         assert_ne!(checksum, checksum3);
     }
 }
-

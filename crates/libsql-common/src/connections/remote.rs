@@ -77,7 +77,7 @@ impl DatabaseConnection for RemoteConnection {
     async fn health_check(&self) -> anyhow::Result<ConnectionHealth> {
         let start = Instant::now();
         let conn = self.db.connect()?;
-        
+
         match conn.query("SELECT 1", ()).await {
             Ok(_) => {
                 let latency = start.elapsed().as_millis() as u64;

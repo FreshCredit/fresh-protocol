@@ -64,10 +64,10 @@ impl ConnectionFactory {
         match config.mode {
             ConnectionMode::DirectRemote => Self::create_remote(config).await,
             ConnectionMode::LocalOnly => Self::create_local(config).await,
-            
+
             #[cfg(feature = "embedded-replica")]
             ConnectionMode::EmbeddedReplica => Self::create_replica(config).await,
-            
+
             #[cfg(feature = "embedded-replica")]
             ConnectionMode::Adaptive => {
                 // For adaptive mode, start with replica
@@ -91,13 +91,18 @@ impl ConnectionFactory {
     ///     Ok(())
     /// }
     /// ```
-    pub async fn create_remote(config: &ConnectionConfig) -> anyhow::Result<Arc<dyn DatabaseConnection>> {
+    pub async fn create_remote(
+        config: &ConnectionConfig,
+    ) -> anyhow::Result<Arc<dyn DatabaseConnection>> {
         let conn = RemoteConnection::connect(&config.remote_url, &config.auth_token).await?;
         Ok(Arc::new(conn))
     }
 
     /// Create a remote connection with explicit URL and token
-    pub async fn create_remote_with_url(url: &str, token: &str) -> anyhow::Result<Arc<dyn DatabaseConnection>> {
+    pub async fn create_remote_with_url(
+        url: &str,
+        token: &str,
+    ) -> anyhow::Result<Arc<dyn DatabaseConnection>> {
         let conn = RemoteConnection::connect(url, token).await?;
         Ok(Arc::new(conn))
     }
@@ -124,7 +129,9 @@ impl ConnectionFactory {
     ///
     /// This method requires the `embedded-replica` feature to be enabled.
     #[cfg(feature = "embedded-replica")]
-    pub async fn create_replica(config: &ConnectionConfig) -> anyhow::Result<Arc<dyn DatabaseConnection>> {
+    pub async fn create_replica(
+        config: &ConnectionConfig,
+    ) -> anyhow::Result<Arc<dyn DatabaseConnection>> {
         let local_path = config
             .local_path
             .as_ref()
@@ -153,13 +160,9 @@ impl ConnectionFactory {
         auth_token: &str,
         sync_interval_secs: Option<u64>,
     ) -> anyhow::Result<Arc<dyn DatabaseConnection>> {
-        let conn = ReplicaConnection::connect(
-            local_path,
-            remote_url,
-            auth_token,
-            sync_interval_secs,
-        )
-        .await?;
+        let conn =
+            ReplicaConnection::connect(local_path, remote_url, auth_token, sync_interval_secs)
+                .await?;
 
         Ok(Arc::new(conn))
     }
@@ -176,7 +179,9 @@ impl ConnectionFactory {
     ///     Ok(())
     /// }
     /// ```
-    pub async fn create_local(config: &ConnectionConfig) -> anyhow::Result<Arc<dyn DatabaseConnection>> {
+    pub async fn create_local(
+        config: &ConnectionConfig,
+    ) -> anyhow::Result<Arc<dyn DatabaseConnection>> {
         let local_path = config
             .local_path
             .as_ref()
@@ -187,7 +192,9 @@ impl ConnectionFactory {
     }
 
     /// Create a local-only connection with explicit path
-    pub async fn create_local_with_path(path: impl AsRef<std::path::Path>) -> anyhow::Result<Arc<dyn DatabaseConnection>> {
+    pub async fn create_local_with_path(
+        path: impl AsRef<std::path::Path>,
+    ) -> anyhow::Result<Arc<dyn DatabaseConnection>> {
         let conn = LocalConnection::connect(path).await?;
         Ok(Arc::new(conn))
     }
@@ -252,7 +259,7 @@ impl ConnectionFactory {
             }
             Err(e) => {
                 tracing::warn!("Primary connection failed ({}), trying fallback", e);
-                
+
                 // Try fallback
                 match Self::create(fallback).await {
                     Ok(conn) => {
@@ -304,7 +311,7 @@ mod tests {
     #[tokio::test]
     async fn test_create_in_memory() {
         let conn = ConnectionFactory::create_in_memory().await.unwrap();
-        
+
         let health = conn.health_check().await.unwrap();
         assert!(health.is_healthy);
         assert_eq!(health.mode, ConnectionMode::LocalOnly);
@@ -319,7 +326,7 @@ mod tests {
         };
 
         let conn = ConnectionFactory::create_local(&config).await.unwrap();
-        
+
         let health = conn.health_check().await.unwrap();
         assert!(health.is_healthy);
     }

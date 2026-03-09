@@ -54,34 +54,47 @@ pub async fn initialize_agent_tables(conn: &Connection) -> Result<()> {
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
         (),
-    ).await?;
+    )
+    .await?;
 
     // CHATBOT-FIX: Migrations for Phase 9 columns on existing databases
     // These columns are queried by BindingService.get_or_create_binding()
-    let _ = conn.execute(
-        "ALTER TABLE agent_bindings ADD COLUMN entra_object_id TEXT",
-        (),
-    ).await;
-    let _ = conn.execute(
-        "ALTER TABLE agent_bindings ADD COLUMN verified_credential_did TEXT",
-        (),
-    ).await;
-    let _ = conn.execute(
-        "ALTER TABLE agent_bindings ADD COLUMN last_verified_at DATETIME",
-        (),
-    ).await;
-    let _ = conn.execute(
-        "ALTER TABLE agent_bindings ADD COLUMN identity_verified INTEGER DEFAULT 0",
-        (),
-    ).await;
-    let _ = conn.execute(
-        "ALTER TABLE agent_bindings ADD COLUMN blockchain_anchor_hash TEXT",
-        (),
-    ).await;
-    let _ = conn.execute(
-        "ALTER TABLE agent_bindings ADD COLUMN binding_status TEXT NOT NULL DEFAULT 'active'",
-        (),
-    ).await;
+    let _ = conn
+        .execute(
+            "ALTER TABLE agent_bindings ADD COLUMN entra_object_id TEXT",
+            (),
+        )
+        .await;
+    let _ = conn
+        .execute(
+            "ALTER TABLE agent_bindings ADD COLUMN verified_credential_did TEXT",
+            (),
+        )
+        .await;
+    let _ = conn
+        .execute(
+            "ALTER TABLE agent_bindings ADD COLUMN last_verified_at DATETIME",
+            (),
+        )
+        .await;
+    let _ = conn
+        .execute(
+            "ALTER TABLE agent_bindings ADD COLUMN identity_verified INTEGER DEFAULT 0",
+            (),
+        )
+        .await;
+    let _ = conn
+        .execute(
+            "ALTER TABLE agent_bindings ADD COLUMN blockchain_anchor_hash TEXT",
+            (),
+        )
+        .await;
+    let _ = conn
+        .execute(
+            "ALTER TABLE agent_bindings ADD COLUMN binding_status TEXT NOT NULL DEFAULT 'active'",
+            (),
+        )
+        .await;
 
     // PR-P0-3: Validate schema after migrations
     validate_agent_bindings_schema(conn).await;
@@ -97,7 +110,8 @@ pub async fn initialize_agent_tables(conn: &Connection) -> Result<()> {
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
         (),
-    ).await?;
+    )
+    .await?;
 
     // =========================================================================
     // AGENTFS TABLES (Agent-Owned Data) - Phase 9.1
@@ -116,7 +130,8 @@ pub async fn initialize_agent_tables(conn: &Connection) -> Result<()> {
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
         (),
-    ).await?;
+    )
+    .await?;
 
     // AgentFS Tool Calls - append-only audit trail for tool invocations
     // COMPLIANCE: AGENT-003 - INSERT only, no UPDATE/DELETE allowed
@@ -135,7 +150,8 @@ pub async fn initialize_agent_tables(conn: &Connection) -> Result<()> {
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
         (),
-    ).await?;
+    )
+    .await?;
 
     // =========================================================================
     // DEPRECATED TABLES - Keep for migration, no new writes
@@ -157,7 +173,8 @@ pub async fn initialize_agent_tables(conn: &Connection) -> Result<()> {
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
         (),
-    ).await?;
+    )
+    .await?;
 
     // DEPRECATED: Agent audit events - replaced by agentfs_tool_calls
     // Reason: agentfs_tool_calls includes policy_decision equivalent via error field
@@ -173,7 +190,8 @@ pub async fn initialize_agent_tables(conn: &Connection) -> Result<()> {
             FOREIGN KEY (agent_binding_id) REFERENCES agent_bindings (id) ON DELETE CASCADE
         )",
         (),
-    ).await?;
+    )
+    .await?;
 
     Ok(())
 }
@@ -181,17 +199,41 @@ pub async fn initialize_agent_tables(conn: &Connection) -> Result<()> {
 /// Initialize agent indexes
 pub async fn initialize_agent_indexes(conn: &Connection) -> Result<()> {
     // Active table indexes
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_agent_bindings_user_id ON agent_bindings(user_id)", ()).await?;
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_agent_memories_user_id ON agent_memories(user_id)", ()).await?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_agent_bindings_user_id ON agent_bindings(user_id)",
+        (),
+    )
+    .await?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_agent_memories_user_id ON agent_memories(user_id)",
+        (),
+    )
+    .await?;
 
     // AgentFS indexes (Phase 9.1)
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_agentfs_kv_store_user_id ON agentfs_kv_store(user_id)", ()).await?;
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_agentfs_tool_calls_user_id ON agentfs_tool_calls(user_id)", ()).await?;
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_agentfs_tool_calls_name ON agentfs_tool_calls(name)", ()).await?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_agentfs_kv_store_user_id ON agentfs_kv_store(user_id)",
+        (),
+    )
+    .await?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_agentfs_tool_calls_user_id ON agentfs_tool_calls(user_id)",
+        (),
+    )
+    .await?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_agentfs_tool_calls_name ON agentfs_tool_calls(name)",
+        (),
+    )
+    .await?;
     conn.execute("CREATE INDEX IF NOT EXISTS idx_agentfs_tool_calls_start_time ON agentfs_tool_calls(start_time)", ()).await?;
 
     // DEPRECATED table indexes (kept for migration period)
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_agent_interactions_user_id ON agent_interactions(user_id)", ()).await?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_agent_interactions_user_id ON agent_interactions(user_id)",
+        (),
+    )
+    .await?;
     conn.execute("CREATE INDEX IF NOT EXISTS idx_agent_interactions_session_id ON agent_interactions(session_id)", ()).await?;
     conn.execute("CREATE INDEX IF NOT EXISTS idx_agent_audit_events_binding_id ON agent_audit_events(agent_binding_id)", ()).await?;
     conn.execute("CREATE INDEX IF NOT EXISTS idx_agent_audit_events_created_at ON agent_audit_events(created_at)", ()).await?;
@@ -278,6 +320,8 @@ pub async fn check_agent_bindings_schema(conn: &Connection) -> Result<bool> {
         "identity_verified",
     ];
 
-    let all_present = phase9_columns.iter().all(|col| columns.contains(&col.to_string()));
+    let all_present = phase9_columns
+        .iter()
+        .all(|col| columns.contains(&col.to_string()));
     Ok(all_present)
 }

@@ -24,7 +24,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! freshcredit-libsql-common = { 
+//! freshcredit-libsql-common = {
 //!     path = "../../db/libsql/common",
 //!     features = ["embedded-replica"]
 //! }
@@ -157,18 +157,17 @@ mod url_builder;
 
 // Re-exports for convenience
 pub use connection::{
-    ConnectionConfig, ConnectionHealth, ConnectionMode, DatabaseConnection,
-    DatabaseConnectionExt,
+    ConnectionConfig, ConnectionHealth, ConnectionMode, DatabaseConnection, DatabaseConnectionExt,
 };
 
 #[cfg(feature = "embedded-replica")]
 pub use connection::ReadConsistency;
 pub use connections::{LocalConnection, RemoteConnection};
 
+pub use connection_factory::{with_retry, RetryConfig};
 #[cfg(feature = "embedded-replica")]
 pub use connections::ReplicaConnection;
 pub use factory::ConnectionFactory;
-pub use connection_factory::{with_retry, RetryConfig};
 pub use url_builder::TursoUrlBuilder;
 
 /// Version of this crate

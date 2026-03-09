@@ -148,11 +148,23 @@ pub async fn initialize_governance_indexes(conn: &Connection) -> Result<()> {
     try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_governance_proposals_status ON governance_proposals (status)").await?;
     try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_governance_proposals_author ON governance_proposals (author_id)").await?;
     try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_governance_votes_proposal ON governance_votes (proposal_id)").await?;
-    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_governance_votes_voter ON governance_votes (voter_id)").await?;
+    try_create_index(
+        conn,
+        "CREATE INDEX IF NOT EXISTS idx_governance_votes_voter ON governance_votes (voter_id)",
+    )
+    .await?;
     try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_governance_delegations_delegator ON governance_delegations (delegator_id)").await?;
     try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_governance_delegations_delegate ON governance_delegations (delegate_id)").await?;
-    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_governance_stewards_user ON governance_stewards (user_id)").await?;
-    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_governance_stewards_status ON governance_stewards (status)").await?;
+    try_create_index(
+        conn,
+        "CREATE INDEX IF NOT EXISTS idx_governance_stewards_user ON governance_stewards (user_id)",
+    )
+    .await?;
+    try_create_index(
+        conn,
+        "CREATE INDEX IF NOT EXISTS idx_governance_stewards_status ON governance_stewards (status)",
+    )
+    .await?;
 
     Ok(())
 }
@@ -164,4 +176,3 @@ mod tests {
         let _ = 1 + 1; // Compile-time verification
     }
 }
-

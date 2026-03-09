@@ -74,12 +74,20 @@ async fn main() -> Result<()> {
         let current = env::current_dir()?;
         if current.join("migrations").exists() {
             current.join("migrations")
-        } else if current.parent().map(|p| p.join("migrations").exists()).unwrap_or(false) {
+        } else if current
+            .parent()
+            .map(|p| p.join("migrations").exists())
+            .unwrap_or(false)
+        {
             // Safe: we just checked parent exists in the condition above
-            current.parent().expect("parent checked above").join("migrations")
+            current
+                .parent()
+                .expect("parent checked above")
+                .join("migrations")
         } else {
             // Check from workspace root
-            let workspace_root = current.ancestors()
+            let workspace_root = current
+                .ancestors()
                 .find(|p| p.join("Cargo.lock").exists())
                 .map(|p| p.to_path_buf())
                 .unwrap_or(current);
@@ -95,9 +103,7 @@ async fn main() -> Result<()> {
         let db = libsql::Builder::new_local(&path).build().await?;
         db.connect()?
     } else if let Some(url) = cloud_url {
-        let token = auth_token.unwrap_or_else(|| {
-            env::var("TURSO_AUTH_TOKEN").unwrap_or_default()
-        });
+        let token = auth_token.unwrap_or_else(|| env::var("TURSO_AUTH_TOKEN").unwrap_or_default());
         println!("☁️  Connecting to cloud database: {url}");
         let db = libsql::Builder::new_remote(url, token).build().await?;
         db.connect()?
@@ -116,7 +122,12 @@ async fn main() -> Result<()> {
     if !mismatches.is_empty() {
         eprintln!("⚠️  Checksum mismatches detected:");
         for (version, applied, current) in &mismatches {
-            eprintln!("   Version {}: applied={}, current={}", version, &applied[..8], &current[..8]);
+            eprintln!(
+                "   Version {}: applied={}, current={}",
+                version,
+                &applied[..8],
+                &current[..8]
+            );
         }
         if check_only {
             std::process::exit(1);
@@ -146,7 +157,8 @@ async fn main() -> Result<()> {
 }
 
 fn print_help() {
-    println!("FreshCredit Database Migration Runner
+    println!(
+        "FreshCredit Database Migration Runner
 
 USAGE:
     run-migrations [OPTIONS]
@@ -159,6 +171,6 @@ OPTIONS:
     --rollback <ver>     Rollback a specific migration version
     --check              Only check for pending migrations, don't apply
     --help, -h           Show this help
-");
+"
+    );
 }
-

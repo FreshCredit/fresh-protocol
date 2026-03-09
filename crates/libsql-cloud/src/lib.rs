@@ -683,10 +683,7 @@ impl CloudClient {
     ///
     /// ARCHITECTURE: Retrieves the encrypted access token for Plaid API calls.
     /// S2.3: Added for payment flow to retrieve real access tokens.
-    pub async fn get_plaid_access_token(
-        &self,
-        user_id: &str,
-    ) -> FreshCreditResult<Option<String>> {
+    pub async fn get_plaid_access_token(&self, user_id: &str) -> FreshCreditResult<Option<String>> {
         info!("Getting Plaid access token for user: {}", user_id);
 
         let mut rows = self

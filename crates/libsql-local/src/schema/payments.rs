@@ -190,7 +190,11 @@ pub async fn initialize_payment_tables(conn: &Connection) -> Result<()> {
     .await?;
 
     // Index for fast wallet lookups (using defensive helper for cloud schema compatibility)
-    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_crypto_wallets_user_id ON crypto_wallets(user_id)").await?;
+    try_create_index(
+        conn,
+        "CREATE INDEX IF NOT EXISTS idx_crypto_wallets_user_id ON crypto_wallets(user_id)",
+    )
+    .await?;
     try_create_index(conn, "CREATE UNIQUE INDEX IF NOT EXISTS idx_crypto_wallets_address_network ON crypto_wallets(wallet_address, network)").await?;
 
     // Crypto payment transactions with Arc settlement
@@ -238,9 +242,21 @@ pub async fn initialize_payment_tables(conn: &Connection) -> Result<()> {
     .await?;
 
     // Index for payment lookups (using defensive helper for cloud schema compatibility)
-    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_crypto_payments_user_id ON crypto_payments(user_id)").await?;
-    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_crypto_payments_status ON crypto_payments(status)").await?;
-    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_crypto_payments_tx_hash ON crypto_payments(tx_hash)").await?;
+    try_create_index(
+        conn,
+        "CREATE INDEX IF NOT EXISTS idx_crypto_payments_user_id ON crypto_payments(user_id)",
+    )
+    .await?;
+    try_create_index(
+        conn,
+        "CREATE INDEX IF NOT EXISTS idx_crypto_payments_status ON crypto_payments(status)",
+    )
+    .await?;
+    try_create_index(
+        conn,
+        "CREATE INDEX IF NOT EXISTS idx_crypto_payments_tx_hash ON crypto_payments(tx_hash)",
+    )
+    .await?;
 
     // Arc receipts - L1 settlement receipts on Circle Arc
     // COMPLIANCE: §1 - Arc is receipt layer, NOT payment processing
@@ -289,10 +305,22 @@ pub async fn initialize_payment_tables(conn: &Connection) -> Result<()> {
     .await?;
 
     // Index for Arc receipt lookups (using defensive helper for cloud schema compatibility)
-    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_arc_receipts_user_id ON arc_receipts(user_id)").await?;
+    try_create_index(
+        conn,
+        "CREATE INDEX IF NOT EXISTS idx_arc_receipts_user_id ON arc_receipts(user_id)",
+    )
+    .await?;
     try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_arc_receipts_substrate_hash ON arc_receipts(substrate_hash)").await?;
-    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_arc_receipts_status ON arc_receipts(status)").await?;
-    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_arc_receipts_receipt_type ON arc_receipts(receipt_type)").await?;
+    try_create_index(
+        conn,
+        "CREATE INDEX IF NOT EXISTS idx_arc_receipts_status ON arc_receipts(status)",
+    )
+    .await?;
+    try_create_index(
+        conn,
+        "CREATE INDEX IF NOT EXISTS idx_arc_receipts_receipt_type ON arc_receipts(receipt_type)",
+    )
+    .await?;
 
     // Bridge transfers - Circle Bridge Kit cross-chain USDC transfers (Phase 2A)
     // COMPLIANCE: §1 - Circle manages custody during bridging, not FreshCredit
@@ -340,8 +368,16 @@ pub async fn initialize_payment_tables(conn: &Connection) -> Result<()> {
     .await?;
 
     // Index for bridge transfer lookups
-    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_bridge_transfers_user_id ON bridge_transfers(user_id)").await?;
-    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_bridge_transfers_status ON bridge_transfers(status)").await?;
+    try_create_index(
+        conn,
+        "CREATE INDEX IF NOT EXISTS idx_bridge_transfers_user_id ON bridge_transfers(user_id)",
+    )
+    .await?;
+    try_create_index(
+        conn,
+        "CREATE INDEX IF NOT EXISTS idx_bridge_transfers_status ON bridge_transfers(status)",
+    )
+    .await?;
     try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_bridge_transfers_circle_id ON bridge_transfers(circle_transfer_id)").await?;
 
     // Gateway sessions - Circle Gateway fiat on/off ramp sessions (Phase 2B)
@@ -379,8 +415,16 @@ pub async fn initialize_payment_tables(conn: &Connection) -> Result<()> {
     .await?;
 
     // Index for gateway session lookups
-    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_gateway_sessions_user_id ON gateway_sessions(user_id)").await?;
-    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_gateway_sessions_status ON gateway_sessions(status)").await?;
+    try_create_index(
+        conn,
+        "CREATE INDEX IF NOT EXISTS idx_gateway_sessions_user_id ON gateway_sessions(user_id)",
+    )
+    .await?;
+    try_create_index(
+        conn,
+        "CREATE INDEX IF NOT EXISTS idx_gateway_sessions_status ON gateway_sessions(status)",
+    )
+    .await?;
     try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_gateway_sessions_circle_id ON gateway_sessions(circle_session_id)").await?;
 
     // Gateway transactions - Circle Gateway fiat transactions (Phase 2B)
@@ -437,4 +481,3 @@ mod tests {
         let _ = 1 + 1; // Compile-time verification
     }
 }
-

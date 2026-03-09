@@ -115,12 +115,12 @@ mod tests {
     #[tokio::test]
     async fn test_in_memory_connection() {
         let conn = LocalConnection::in_memory().await.unwrap();
-        
+
         // Test health check
         let health = conn.health_check().await.unwrap();
         assert!(health.is_healthy);
         assert_eq!(health.mode, ConnectionMode::LocalOnly);
-        
+
         // Test query
         let mut rows = conn.query("SELECT 1 as value", vec![]).await.unwrap();
         let row = rows.next().await.unwrap().unwrap();
@@ -133,12 +133,12 @@ mod tests {
         // Create a temp file for the database to persist across connections
         let temp_dir = std::env::temp_dir();
         let db_path = temp_dir.join(format!("test_local_{}.db", std::process::id()));
-        
+
         // Clean up before test
         let _ = std::fs::remove_file(&db_path);
-        
+
         let conn = LocalConnection::connect(&db_path).await.unwrap();
-        
+
         // Create table
         conn.execute(
             "CREATE TABLE test (id INTEGER PRIMARY KEY, name TEXT)",
@@ -146,7 +146,7 @@ mod tests {
         )
         .await
         .unwrap();
-        
+
         // Insert
         let affected = conn
             .execute(
@@ -156,13 +156,13 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(affected, 1);
-        
+
         // Verify insertion
         let mut rows = conn.query("SELECT name FROM test", vec![]).await.unwrap();
         let row = rows.next().await.unwrap().unwrap();
         let name: String = row.get(0).unwrap();
         assert_eq!(name, "test");
-        
+
         // Clean up
         let _ = std::fs::remove_file(&db_path);
     }

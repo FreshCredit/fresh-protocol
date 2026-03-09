@@ -72,45 +72,53 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
     // Migrations for existing databases
     // CHATBOT-FIX: platform_user_id is required by RBAC middleware queries
     // This column was added to the schema but existing databases may not have it
-    let _ = conn.execute(
-        "ALTER TABLE user_profile ADD COLUMN platform_user_id TEXT",
-        (),
-    ).await;
+    let _ = conn
+        .execute(
+            "ALTER TABLE user_profile ADD COLUMN platform_user_id TEXT",
+            (),
+        )
+        .await;
     // For rows with NULL platform_user_id, populate from email as fallback
     let _ = conn.execute(
         "UPDATE user_profile SET platform_user_id = email WHERE platform_user_id IS NULL OR platform_user_id = ''",
         (),
     ).await;
 
-    let _ = conn.execute(
-        "ALTER TABLE user_profile ADD COLUMN is_admin BOOLEAN DEFAULT FALSE",
-        (),
-    ).await;
+    let _ = conn
+        .execute(
+            "ALTER TABLE user_profile ADD COLUMN is_admin BOOLEAN DEFAULT FALSE",
+            (),
+        )
+        .await;
     let _ = conn.execute(
         "ALTER TABLE user_profile ADD COLUMN provider_onboarding_complete BOOLEAN DEFAULT FALSE",
         (),
     ).await;
     // ARCH-P2-001: Migration for new profile fields
-    let _ = conn.execute(
-        "ALTER TABLE user_profile ADD COLUMN phone_number TEXT",
-        (),
-    ).await;
-    let _ = conn.execute(
-        "ALTER TABLE user_profile ADD COLUMN preferred_name TEXT",
-        (),
-    ).await;
-    let _ = conn.execute(
-        "ALTER TABLE user_profile ADD COLUMN emergency_contact_name TEXT",
-        (),
-    ).await;
-    let _ = conn.execute(
-        "ALTER TABLE user_profile ADD COLUMN emergency_contact_phone TEXT",
-        (),
-    ).await;
-    let _ = conn.execute(
-        "ALTER TABLE user_profile ADD COLUMN employer_name TEXT",
-        (),
-    ).await;
+    let _ = conn
+        .execute("ALTER TABLE user_profile ADD COLUMN phone_number TEXT", ())
+        .await;
+    let _ = conn
+        .execute(
+            "ALTER TABLE user_profile ADD COLUMN preferred_name TEXT",
+            (),
+        )
+        .await;
+    let _ = conn
+        .execute(
+            "ALTER TABLE user_profile ADD COLUMN emergency_contact_name TEXT",
+            (),
+        )
+        .await;
+    let _ = conn
+        .execute(
+            "ALTER TABLE user_profile ADD COLUMN emergency_contact_phone TEXT",
+            (),
+        )
+        .await;
+    let _ = conn
+        .execute("ALTER TABLE user_profile ADD COLUMN employer_name TEXT", ())
+        .await;
 
     // Create user_preferences table (matches production Turso schema)
     // P0g: Includes onboarding dismissal fields for §27.3 onboarding flow rules
@@ -142,13 +150,38 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
     .await?;
 
     // Migrations for user_preferences
-    let _ = conn.execute("ALTER TABLE user_preferences ADD COLUMN ai_mode TEXT DEFAULT 'auto'", ()).await;
-    let _ = conn.execute("ALTER TABLE user_preferences ADD COLUMN mock_data_enabled BOOLEAN DEFAULT FALSE", ()).await;
-    let _ = conn.execute("ALTER TABLE user_preferences ADD COLUMN onboarding_completed BOOLEAN DEFAULT FALSE", ()).await;
+    let _ = conn
+        .execute(
+            "ALTER TABLE user_preferences ADD COLUMN ai_mode TEXT DEFAULT 'auto'",
+            (),
+        )
+        .await;
+    let _ = conn
+        .execute(
+            "ALTER TABLE user_preferences ADD COLUMN mock_data_enabled BOOLEAN DEFAULT FALSE",
+            (),
+        )
+        .await;
+    let _ = conn
+        .execute(
+            "ALTER TABLE user_preferences ADD COLUMN onboarding_completed BOOLEAN DEFAULT FALSE",
+            (),
+        )
+        .await;
     let _ = conn.execute("ALTER TABLE user_preferences ADD COLUMN onboarding_permanently_dismissed BOOLEAN DEFAULT FALSE", ()).await;
-    let _ = conn.execute("ALTER TABLE user_preferences ADD COLUMN onboarding_reminder_dismissed_until DATETIME", ()).await;
+    let _ = conn
+        .execute(
+            "ALTER TABLE user_preferences ADD COLUMN onboarding_reminder_dismissed_until DATETIME",
+            (),
+        )
+        .await;
     let _ = conn.execute("ALTER TABLE user_preferences ADD COLUMN plaid_connection_skipped BOOLEAN DEFAULT FALSE", ()).await;
-    let _ = conn.execute("ALTER TABLE user_preferences ADD COLUMN plaid_reminder_dismissed_until DATETIME", ()).await;
+    let _ = conn
+        .execute(
+            "ALTER TABLE user_preferences ADD COLUMN plaid_reminder_dismissed_until DATETIME",
+            (),
+        )
+        .await;
 
     // Create api_keys table for API key management
     conn.execute(
@@ -216,14 +249,38 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
 
 /// Initialize core table indexes
 pub async fn initialize_core_indexes(conn: &Connection) -> Result<()> {
-    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_user_profile_email ON user_profile(email)").await?;
-    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_user_profile_azure_id ON user_profile(azure_id)").await?;
-    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_user_preferences_user ON user_preferences(user_id)").await?;
-    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_api_keys_user_id ON api_keys(user_id)").await?;
-    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_api_keys_key_prefix ON api_keys(key_prefix)").await?;
+    try_create_index(
+        conn,
+        "CREATE INDEX IF NOT EXISTS idx_user_profile_email ON user_profile(email)",
+    )
+    .await?;
+    try_create_index(
+        conn,
+        "CREATE INDEX IF NOT EXISTS idx_user_profile_azure_id ON user_profile(azure_id)",
+    )
+    .await?;
+    try_create_index(
+        conn,
+        "CREATE INDEX IF NOT EXISTS idx_user_preferences_user ON user_preferences(user_id)",
+    )
+    .await?;
+    try_create_index(
+        conn,
+        "CREATE INDEX IF NOT EXISTS idx_api_keys_user_id ON api_keys(user_id)",
+    )
+    .await?;
+    try_create_index(
+        conn,
+        "CREATE INDEX IF NOT EXISTS idx_api_keys_key_prefix ON api_keys(key_prefix)",
+    )
+    .await?;
     try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_webauthn_credentials_user_id ON webauthn_credentials(user_id)").await?;
     try_create_index(conn, "CREATE UNIQUE INDEX IF NOT EXISTS idx_webauthn_credentials_credential_id ON webauthn_credentials(credential_id)").await?;
-    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_kilt_dids_did_uri ON kilt_dids(did_uri)").await?;
+    try_create_index(
+        conn,
+        "CREATE INDEX IF NOT EXISTS idx_kilt_dids_did_uri ON kilt_dids(did_uri)",
+    )
+    .await?;
     Ok(())
 }
 

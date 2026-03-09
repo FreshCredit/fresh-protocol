@@ -41,18 +41,18 @@ pub enum ConnectionMode {
     ///
     /// **Always available** - no feature flag required
     DirectRemote,
-    
+
     /// Embedded replica with local cache and background sync
     ///
     /// **Requires `embedded-replica` feature**
     #[cfg(feature = "embedded-replica")]
     EmbeddedReplica,
-    
+
     /// Local-only SQLite database
     ///
     /// **Always available** - no feature flag required
     LocalOnly,
-    
+
     /// Adaptive mode that switches between remote and replica
     ///
     /// **Requires `embedded-replica` feature**
@@ -238,9 +238,7 @@ impl ConnectionConfig {
             .or_else(|_| env::var("LIBSQL_AUTH_TOKEN"))
             .unwrap_or_default();
 
-        let local_path = env::var("LIBSQL_LOCAL_PATH")
-            .ok()
-            .map(PathBuf::from);
+        let local_path = env::var("LIBSQL_LOCAL_PATH").ok().map(PathBuf::from);
 
         let enable_fallback = env::var("LIBSQL_ENABLE_FALLBACK")
             .map(|v| v == "true" || v == "1")
@@ -313,9 +311,7 @@ impl ConnectionConfig {
             #[cfg(feature = "embedded-replica")]
             ConnectionMode::Adaptive => {
                 if self.remote_url.is_empty() {
-                    return Err(anyhow::anyhow!(
-                        "Remote URL is required for adaptive mode"
-                    ));
+                    return Err(anyhow::anyhow!("Remote URL is required for adaptive mode"));
                 }
             }
         }

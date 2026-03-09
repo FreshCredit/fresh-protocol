@@ -299,10 +299,7 @@ mod tests {
         let client = LocalClient::new_in_memory().await.unwrap();
         client.initialize_schema().await.unwrap();
 
-        let mut rows = client
-            .query("SELECT 1 as value", vec![])
-            .await
-            .unwrap();
+        let mut rows = client.query("SELECT 1 as value", vec![]).await.unwrap();
 
         let row = rows.next().await.unwrap().unwrap();
         let value: i64 = row.get(0).unwrap();
@@ -413,7 +410,11 @@ mod tests {
         client.store_user_profile(&profile).await.unwrap();
 
         // Verify update
-        let retrieved = client.get_user_profile("platform-update-123").await.unwrap().unwrap();
+        let retrieved = client
+            .get_user_profile("platform-update-123")
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(retrieved.display_name, "Updated Name");
     }
 

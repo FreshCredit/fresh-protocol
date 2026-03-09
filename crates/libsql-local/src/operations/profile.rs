@@ -21,7 +21,7 @@ pub use super::user_profile_service::UserProfileService;
 
 impl LocalClient {
     /// Store user profile in local database (matches production schema)
-    /// 
+    ///
     /// DEPRECATED: Use UserProfileService::store_profile() instead  // CLASS-001: Migration documentation
     /// P0p: Added is_admin for first provider user admin rule (§27.4)
     /// P0g: Added provider_onboarding_complete for nav visibility (§28.1)
@@ -31,7 +31,7 @@ impl LocalClient {
     }
 
     /// Get user profile from local database (matches production schema)
-    /// 
+    ///
     /// DEPRECATED: Use UserProfileService::get_by_platform_id() instead  // CLASS-001: Migration documentation
     pub async fn get_user_profile(&self, platform_user_id: &str) -> Result<Option<UserProfile>> {
         // Delegate to internal implementation
@@ -39,7 +39,7 @@ impl LocalClient {
     }
 
     /// Get user profile by Azure AD Object ID (used when user_id is the Azure ID)
-    /// 
+    ///
     /// DEPRECATED: Use UserProfileService::get_by_azure_id() instead  // CLASS-001: Migration documentation
     pub async fn get_user_profile_by_azure_id(
         &self,

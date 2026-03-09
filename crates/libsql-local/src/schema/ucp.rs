@@ -248,4 +248,3 @@ pub async fn initialize_ucp_tables(conn: &Connection) -> Result<()> {
 
     Ok(())
 }
-

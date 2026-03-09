@@ -330,4 +330,3 @@ impl WebhookEventCounts {
         self.pending + self.processing + self.processed + self.failed + self.dead_letter
     }
 }
-

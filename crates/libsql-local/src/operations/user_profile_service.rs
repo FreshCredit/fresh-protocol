@@ -13,26 +13,26 @@ use crate::LocalClient;
 use crate::UserProfile;
 
 /// User Profile Service trait
-/// 
+///
 /// Provides standardized methods for user profile CRUD operations.
 /// All implementations should use this trait rather than direct SQL.
 #[async_trait]
 pub trait UserProfileService {
     /// Store a user profile in the database
     async fn store_profile(&self, profile: &UserProfile) -> Result<()>;
-    
+
     /// Retrieve a user profile by platform user ID
     async fn get_by_platform_id(&self, platform_user_id: &str) -> Result<Option<UserProfile>>;
-    
+
     /// Retrieve a user profile by Azure AD Object ID
     async fn get_by_azure_id(&self, azure_id: &str) -> Result<Option<UserProfile>>;
-    
+
     /// Check if a profile exists for the given platform user ID
     async fn exists(&self, platform_user_id: &str) -> Result<bool>;
 }
 
 /// Implementation of UserProfileService for LocalClient
-/// 
+///
 /// This implementation uses prepared statements and proper parameter binding
 /// to ensure security and performance.
 #[async_trait]
@@ -41,17 +41,17 @@ impl UserProfileService for LocalClient {
         // Delegate to existing implementation
         self.store_user_profile_internal(profile).await
     }
-    
+
     async fn get_by_platform_id(&self, platform_user_id: &str) -> Result<Option<UserProfile>> {
         // Delegate to existing implementation
         self.get_user_profile_internal(platform_user_id).await
     }
-    
+
     async fn get_by_azure_id(&self, azure_id: &str) -> Result<Option<UserProfile>> {
         // Delegate to existing implementation
         self.get_user_profile_by_azure_id_internal(azure_id).await
     }
-    
+
     async fn exists(&self, platform_user_id: &str) -> Result<bool> {
         let profile = self.get_user_profile_internal(platform_user_id).await?;
         Ok(profile.is_some())
@@ -59,7 +59,7 @@ impl UserProfileService for LocalClient {
 }
 
 /// Internal implementation methods for LocalClient
-/// 
+///
 /// These methods contain the actual SQL queries and are marked as internal
 /// to discourage direct usage outside the UserProfileService trait.
 impl LocalClient {
@@ -113,7 +113,10 @@ impl LocalClient {
     }
 
     /// Internal: Get user profile by platform user ID
-    pub(crate) async fn get_user_profile_internal(&self, platform_user_id: &str) -> Result<Option<UserProfile>> {
+    pub(crate) async fn get_user_profile_internal(
+        &self,
+        platform_user_id: &str,
+    ) -> Result<Option<UserProfile>> {
         tracing::info!(
             "Retrieving user profile locally for user: {}",
             platform_user_id
@@ -132,7 +135,10 @@ impl LocalClient {
     }
 
     /// Internal: Get user profile by Azure AD Object ID
-    pub(crate) async fn get_user_profile_by_azure_id_internal(&self, azure_id: &str) -> Result<Option<UserProfile>> {
+    pub(crate) async fn get_user_profile_by_azure_id_internal(
+        &self,
+        azure_id: &str,
+    ) -> Result<Option<UserProfile>> {
         tracing::info!("Retrieving user profile by azure_id: {}", azure_id);
 
         let mut rows = self
