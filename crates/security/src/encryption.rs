@@ -53,7 +53,9 @@ impl EncryptionConfig {
             .unwrap_or(true); // Enabled by default
 
         if !enabled {
-            tracing::warn!("⚠️ Token encryption is DISABLED. This should only be used for testing!");
+            tracing::warn!(
+                "⚠️ Token encryption is DISABLED. This should only be used for testing!"
+            );
             return Ok(Self {
                 enabled: false,
                 encryptor: None,
@@ -68,7 +70,9 @@ impl EncryptionConfig {
                 Some(enc)
             }
             Err(_) => {
-                tracing::warn!("⚠️ FRESHCREDIT_TOKEN_ENCRYPTION_KEY not set. Tokens stored in plaintext.");
+                tracing::warn!(
+                    "⚠️ FRESHCREDIT_TOKEN_ENCRYPTION_KEY not set. Tokens stored in plaintext."
+                );
                 None
             }
         };
@@ -84,12 +88,10 @@ impl EncryptionConfig {
     /// Encrypt a token if encryption is available
     pub fn encrypt(&self, plaintext: &str) -> String {
         match &self.encryptor {
-            Some(enc) if self.enabled => {
-                enc.encrypt(plaintext).unwrap_or_else(|e| {
-                    tracing::error!("Encryption failed, storing plaintext: {e}");
-                    plaintext.to_string()
-                })
-            }
+            Some(enc) if self.enabled => enc.encrypt(plaintext).unwrap_or_else(|e| {
+                tracing::error!("Encryption failed, storing plaintext: {e}");
+                plaintext.to_string()
+            }),
             _ => plaintext.to_string(),
         }
     }
@@ -179,13 +181,16 @@ impl TokenEncryptor {
             ));
         }
 
-        let cipher = Aes256Gcm::new_from_slice(key)
-            .map_err(|e| anyhow!("Failed to create cipher: {e}"))?;
+        let cipher =
+            Aes256Gcm::new_from_slice(key).map_err(|e| anyhow!("Failed to create cipher: {e}"))?;
 
         let mut stored_key = [0u8; KEY_SIZE];
         stored_key.copy_from_slice(key);
 
-        Ok(Self { cipher, key: stored_key })
+        Ok(Self {
+            cipher,
+            key: stored_key,
+        })
     }
 
     /// Create a TokenEncryptor from a hex-encoded key
@@ -193,8 +198,7 @@ impl TokenEncryptor {
     /// # Arguments
     /// * `hex_key` - 64-character hex string representing a 256-bit key
     pub fn from_hex_key(hex_key: &str) -> Result<Self> {
-        let key = hex::decode(hex_key)
-            .map_err(|e| anyhow!("Invalid hex key: {e}"))?;
+        let key = hex::decode(hex_key).map_err(|e| anyhow!("Invalid hex key: {e}"))?;
         Self::new(&key)
     }
 
@@ -253,8 +257,7 @@ impl TokenEncryptor {
             .decrypt(nonce, ciphertext_bytes)
             .map_err(|_| anyhow!("Decryption failed - invalid key or corrupted data"))?;
 
-        String::from_utf8(plaintext)
-            .map_err(|e| anyhow!("Decrypted data is not valid UTF-8: {e}"))
+        String::from_utf8(plaintext).map_err(|e| anyhow!("Decrypted data is not valid UTF-8: {e}"))
     }
 }
 

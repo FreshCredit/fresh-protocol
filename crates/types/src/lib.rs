@@ -530,12 +530,12 @@ mod tests {
 
     #[test]
     fn test_problem_details_new() {
-        let problem = ProblemDetails::new(
-            "https://freshcredit.com/problems/test",
-            "Test Error",
-            400,
+        let problem =
+            ProblemDetails::new("https://freshcredit.com/problems/test", "Test Error", 400);
+        assert_eq!(
+            problem.problem_type,
+            "https://freshcredit.com/problems/test"
         );
-        assert_eq!(problem.problem_type, "https://freshcredit.com/problems/test");
         assert_eq!(problem.title, "Test Error");
         assert_eq!(problem.status, 400);
         assert!(problem.detail.is_none());

@@ -16,8 +16,8 @@
 
 use clap::{Parser, Subcommand};
 use freshcredit_security::{
-    encrypt_token, decrypt_token, generate_base64_key, get_encryption_config,
-    TokenEncryptor, KEY_SIZE,
+    decrypt_token, encrypt_token, generate_base64_key, get_encryption_config, TokenEncryptor,
+    KEY_SIZE,
 };
 
 #[derive(Parser)]
@@ -108,7 +108,9 @@ fn main() {
                                 Ok(decrypted) => {
                                     println!("Decrypted:  {decrypted}");
                                     if decrypted == plaintext {
-                                        println!("\n✅ Encryption/decryption roundtrip successful!");
+                                        println!(
+                                            "\n✅ Encryption/decryption roundtrip successful!"
+                                        );
                                     } else {
                                         eprintln!("\n❌ Decrypted text doesn't match original!");
                                         std::process::exit(1);
@@ -143,12 +145,12 @@ fn main() {
 
             if config.is_available() {
                 println!("\n✅ Encryption is properly configured!");
-                
+
                 // Test roundtrip
                 let test = "test-token-12345";
                 let encrypted = encrypt_token(test);
                 let decrypted = decrypt_token(&encrypted);
-                
+
                 if decrypted == test {
                     println!("✅ Encryption roundtrip test passed!");
                 } else {
@@ -175,4 +177,3 @@ fn main() {
         }
     }
 }
-

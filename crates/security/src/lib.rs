@@ -38,14 +38,8 @@ pub mod encryption;
 
 // Re-export commonly used items
 pub use encryption::{
-    TokenEncryptor,
-    EncryptionConfig,
-    generate_hex_key,
-    generate_base64_key,
-    get_encryption_config,
-    encrypt_token,
-    decrypt_token,
-    KEY_SIZE,
+    decrypt_token, encrypt_token, generate_base64_key, generate_hex_key, get_encryption_config,
+    EncryptionConfig, TokenEncryptor, KEY_SIZE,
 };
 
 use anyhow::Result;
