@@ -31,36 +31,39 @@ pub struct TableDef {
 /// Extract table definitions from SQL CREATE TABLE statements
 pub fn parse_sql_schema(sql: &str) -> HashMap<String, TableDef> {
     let mut tables = HashMap::new();
-    
+
     // Find all CREATE TABLE statements
-    let create_table_re = regex::Regex::new(
-        r"(?is)CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(\w+)\s*\(([^;]+)\)"
-    ).unwrap();
-    
+    let create_table_re =
+        regex::Regex::new(r"(?is)CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(\w+)\s*\(([^;]+)\)")
+            .unwrap();
+
     for cap in create_table_re.captures_iter(sql) {
         let table_name = cap.get(1).unwrap().as_str().to_lowercase();
         let columns_str = cap.get(2).unwrap().as_str();
-        
+
         let columns = parse_columns(columns_str);
-        
-        tables.insert(table_name.clone(), TableDef {
-            name: table_name,
-            columns,
-        });
+
+        tables.insert(
+            table_name.clone(),
+            TableDef {
+                name: table_name,
+                columns,
+            },
+        );
     }
-    
+
     tables
 }
 
 /// Parse column definitions from CREATE TABLE body
 fn parse_columns(columns_str: &str) -> Vec<SchemaColumn> {
     let mut columns = Vec::new();
-    
+
     // Split by comma, but be careful of commas in FOREIGN KEY clauses
     let mut in_parens = 0;
     let mut current_col = String::new();
     let mut col_strs = Vec::new();
-    
+
     for ch in columns_str.chars() {
         match ch {
             '(' => {
@@ -81,10 +84,10 @@ fn parse_columns(columns_str: &str) -> Vec<SchemaColumn> {
     if !current_col.trim().is_empty() {
         col_strs.push(current_col.trim().to_string());
     }
-    
+
     for col_str in col_strs {
         let col_str = col_str.trim();
-        
+
         // Skip FOREIGN KEY, PRIMARY KEY, UNIQUE, CHECK constraints
         let upper = col_str.to_uppercase();
         if upper.starts_with("FOREIGN KEY")
@@ -95,14 +98,14 @@ fn parse_columns(columns_str: &str) -> Vec<SchemaColumn> {
         {
             continue;
         }
-        
+
         // Parse column: name type [NOT NULL] [DEFAULT ...]
         let parts: Vec<&str> = col_str.split_whitespace().collect();
         if parts.len() >= 2 {
             let name = parts[0].to_lowercase();
             let data_type = parts[1].to_uppercase();
             let not_null = col_str.to_uppercase().contains("NOT NULL");
-            
+
             columns.push(SchemaColumn {
                 name,
                 data_type,
@@ -110,7 +113,7 @@ fn parse_columns(columns_str: &str) -> Vec<SchemaColumn> {
             });
         }
     }
-    
+
     columns
 }
 
@@ -178,7 +181,10 @@ mod tests {
         let users = tables.get("users").unwrap();
         assert_eq!(users.columns.len(), 4);
         assert!(users.columns.iter().any(|c| c.name == "id"));
-        assert!(users.columns.iter().any(|c| c.name == "email" && c.not_null));
+        assert!(users
+            .columns
+            .iter()
+            .any(|c| c.name == "email" && c.not_null));
     }
 
     #[test]
@@ -205,46 +211,75 @@ mod tests {
     #[test]
     fn test_compare_schemas_finds_missing_table() {
         let mut source = HashMap::new();
-        source.insert("users".to_string(), TableDef {
-            name: "users".to_string(),
-            columns: vec![],
-        });
-        source.insert("accounts".to_string(), TableDef {
-            name: "accounts".to_string(),
-            columns: vec![],
-        });
+        source.insert(
+            "users".to_string(),
+            TableDef {
+                name: "users".to_string(),
+                columns: vec![],
+            },
+        );
+        source.insert(
+            "accounts".to_string(),
+            TableDef {
+                name: "accounts".to_string(),
+                columns: vec![],
+            },
+        );
 
         let mut target = HashMap::new();
-        target.insert("users".to_string(), TableDef {
-            name: "users".to_string(),
-            columns: vec![],
-        });
+        target.insert(
+            "users".to_string(),
+            TableDef {
+                name: "users".to_string(),
+                columns: vec![],
+            },
+        );
 
         let diffs = compare_schemas("source", &source, "target", &target);
-        assert!(diffs.iter().any(|d| d.contains("accounts") && d.contains("not in target")));
+        assert!(diffs
+            .iter()
+            .any(|d| d.contains("accounts") && d.contains("not in target")));
     }
 
     #[test]
     fn test_compare_schemas_finds_missing_column() {
         let mut source = HashMap::new();
-        source.insert("users".to_string(), TableDef {
-            name: "users".to_string(),
-            columns: vec![
-                SchemaColumn { name: "id".to_string(), data_type: "TEXT".to_string(), not_null: false },
-                SchemaColumn { name: "email".to_string(), data_type: "TEXT".to_string(), not_null: true },
-            ],
-        });
+        source.insert(
+            "users".to_string(),
+            TableDef {
+                name: "users".to_string(),
+                columns: vec![
+                    SchemaColumn {
+                        name: "id".to_string(),
+                        data_type: "TEXT".to_string(),
+                        not_null: false,
+                    },
+                    SchemaColumn {
+                        name: "email".to_string(),
+                        data_type: "TEXT".to_string(),
+                        not_null: true,
+                    },
+                ],
+            },
+        );
 
         let mut target = HashMap::new();
-        target.insert("users".to_string(), TableDef {
-            name: "users".to_string(),
-            columns: vec![
-                SchemaColumn { name: "id".to_string(), data_type: "TEXT".to_string(), not_null: false },
-            ],
-        });
+        target.insert(
+            "users".to_string(),
+            TableDef {
+                name: "users".to_string(),
+                columns: vec![SchemaColumn {
+                    name: "id".to_string(),
+                    data_type: "TEXT".to_string(),
+                    not_null: false,
+                }],
+            },
+        );
 
         let diffs = compare_schemas("source", &source, "target", &target);
-        assert!(diffs.iter().any(|d| d.contains("email") && d.contains("not in target")));
+        assert!(diffs
+            .iter()
+            .any(|d| d.contains("email") && d.contains("not in target")));
     }
 
     #[test]
@@ -258,17 +293,27 @@ mod tests {
 
         if let Some(root) = project_root {
             let result = load_migration_schema(&root);
-            assert!(result.is_ok(), "Failed to load migration schema: {:?}", result.err());
+            assert!(
+                result.is_ok(),
+                "Failed to load migration schema: {:?}",
+                result.err()
+            );
 
             let tables = result.unwrap();
             // Should have many tables
-            assert!(tables.len() > 50, "Expected 50+ tables, got {}", tables.len());
+            assert!(
+                tables.len() > 50,
+                "Expected 50+ tables, got {}",
+                tables.len()
+            );
 
             // Check for key tables
-            assert!(tables.contains_key("user_profile"), "Missing user_profile table");
+            assert!(
+                tables.contains_key("user_profile"),
+                "Missing user_profile table"
+            );
             assert!(tables.contains_key("accounts"), "Missing accounts table");
             assert!(tables.contains_key("workflows"), "Missing workflows table");
         }
     }
 }
-

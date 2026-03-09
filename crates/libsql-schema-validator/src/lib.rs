@@ -16,11 +16,11 @@ use anyhow::Result;
 
 // Re-export test utilities for external tests
 pub mod tests;
+use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
 pub use tests::schema_sync_test::{
     compare_schemas, load_migration_schema, parse_sql_schema, SchemaColumn, TableDef,
 };
-use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
 use tracing::info;
 
 /// Schema validation result
