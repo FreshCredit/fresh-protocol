@@ -34,6 +34,7 @@
 
 use std::sync::Arc;
 
+use crate::circuit_breaker::{CircuitBreakerConfig, CircuitBreakerConnection};
 use crate::connection::{ConnectionConfig, ConnectionMode, DatabaseConnection};
 use crate::connections::{LocalConnection, RemoteConnection};
 
@@ -301,6 +302,131 @@ impl ConnectionFactory {
     pub async fn from_env() -> anyhow::Result<Arc<dyn DatabaseConnection>> {
         let config = ConnectionConfig::from_env()?;
         Self::create(&config).await
+    }
+
+    /// Create a connection with circuit breaker protection
+    ///
+    /// Wraps the underlying connection with a circuit breaker that will
+    /// fail fast when the database is unavailable, preventing cascading failures.
+    ///
+    /// # Circuit Breaker Configuration
+    ///
+    /// Environment variables:
+    /// - `DB_CB_FAILURE_THRESHOLD`: Failures before opening (default: 5)
+    /// - `DB_CB_RECOVERY_TIMEOUT_SECS`: Seconds before retry (default: 30)
+    /// - `DB_CB_HALF_OPEN_MAX_CALLS`: Test calls in half-open (default: 3)
+    /// - `DB_CB_SUCCESS_THRESHOLD`: Successes to close (default: 2)
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use freshcredit_libsql_common::{ConnectionFactory, DatabaseConnection};
+    ///
+    /// async fn example() -> anyhow::Result<()> {
+    ///     let conn = ConnectionFactory::create_with_circuit_breaker_from_env().await?;
+    ///     
+    ///     // Operations automatically protected by circuit breaker
+    ///     let rows = conn.query("SELECT * FROM users", vec![]).await?;
+    ///     
+    ///     Ok(())
+    /// }
+    /// ```
+    pub async fn create_with_circuit_breaker(
+        config: &ConnectionConfig,
+        cb_config: CircuitBreakerConfig,
+    ) -> anyhow::Result<Arc<CircuitBreakerConnection>> {
+        let inner = Self::create(config).await?;
+        Ok(CircuitBreakerConnection::new(inner, cb_config))
+    }
+
+    /// Create a connection with circuit breaker from environment
+    ///
+    /// Uses both database connection env vars and circuit breaker env vars.
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use freshcredit_libsql_common::{ConnectionFactory, DatabaseConnection};
+    ///
+    /// async fn example() -> anyhow::Result<()> {
+    ///     let conn = ConnectionFactory::create_with_circuit_breaker_from_env().await?;
+    ///     let rows = conn.query("SELECT 1", vec![]).await?;
+    ///     Ok(())
+    /// }
+    /// ```
+    pub async fn create_with_circuit_breaker_from_env() -> anyhow::Result<Arc<CircuitBreakerConnection>> {
+        let config = ConnectionConfig::from_env()?;
+        let cb_config = CircuitBreakerConfig::from_env();
+        Self::create_with_circuit_breaker(&config, cb_config).await
+    }
+
+    /// Create with circuit breaker and automatic fallback
+    ///
+    /// Combines circuit breaker protection with fallback to a secondary
+    /// database if the primary fails.
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use freshcredit_libsql_common::{
+    ///     ConnectionFactory, ConnectionConfig, ConnectionMode, CircuitBreakerConfig
+    /// };
+    ///
+    /// async fn example() -> anyhow::Result<()> {
+    ///     let primary = ConnectionConfig {
+    ///         mode: ConnectionMode::DirectRemote,
+    ///         remote_url: "libsql://primary.turso.io".to_string(),
+    ///         auth_token: "token".to_string(),
+    ///         ..Default::default()
+    ///     };
+    ///     
+    ///     let fallback = ConnectionConfig {
+    ///         mode: ConnectionMode::LocalOnly,
+    ///         local_path: Some("/app/data/fallback.db".into()),
+    ///         ..Default::default()
+    ///     };
+    ///     
+    ///     let cb_config = CircuitBreakerConfig::default();
+    ///     let conn = ConnectionFactory::create_with_cb_and_fallback(
+    ///         &primary, &fallback, cb_config
+    ///     ).await?;
+    ///     
+    ///     Ok(())
+    /// }
+    /// ```
+    pub async fn create_with_cb_and_fallback(
+        primary: &ConnectionConfig,
+        fallback: &ConnectionConfig,
+        cb_config: CircuitBreakerConfig,
+    ) -> anyhow::Result<Arc<CircuitBreakerConnection>> {
+        // Try to create primary with circuit breaker
+        match Self::create_with_circuit_breaker(primary, cb_config).await {
+            Ok(conn) => {
+                tracing::info!(
+                    "Created circuit breaker protected connection with primary ({:?})",
+                    primary.mode
+                );
+                Ok(conn)
+            }
+            Err(e) => {
+                tracing::warn!("Primary connection failed ({}), trying fallback without CB", e);
+
+                // Try fallback without circuit breaker (local should be reliable)
+                match Self::create(fallback).await {
+                    Ok(conn) => {
+                        tracing::info!("Using fallback connection ({:?})", fallback.mode);
+                        // Still wrap with circuit breaker for consistency
+                        Ok(CircuitBreakerConnection::new(conn, cb_config))
+                    }
+                    Err(e2) => {
+                        tracing::error!("Fallback connection also failed: {}", e2);
+                        Err(anyhow::anyhow!(
+                            "Both primary and fallback connections failed: primary={e}, fallback={e2}"
+                        ))
+                    }
+                }
+            }
+        }
     }
 }
 

@@ -147,6 +147,7 @@
 //! - [`url_builder`](crate::url_builder): Turso URL construction utilities
 
 // Core modules
+pub mod circuit_breaker;
 pub mod connection;
 pub mod connections;
 pub mod factory;
@@ -156,6 +157,10 @@ mod connection_factory;
 mod url_builder;
 
 // Re-exports for convenience
+pub use circuit_breaker::{
+    CircuitBreakerConfig, CircuitBreakerConnection, CircuitBreakerError, CircuitBreakerState,
+    CircuitBreakerStats,
+};
 pub use connection::{
     ConnectionConfig, ConnectionHealth, ConnectionMode, DatabaseConnection, DatabaseConnectionExt,
 };

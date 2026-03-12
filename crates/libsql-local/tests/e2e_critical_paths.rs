@@ -450,28 +450,26 @@ async fn test_workflow_user_onboarding() -> Result<()> {
     let user_id = test_user_id();
     let entra_id = format!("entra_{user_id}");
 
-    // Step 1: Create user after auth
+    // Step 1: Create user after auth (using parameterized query)
     conn.execute(
-        &format!(
-            "INSERT INTO users (id, entra_id, email, display_name) VALUES ('{user_id}', '{entra_id}', 'new@example.com', 'New User')"
-        ),
-        ()
+        "INSERT INTO users (id, entra_id, email, display_name) VALUES (?1, ?2, 'new@example.com', 'New User')",
+        libsql::params![user_id.clone(), entra_id.clone()],
     ).await?;
     println!("  ✅ Step 1: User created with consumer role");
 
-    // Step 2: Complete onboarding
+    // Step 2: Complete onboarding (using parameterized query)
     conn.execute(
-        &format!("UPDATE users SET onboarding_complete = 1 WHERE id = '{user_id}'"),
-        (),
+        "UPDATE users SET onboarding_complete = 1 WHERE id = ?1",
+        libsql::params![user_id.clone()],
     )
     .await?;
     println!("  ✅ Step 2: Onboarding marked complete");
 
-    // Verify
+    // Verify (using parameterized query)
     let mut rows = conn
         .query(
-            &format!("SELECT role, onboarding_complete FROM users WHERE id = '{user_id}'"),
-            (),
+            "SELECT role, onboarding_complete FROM users WHERE id = ?1",
+            libsql::params![user_id.clone()],
         )
         .await?;
     let row = rows.next().await?.expect("User exists");
@@ -505,14 +503,12 @@ async fn test_workflow_report_generation() -> Result<()> {
     let user_id = test_user_id();
     let report_id = format!("report_{}", chrono::Utc::now().timestamp_millis());
 
-    // Step 1: Create pending report
+    // Step 1: Create pending report (using parameterized query)
     let data = serde_json::json!({"accounts": [{"id": "acc_1", "balance": 1500.00}]});
-    let data_str = data.to_string().replace('\'', "''"); // Escape quotes for SQL
+    let data_str = data.to_string();
     conn.execute(
-        &format!(
-            "INSERT INTO reports (id, user_id, report_type, data, status) VALUES ('{report_id}', '{user_id}', 'comprehensive', '{data_str}', 'pending')"
-        ),
-        ()
+        "INSERT INTO reports (id, user_id, report_type, data, status) VALUES (?1, ?2, 'comprehensive', ?3, 'pending')",
+        libsql::params![report_id.clone(), user_id.clone(), data_str],
     ).await?;
     println!("  ✅ Step 1: Report created with pending status");
 
@@ -522,18 +518,18 @@ async fn test_workflow_report_generation() -> Result<()> {
     let hash = hex::encode(hasher.finalize());
     println!("  ✅ Step 2: Hash generated: {}...", &hash[..16]);
 
-    // Step 3: Anchor and update status
+    // Step 3: Anchor and update status (using parameterized query)
     conn.execute(
-        &format!("UPDATE reports SET blockchain_hash = '{hash}', status = 'anchored' WHERE id = '{report_id}'"),
-        ()
+        "UPDATE reports SET blockchain_hash = ?1, status = 'anchored' WHERE id = ?2",
+        libsql::params![hash.clone(), report_id.clone()],
     ).await?;
     println!("  ✅ Step 3: Hash anchored, status updated");
 
-    // Verify
+    // Verify (using parameterized query)
     let mut rows = conn
         .query(
-            &format!("SELECT status, blockchain_hash FROM reports WHERE id = '{report_id}'"),
-            (),
+            "SELECT status, blockchain_hash FROM reports WHERE id = ?1",
+            libsql::params![report_id.clone()],
         )
         .await?;
     let row = rows.next().await?.expect("Report exists");
@@ -590,20 +586,20 @@ async fn test_workflow_provider_matching() -> Result<()> {
     .await?;
     println!("  ✅ Provider requirements inserted (provider-defined)");
 
-    // User preferences
+    // User preferences (using parameterized query)
     let user_id = test_user_id();
     conn.execute(
-        &format!("INSERT INTO user_preferences VALUES ('pref_1', '{user_id}', 'income', 50000)"),
-        (),
+        "INSERT INTO user_preferences VALUES ('pref_1', ?1, 'income', 50000)",
+        libsql::params![user_id.clone()],
     )
     .await?;
     println!("  ✅ User preferences inserted");
 
-    // Create match (simple comparison, not scoring/underwriting)
+    // Create match (simple comparison, not scoring/underwriting) (using parameterized query)
     let match_id = format!("match_{}", chrono::Utc::now().timestamp_millis());
     conn.execute(
-        &format!("INSERT INTO matches VALUES ('{match_id}', '{user_id}', 'provider_1', 1.0)"),
-        (),
+        "INSERT INTO matches VALUES (?1, ?2, 'provider_1', 1.0)",
+        libsql::params![match_id.clone(), user_id.clone()],
     )
     .await?;
     println!("  ✅ Match created (preferences matched requirements)");
