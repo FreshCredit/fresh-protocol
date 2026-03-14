@@ -49,6 +49,8 @@ async fn setup_test_user(client: &LocalClient) -> Result<TestUserData> {
         role: "consumer".to_string(),
         is_admin: false,
         provider_onboarding_complete: false,
+        mfa_enabled: false,
+        mfa_verified_at: None,
         tenant_id: "freshcredit".to_string(),
         object_id: format!("azure-{user_id}"),
         verified_id_credential_id: None,
