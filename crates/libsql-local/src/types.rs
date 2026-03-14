@@ -106,6 +106,11 @@ pub struct UserProfile {
     /// P0g: Provider onboarding completion status (§28.1)
     #[serde(default)]
     pub provider_onboarding_complete: bool,
+    /// COMPLIANCE: MFA enabled flag for admin users
+    #[serde(default)]
+    pub mfa_enabled: bool,
+    /// COMPLIANCE: Timestamp of last MFA verification
+    pub mfa_verified_at: Option<String>,
     pub tenant_id: String,
     pub object_id: String,
     pub verified_id_credential_id: Option<String>,

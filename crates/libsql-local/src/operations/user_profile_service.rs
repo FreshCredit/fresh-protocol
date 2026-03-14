@@ -186,13 +186,15 @@ impl LocalClient {
                 role: row.get(24).unwrap_or_else(|_| "consumer".to_string()),
                 is_admin: row.get::<i64>(25).unwrap_or(0) != 0,
                 provider_onboarding_complete: row.get::<i64>(26).unwrap_or(0) != 0,
-                tenant_id: row.get(27)?,
-                object_id: row.get(28)?,
-                verified_id_credential_id: row.get::<Option<String>>(29).unwrap_or(None),
-                verified_id_status: row.get(30).unwrap_or_else(|_| "pending".to_string()),
-                verified_id_issued_at: row.get::<Option<String>>(31).unwrap_or(None),
-                created_at: row.get(33).unwrap_or_default(),
-                updated_at: row.get(34).unwrap_or_default(),
+                mfa_enabled: row.get::<i64>(27).unwrap_or(0) != 0,
+                mfa_verified_at: row.get::<Option<String>>(28).unwrap_or(None),
+                tenant_id: row.get(29)?,
+                object_id: row.get(30)?,
+                verified_id_credential_id: row.get::<Option<String>>(31).unwrap_or(None),
+                verified_id_status: row.get(32).unwrap_or_else(|_| "pending".to_string()),
+                verified_id_issued_at: row.get::<Option<String>>(33).unwrap_or(None),
+                created_at: row.get(34).unwrap_or_default(),
+                updated_at: row.get(35).unwrap_or_default(),
             };
 
             Ok(Some(profile))
