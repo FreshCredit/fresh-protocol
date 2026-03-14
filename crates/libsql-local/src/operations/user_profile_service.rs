@@ -75,9 +75,9 @@ impl LocalClient {
                 id, platform_user_id, azure_id, email, display_name, given_name, family_name,
                 surname, mobile_phone, job_title, street_address, city, state_province,
                 postal_code, country_region, date_of_birth, ssn_last_four, employment_status,
-                annual_income, role, is_admin, provider_onboarding_complete, tenant_id, object_id,
+                annual_income, role, is_admin, provider_onboarding_complete, mfa_enabled, mfa_verified_at, tenant_id, object_id,
                 verified_id_credential_id, verified_id_status, verified_id_issued_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))",
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))",
             libsql::params![
                 profile.id.clone(),
                 profile.platform_user_id.clone(),
@@ -101,6 +101,8 @@ impl LocalClient {
                 profile.role.clone(),
                 profile.is_admin,
                 profile.provider_onboarding_complete,
+                profile.mfa_enabled,
+                profile.mfa_verified_at.clone().unwrap_or_default(),
                 profile.tenant_id.clone(),
                 profile.object_id.clone(),
                 profile.verified_id_credential_id.clone().unwrap_or_default(),

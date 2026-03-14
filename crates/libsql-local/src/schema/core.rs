@@ -56,6 +56,8 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
             role TEXT DEFAULT 'consumer',
             is_admin BOOLEAN DEFAULT FALSE,
             provider_onboarding_complete BOOLEAN DEFAULT FALSE,
+            mfa_enabled BOOLEAN DEFAULT FALSE,
+            mfa_verified_at TEXT,
             tenant_id TEXT NOT NULL,
             object_id TEXT NOT NULL,
             verified_id_credential_id TEXT,
