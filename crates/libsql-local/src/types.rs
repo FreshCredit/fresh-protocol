@@ -45,6 +45,8 @@
 //!     role: "consumer".to_string(),
 //!     is_admin: false,
 //!     provider_onboarding_complete: false,
+//!     mfa_enabled: false,
+//!     mfa_verified_at: None,
 //!     tenant_id: "tenant-abc".to_string(),
 //!     object_id: "obj-def".to_string(),
 //!     verified_id_credential_id: None,
