@@ -217,9 +217,10 @@ impl TokenEncryptor {
     ///
     /// Returns base64-encoded ciphertext (nonce || ciphertext || tag)
     pub fn encrypt(&self, plaintext: &str) -> Result<String> {
-        // Generate random nonce
+        // Generate random nonce using cryptographically secure RNG
+        // SECURITY FIX: Use OsRng instead of thread_rng() for cryptographic operations
         let mut nonce_bytes = [0u8; NONCE_SIZE];
-        rand::thread_rng().fill_bytes(&mut nonce_bytes);
+        rand::rngs::OsRng.fill_bytes(&mut nonce_bytes);
         let nonce = Nonce::from_slice(&nonce_bytes);
 
         // Encrypt
@@ -262,9 +263,10 @@ impl TokenEncryptor {
 }
 
 /// Generate a random 256-bit key for AES-256-GCM
+/// SECURITY FIX: Uses OsRng for cryptographically secure key generation
 pub fn generate_key() -> [u8; KEY_SIZE] {
     let mut key = [0u8; KEY_SIZE];
-    rand::thread_rng().fill_bytes(&mut key);
+    rand::rngs::OsRng.fill_bytes(&mut key);
     key
 }
 
