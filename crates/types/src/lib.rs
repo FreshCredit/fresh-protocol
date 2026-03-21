@@ -410,6 +410,13 @@ impl From<FreshCreditError> for ProblemDetails {
     }
 }
 
+/// Standardized API response types for consistent API governance
+/// 
+/// This module provides standardized response wrappers, pagination,
+/// and metadata types to address API governance inconsistencies
+/// identified in Round 24 research.
+pub mod api_response;
+
 #[cfg(test)]
 mod tests {
     use super::*;
