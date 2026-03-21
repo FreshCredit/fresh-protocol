@@ -7,7 +7,7 @@ license.workspace = true
 [dependencies]
 chrono = { version = "0.4", features = ["serde"] }
 serde = { workspace = true }
-thiserror = "1.0"
+thiserror = { workspace = true }
 async-trait = "0.1"
 tokio = { workspace = true }
 rand = "0.8"
