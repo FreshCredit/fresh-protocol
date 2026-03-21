@@ -4,6 +4,8 @@
 //! - Blake2b hashing for data integrity
 //! - AES-256-GCM encryption for sensitive tokens
 //! - Time-based security utilities
+
+#![deny(unsafe_code)]
 //!
 //! # Token Encryption
 //!
