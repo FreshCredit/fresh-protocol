@@ -22,11 +22,17 @@
 use serde::{Deserialize, Serialize};
 use crate::ProblemDetails;
 
+// P1 FIX: ts-rs for TypeScript type generation
+#[cfg(feature = "typescript")]
+use ts_rs::TS;
+
 /// Standard API response wrapper for single resources
 /// 
 /// This type provides a consistent response format across all API endpoints,
 /// addressing the API governance finding of mixed response formats.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "typescript", derive(TS))]
+#[cfg_attr(feature = "typescript", ts(export))]
 pub struct ApiResponse<T> {
     /// Whether the request was successful
     pub success: bool,
@@ -91,6 +97,8 @@ impl<T> ApiResponse<T> {
 /// 
 /// Provides consistent pagination information across all list endpoints.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "typescript", derive(TS))]
+#[cfg_attr(feature = "typescript", ts(export))]
 pub struct ResponseMeta {
     /// Total number of items available (for offset pagination)
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -195,6 +203,8 @@ impl ResponseMeta {
 /// }
 /// ```
 #[derive(Debug, Clone, Deserialize)]
+#[cfg_attr(feature = "typescript", derive(TS))]
+#[cfg_attr(feature = "typescript", ts(export))]
 pub struct PaginationQuery {
     /// Page number (1-indexed, default: 1)
     #[serde(default = "default_page")]
