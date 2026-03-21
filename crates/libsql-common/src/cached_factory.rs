@@ -34,6 +34,7 @@ use std::time::{Duration, Instant};
 
 use dashmap::DashMap;
 use libsql::Database;
+use tokio::sync::Mutex as AsyncMutex;
 use tokio::task::JoinHandle;
 use tokio::time::interval;
 use tracing::{debug, info};
@@ -125,7 +126,7 @@ pub struct CachedConnectionFactory {
     /// Cache statistics
     stats: Arc<std::sync::atomic::AtomicU64>,
     /// Cleanup task handle
-    cleanup_handle: Arc<std::sync::Mutex<Option<JoinHandle<()>>>>,
+    cleanup_handle: Arc<AsyncMutex<Option<JoinHandle<()>>>>,
 }
 
 impl std::fmt::Debug for CachedConnectionFactory {
@@ -163,7 +164,7 @@ impl CachedConnectionFactory {
             url_builder: TursoUrlBuilder::from_env(),
             auth_token,
             stats: Arc::new(std::sync::atomic::AtomicU64::new(0)),
-            cleanup_handle: Arc::new(std::sync::Mutex::new(None)),
+            cleanup_handle: Arc::new(AsyncMutex::new(None)),
         };
         
         // Start background cleanup task
@@ -305,9 +306,8 @@ impl CachedConnectionFactory {
             }
         });
         
-        if let Ok(mut guard) = self.cleanup_handle.lock() {
-            *guard = Some(handle);
-        }
+        let mut guard = self.cleanup_handle.lock().await;
+        *guard = Some(handle);
     }
     
     /// Get cache statistics
@@ -338,7 +338,9 @@ impl CachedConnectionFactory {
 impl Drop for CachedConnectionFactory {
     fn drop(&mut self) {
         // Cancel background cleanup task
-        if let Ok(guard) = self.cleanup_handle.lock() {
+        // Note: We can't use async mutex in drop, so we use try_lock
+        // If the mutex is locked, the task will be cleaned up when the runtime drops it
+        if let Ok(guard) = self.cleanup_handle.try_lock() {
             if let Some(ref handle) = *guard {
                 handle.abort();
             }
