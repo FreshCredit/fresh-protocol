@@ -1,14 +1,23 @@
 //! Core domain types for FreshCredit
+//!
+//! P1 FIX: Cross-language type sync with ts-rs
+//! Generate TypeScript types: cargo test --features typescript
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+
+// P1 FIX: ts-rs for TypeScript type generation
+#[cfg(feature = "typescript")]
+use ts_rs::TS;
 
 /// User identifier
 pub type UserId = String;
 
 /// Financial account information
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "typescript", derive(TS))]
+#[cfg_attr(feature = "typescript", ts(export))]
 pub struct Account {
     pub id: String,
     pub user_id: UserId,
@@ -21,6 +30,8 @@ pub struct Account {
 
 /// Account types supported by FreshCredit
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "typescript", derive(TS))]
+#[cfg_attr(feature = "typescript", ts(export))]
 pub enum AccountType {
     Checking,
     Savings,
@@ -31,6 +42,8 @@ pub enum AccountType {
 
 /// Financial transaction
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "typescript", derive(TS))]
+#[cfg_attr(feature = "typescript", ts(export))]
 pub struct Transaction {
     pub id: String,
     pub account_id: String,
@@ -46,6 +59,8 @@ pub struct Transaction {
 /// Note: This struct represents user-owned financial data, NOT credit scoring.
 /// Any scores displayed are from external credit bureaus, not calculated by FreshCredit.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "typescript", derive(TS))]
+#[cfg_attr(feature = "typescript", ts(export))]
 pub struct FinancialReport {
     pub id: Uuid,
     pub user_id: UserId,
@@ -60,10 +75,6 @@ pub struct FinancialReport {
 // CODE-001: Deprecated with migration path
 // Migration: Use FinancialReport instead. CreditReport is being phased out as part of
 // the naming alignment with FCRA compliance (FreshCredit does not calculate credit scores).
-// This alias is maintained for backward compatibility during the migration period.
-#[deprecated(note = "Use FinancialReport instead - CreditReport is being phased out")]
-pub type CreditReport = FinancialReport;
-
 /// Payment information
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Payment {
@@ -278,6 +289,8 @@ pub enum FreshCreditError {
 /// HARDCODED_URL: Problem type URIs use https://freshcredit.com/problems/* namespace
 /// per RFC 7807. Update all helper methods if domain changes.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "typescript", derive(TS))]
+#[cfg_attr(feature = "typescript", ts(export))]
 pub struct ProblemDetails {
     /// A URI reference that identifies the problem type (RFC 7807 §3.1)
     /// Example: "https://freshcredit.com/problems/validation-error"
@@ -300,6 +313,7 @@ pub struct ProblemDetails {
 
     /// Additional context about the error (extension member)
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "typescript", ts(skip))]
     pub context: Option<serde_json::Value>,
 
     /// Request ID for tracing (extension member)
@@ -409,6 +423,13 @@ impl From<FreshCreditError> for ProblemDetails {
         }
     }
 }
+
+/// Standardized API response types for consistent API governance
+/// 
+/// This module provides standardized response wrappers, pagination,
+/// and metadata types to address API governance inconsistencies
+/// identified in Round 24 research.
+pub mod api_response;
 
 #[cfg(test)]
 mod tests {
@@ -617,5 +638,23 @@ mod tests {
         let error = FreshCreditError::AuthenticationError("Token expired".to_string());
         let problem: ProblemDetails = error.into();
         assert_eq!(problem.status, 401);
+    }
+
+    /// P1 FIX: Test TypeScript type generation
+    /// Run with: cargo test --features typescript
+    #[cfg(feature = "typescript")]
+    #[test]
+    fn test_typescript_export() {
+        use ts_rs::TS;
+        
+        // Verify TypeScript types can be generated
+        let account_ts = Account::name();
+        assert_eq!(account_ts, "Account");
+        
+        let transaction_ts = Transaction::name();
+        assert_eq!(transaction_ts, "Transaction");
+        
+        let report_ts = FinancialReport::name();
+        assert_eq!(report_ts, "FinancialReport");
     }
 }

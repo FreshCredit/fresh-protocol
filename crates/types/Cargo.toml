@@ -10,4 +10,12 @@ serde_json = { workspace = true }
 chrono = { workspace = true }
 uuid = { workspace = true }
 anyhow = { workspace = true }
-thiserror = "1.0"
+thiserror = { workspace = true }
+
+# P1 FIX: Cross-language type sync - Generate TypeScript types from Rust
+ts-rs = { version = "9.0", features = ["chrono-impl", "uuid-impl"], optional = true }
+
+[features]
+default = []
+# Enable TypeScript type generation
+typescript = ["ts-rs"]
