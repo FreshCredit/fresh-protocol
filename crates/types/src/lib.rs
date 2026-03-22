@@ -278,6 +278,8 @@ pub enum FreshCreditError {
     NotFoundError(String),
     #[error("Internal error: {0}")]
     InternalError(String),
+    #[error("Encryption error: {0}")]
+    EncryptionError(String),
 }
 
 /// RFC 7807 Problem Details for HTTP APIs
@@ -420,6 +422,7 @@ impl From<FreshCreditError> for ProblemDetails {
             FreshCreditError::AuthorizationError(msg) => Self::forbidden(&msg),
             FreshCreditError::NotFoundError(msg) => Self::not_found(&msg),
             FreshCreditError::InternalError(msg) => Self::internal_error(&msg),
+            FreshCreditError::EncryptionError(msg) => Self::internal_error(&msg),
         }
     }
 }
