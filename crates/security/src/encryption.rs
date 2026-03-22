@@ -320,16 +320,16 @@ mod tests {
             encryptor: None,
         };
         let plaintext = "test-token";
-        let encrypted = config.encrypt(plaintext);
-        assert_eq!(plaintext, encrypted); // No encryption = plaintext
+        let result = config.encrypt(plaintext);
+        assert!(result.is_err()); // No encryption = error (fail-secure)
 
         // Test with encryption disabled
         let config = EncryptionConfig {
             enabled: false,
             encryptor: Some(TokenEncryptor::new(&generate_key()).unwrap()),
         };
-        let encrypted = config.encrypt(plaintext);
-        assert_eq!(plaintext, encrypted); // Disabled = plaintext
+        let result = config.encrypt(plaintext);
+        assert!(result.is_err()); // Disabled = error (fail-secure)
     }
 
     #[test]
@@ -340,7 +340,7 @@ mod tests {
         };
 
         let plaintext = "my-secret-oauth-token";
-        let encrypted = config.encrypt(plaintext);
+        let encrypted = config.encrypt(plaintext).expect("Encryption should succeed");
 
         // Encrypted should be different from plaintext
         assert_ne!(plaintext, encrypted);
