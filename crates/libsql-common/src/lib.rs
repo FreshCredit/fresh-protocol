@@ -151,6 +151,7 @@ pub mod circuit_breaker;
 pub mod connection;
 pub mod connections;
 pub mod factory;
+pub mod security;
 
 // Existing modules
 mod connection_factory;
