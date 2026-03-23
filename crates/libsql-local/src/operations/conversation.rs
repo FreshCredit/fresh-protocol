@@ -130,17 +130,13 @@ impl LocalClient {
         conversation_id: &str,
         limit: Option<u32>,
     ) -> Result<Vec<AiMessage>> {
-        let query = if let Some(lim) = limit {
-            format!(
-                "SELECT id, conversation_id, role, content, file_attachment_id, tokens_used, model, created_at
-                 FROM ai_messages WHERE conversation_id = ?
-                 ORDER BY created_at ASC LIMIT {lim}"
-            )
-        } else {
+        // P0-SECURITY: Clamp limit to prevent injection and unreasonable queries
+        let limit_val = limit.map(|l| l.clamp(1, 1000)).unwrap_or(100);
+        let query = format!(
             "SELECT id, conversation_id, role, content, file_attachment_id, tokens_used, model, created_at
              FROM ai_messages WHERE conversation_id = ?
-             ORDER BY created_at ASC".to_string()
-        };
+             ORDER BY created_at ASC LIMIT {limit_val}"
+        );
 
         let mut rows = self
             .connection
