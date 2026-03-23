@@ -61,6 +61,7 @@ impl LocalClient {
     }
 
     /// Get all accounts for a user
+    /// P0-PERF: Limited to 1000 accounts to prevent memory exhaustion
     pub async fn get_user_accounts(
         &self,
         user_id: &str,
@@ -70,7 +71,7 @@ impl LocalClient {
         let mut rows = self
             .connection
             .query(
-                "SELECT * FROM accounts WHERE user_id = ? ORDER BY created_at DESC",
+                "SELECT * FROM accounts WHERE user_id = ? ORDER BY created_at DESC LIMIT 1000",
                 libsql::params![user_id],
             )
             .await?;
@@ -104,6 +105,7 @@ impl LocalClient {
     }
 
     /// Get all transactions for a user
+    /// P0-PERF: Limited to 10000 transactions to prevent memory exhaustion
     pub async fn get_user_transactions(
         &self,
         user_id: &str,
@@ -116,7 +118,7 @@ impl LocalClient {
                 "SELECT t.* FROM transactions t
              JOIN accounts a ON t.account_id = a.id
              WHERE a.user_id = ?
-             ORDER BY t.date DESC",
+             ORDER BY t.date DESC LIMIT 10000",
                 libsql::params![user_id],
             )
             .await?;

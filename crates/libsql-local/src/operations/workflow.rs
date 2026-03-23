@@ -53,6 +53,7 @@ impl LocalClient {
     }
 
     /// Get scoring models for a provider
+    /// P0-PERF: Limited to 1000 models to prevent memory exhaustion
     pub async fn get_scoring_models(&self, provider_id: &str) -> Result<Vec<ScoringModelRecord>> {
         info!("Getting scoring models for provider: {}", provider_id);
 
@@ -62,7 +63,7 @@ impl LocalClient {
                 "SELECT id, user_id, provider_id, score_model_id, score_model_name,
                     score_model_version, data_elements_used, data_element_weights,
                     raw_score_data, created_at, updated_at
-             FROM scores WHERE provider_id = ? ORDER BY updated_at DESC",
+             FROM scores WHERE provider_id = ? ORDER BY updated_at DESC LIMIT 1000",
                 libsql::params![provider_id],
             )
             .await?;
