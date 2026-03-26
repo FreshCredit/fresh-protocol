@@ -86,13 +86,15 @@ impl EncryptionConfig {
     }
 
     /// Encrypt a token if encryption is available
-    pub fn encrypt(&self, plaintext: &str) -> String {
+    /// 
+    /// CRITICAL SECURITY FIX: Never falls back to plaintext. Returns error on encryption failure.
+    pub fn encrypt(&self, plaintext: &str) -> Result<String> {
         match &self.encryptor {
-            Some(enc) if self.enabled => enc.encrypt(plaintext).unwrap_or_else(|e| {
-                tracing::error!("Encryption failed, storing plaintext: {e}");
-                plaintext.to_string()
+            Some(enc) if self.enabled => enc.encrypt(plaintext).map_err(|e| {
+                tracing::error!("Encryption failed: {e}");
+                anyhow!("Encryption operation failed")
             }),
-            _ => plaintext.to_string(),
+            _ => Err(anyhow!("Encryption not configured or disabled")),
         }
     }
 
@@ -129,7 +131,8 @@ pub fn get_encryption_config() -> &'static EncryptionConfig {
 /// Encrypt a token using the global configuration
 ///
 /// This is the primary API for encrypting tokens throughout the application.
-pub fn encrypt_token(plaintext: &str) -> String {
+/// CRITICAL SECURITY FIX: Returns Result to prevent silent plaintext storage.
+pub fn encrypt_token(plaintext: &str) -> Result<String> {
     get_encryption_config().encrypt(plaintext)
 }
 
@@ -317,16 +320,16 @@ mod tests {
             encryptor: None,
         };
         let plaintext = "test-token";
-        let encrypted = config.encrypt(plaintext);
-        assert_eq!(plaintext, encrypted); // No encryption = plaintext
+        let result = config.encrypt(plaintext);
+        assert!(result.is_err()); // No encryption = error (fail-secure)
 
         // Test with encryption disabled
         let config = EncryptionConfig {
             enabled: false,
             encryptor: Some(TokenEncryptor::new(&generate_key()).unwrap()),
         };
-        let encrypted = config.encrypt(plaintext);
-        assert_eq!(plaintext, encrypted); // Disabled = plaintext
+        let result = config.encrypt(plaintext);
+        assert!(result.is_err()); // Disabled = error (fail-secure)
     }
 
     #[test]
@@ -337,7 +340,7 @@ mod tests {
         };
 
         let plaintext = "my-secret-oauth-token";
-        let encrypted = config.encrypt(plaintext);
+        let encrypted = config.encrypt(plaintext).expect("Encryption should succeed");
 
         // Encrypted should be different from plaintext
         assert_ne!(plaintext, encrypted);

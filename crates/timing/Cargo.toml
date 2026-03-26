@@ -12,7 +12,7 @@ async-trait = "0.1"
 tokio = { workspace = true }
 rand = "0.8"
 tracing = "0.1"
-uuid = { version = "1.0", features = ["v4"] }
+uuid = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true }
