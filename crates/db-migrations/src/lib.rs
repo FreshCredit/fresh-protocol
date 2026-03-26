@@ -16,6 +16,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::path::Path;
+use tokio::fs;
 use tracing::info;
 
 /// Represents a migration to be applied
@@ -53,17 +54,17 @@ impl MigrationRunner {
     }
 
     /// Load migrations from a directory
-    pub fn load_migrations_from_dir(&mut self, dir: &Path) -> Result<()> {
-        if !dir.exists() {
+    /// P0-FIX: Now async using tokio::fs to avoid blocking I/O
+    pub async fn load_migrations_from_dir(&mut self, dir: &Path) -> Result<()> {
+        if !fs::try_exists(dir).await? {
             return Err(anyhow::anyhow!("Migration directory not found: {dir:?}"));
         }
 
-        let entries = std::fs::read_dir(dir)?;
+        let mut entries = fs::read_dir(dir).await?;
         let mut up_migrations: BTreeMap<i64, (String, String)> = BTreeMap::new();
         let mut down_migrations: BTreeMap<i64, String> = BTreeMap::new();
 
-        for entry in entries {
-            let entry = entry?;
+        while let Some(entry) = entries.next_entry().await? {
             let path = entry.path();
             if path.extension().map(|e| e == "sql").unwrap_or(false) {
                 let filename = path
@@ -72,11 +73,11 @@ impl MigrationRunner {
                     .to_string_lossy();
                 if filename.ends_with(".up") {
                     let (version, name) = parse_migration_filename(&filename.replace(".up", ""))?;
-                    let sql = std::fs::read_to_string(&path)?;
+                    let sql = fs::read_to_string(&path).await?;
                     up_migrations.insert(version, (name, sql));
                 } else if filename.ends_with(".down") {
                     let (version, _) = parse_migration_filename(&filename.replace(".down", ""))?;
-                    let sql = std::fs::read_to_string(&path)?;
+                    let sql = fs::read_to_string(&path).await?;
                     down_migrations.insert(version, sql);
                 }
             }

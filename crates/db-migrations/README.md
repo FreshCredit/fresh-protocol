@@ -49,7 +49,7 @@ use std::path::Path;
 let runner = MigrationRunner::new(connection);
 
 // Load migrations from directory
-runner.load_migrations_from_dir(Path::new("migrations"))?;
+runner.load_migrations_from_dir(Path::new("migrations")).await?;
 
 // Run pending migrations
 let applied = runner.run_pending_migrations().await?;

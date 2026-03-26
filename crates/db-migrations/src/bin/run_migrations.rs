@@ -115,7 +115,7 @@ async fn main() -> Result<()> {
 
     // Create runner and load migrations
     let mut runner = MigrationRunner::new(conn);
-    runner.load_migrations_from_dir(&mig_dir)?;
+    runner.load_migrations_from_dir(&mig_dir).await?;
 
     // Check for checksum mismatches
     let mismatches = runner.check_checksum_mismatches().await?;

@@ -119,11 +119,12 @@ impl LocalClient {
             max_retries
         );
 
+        // P0-PERF: Limited to 1000 events to prevent memory exhaustion
         let mut rows = self.connection.query(
             "SELECT id, user_id, provider, event_type, event_id, payload, status, retry_count, processed_at, created_at
              FROM webhook_events
              WHERE status = 'failed' AND retry_count < ?
-             ORDER BY created_at ASC",
+             ORDER BY created_at ASC LIMIT 1000",
             libsql::params![max_retries as i64],
         ).await?;
 
