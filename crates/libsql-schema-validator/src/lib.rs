@@ -13,6 +13,7 @@
 //! Or use the library programmatically in tests.
 
 use anyhow::Result;
+use freshcredit_libsql_common::security::validate_identifier;
 
 // Re-export test utilities for external tests
 pub mod tests;
@@ -260,11 +261,15 @@ impl SchemaValidator {
     }
 
     /// Extract column information for a table
+    /// P0-SECURITY: Added identifier validation to prevent SQL injection
     async fn extract_columns(
         &self,
         connection: &libsql::Connection,
         table_name: &str,
     ) -> Result<Vec<ColumnInfo>> {
+        // P0-SECURITY: Validate table name to prevent SQL injection
+        validate_identifier(table_name)?;
+        
         let mut columns = Vec::new();
         let query = format!("PRAGMA table_info({table_name})");
 
@@ -290,11 +295,15 @@ impl SchemaValidator {
     }
 
     /// Extract index information for a table
+    /// P0-SECURITY: Added identifier validation to prevent SQL injection
     async fn extract_indexes(
         &self,
         connection: &libsql::Connection,
         table_name: &str,
     ) -> Result<Vec<IndexInfo>> {
+        // P0-SECURITY: Validate table name to prevent SQL injection
+        validate_identifier(table_name)?;
+        
         let mut indexes = Vec::new();
         let query = format!("PRAGMA index_list({table_name})");
 
@@ -304,6 +313,9 @@ impl SchemaValidator {
             let index_name: String = row.get(1)?;
             let unique: i64 = row.get(2)?;
 
+            // P0-SECURITY: Validate index name to prevent SQL injection
+            validate_identifier(&index_name)?;
+            
             // Get columns for this index
             let columns_query = format!("PRAGMA index_info({index_name})");
             let mut col_rows = connection.query(&columns_query, ()).await?;
@@ -325,11 +337,15 @@ impl SchemaValidator {
     }
 
     /// Extract foreign key information for a table
+    /// P0-SECURITY: Added identifier validation to prevent SQL injection
     async fn extract_foreign_keys(
         &self,
         connection: &libsql::Connection,
         table_name: &str,
     ) -> Result<Vec<ForeignKeyInfo>> {
+        // P0-SECURITY: Validate table name to prevent SQL injection
+        validate_identifier(table_name)?;
+        
         let mut foreign_keys = Vec::new();
         let query = format!("PRAGMA foreign_key_list({table_name})");
 
