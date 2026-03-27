@@ -149,13 +149,18 @@ fn main() {
                 // Test roundtrip
                 let test = "test-token-12345";
                 let encrypted = encrypt_token(test);
-                let decrypted = decrypt_token(&encrypted);
-
-                if decrypted == test {
-                    println!("✅ Encryption roundtrip test passed!");
-                } else {
-                    eprintln!("❌ Encryption roundtrip test failed!");
-                    std::process::exit(1);
+                match decrypt_token(&encrypted) {
+                    Ok(decrypted) if decrypted == test => {
+                        println!("✅ Encryption roundtrip test passed!");
+                    }
+                    Ok(_) => {
+                        eprintln!("❌ Encryption roundtrip test failed - mismatch!");
+                        std::process::exit(1);
+                    }
+                    Err(e) => {
+                        eprintln!("❌ Encryption roundtrip test failed: {}", e);
+                        std::process::exit(1);
+                    }
                 }
             } else if config.enabled {
                 println!("\n⚠️ Encryption is enabled but no key is configured.");
@@ -172,8 +177,13 @@ fn main() {
         }
 
         Commands::Decrypt { ciphertext } => {
-            let decrypted = decrypt_token(&ciphertext);
-            println!("{decrypted}");
+            match decrypt_token(&ciphertext) {
+                Ok(decrypted) => println!("{decrypted}"),
+                Err(e) => {
+                    eprintln!("❌ Decryption failed: {}", e);
+                    std::process::exit(1);
+                }
+            }
         }
     }
 }
