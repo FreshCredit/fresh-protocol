@@ -22,6 +22,27 @@ use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use rand::RngCore;
 use std::sync::OnceLock;
+/// P1-FIX: Encryption errors that can occur during encryption/decryption
+#[derive(Debug, Clone, PartialEq)]
+pub enum EncryptionError {
+    NotConfigured,
+    DecryptionFailed(String),
+    InvalidCiphertext,
+    AuthenticationFailed,
+}
+
+impl std::fmt::Display for EncryptionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            EncryptionError::NotConfigured => write!(f, "Encryption is not configured"),
+            EncryptionError::DecryptionFailed(msg) => write!(f, "Decryption failed: {}", msg),
+            EncryptionError::InvalidCiphertext => write!(f, "Invalid ciphertext format"),
+            EncryptionError::AuthenticationFailed => write!(f, "Authentication failed - ciphertext may be tampered"),
+        }
+    }
+}
+
+impl std::error::Error for EncryptionError {}
 
 /// Nonce size for AES-GCM (96 bits = 12 bytes)
 const NONCE_SIZE: usize = 12;
@@ -100,17 +121,15 @@ impl EncryptionConfig {
 
     /// Decrypt a token if encryption is available
     ///
-    /// Handles both encrypted and plaintext tokens gracefully
-    pub fn decrypt(&self, ciphertext: &str) -> String {
+    /// P1-FIX: Returns Result instead of silently falling back to plaintext
+    /// This prevents masking configuration errors
+    pub fn decrypt(&self, ciphertext: &str) -> Result<String, EncryptionError> {
         match &self.encryptor {
             Some(enc) if self.enabled => {
-                // Try to decrypt; if it fails, assume it's already plaintext
-                enc.decrypt(ciphertext).unwrap_or_else(|_| {
-                    // This is expected for plaintext tokens or tokens encrypted with different key
-                    ciphertext.to_string()
-                })
+                enc.decrypt(ciphertext)
+                    .map_err(|e| EncryptionError::DecryptionFailed(e.to_string()))
             }
-            _ => ciphertext.to_string(),
+            _ => Err(EncryptionError::NotConfigured),
         }
     }
 }
@@ -140,7 +159,8 @@ pub fn encrypt_token(plaintext: &str) -> Result<String> {
 ///
 /// This is the primary API for decrypting tokens throughout the application.
 /// Handles both encrypted and plaintext tokens gracefully.
-pub fn decrypt_token(ciphertext: &str) -> String {
+/// P1-FIX: Returns Result instead of panicking on decryption failure
+pub fn decrypt_token(ciphertext: &str) -> Result<String, EncryptionError> {
     get_encryption_config().decrypt(ciphertext)
 }
 
@@ -346,20 +366,21 @@ mod tests {
         assert_ne!(plaintext, encrypted);
 
         // Should decrypt back to original
-        let decrypted = config.decrypt(&encrypted);
+        let decrypted = config.decrypt(&encrypted).expect("Decryption should succeed");
         assert_eq!(plaintext, decrypted);
     }
 
     #[test]
-    fn test_decrypt_handles_plaintext_gracefully() {
+    fn test_decrypt_handles_plaintext_error() {
+        // P1-FIX: decrypt now returns Err for plaintext instead of silent fallback
         let config = EncryptionConfig {
             enabled: true,
             encryptor: Some(TokenEncryptor::new(&generate_key()).unwrap()),
         };
-
-        // Decrypting plaintext (not encrypted) should return as-is
-        let plaintext = "already-plaintext-token";
-        let decrypted = config.decrypt(plaintext);
-        assert_eq!(plaintext, decrypted);
+        
+        // Plaintext should fail decryption (not silently return plaintext)
+        let plaintext = "not-encrypted-plaintext";
+        let result = config.decrypt(plaintext);
+        assert!(result.is_err(), "Decrypting plaintext should fail");
     }
 }
