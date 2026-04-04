@@ -1,0 +1,19 @@
+[package]
+name = "freshcredit-core-timing"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+chrono = { version = "0.4", features = ["serde"] }
+serde = { workspace = true }
+thiserror = { workspace = true }
+async-trait = "0.1"
+tokio = { workspace = true }
+rand = "0.8"
+tracing = "0.1"
+uuid = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }
+
