@@ -1,0 +1,18 @@
+[package]
+name = "freshcredit-libsql-cloud"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+libsql = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tokio = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+
+# Internal dependencies
+freshcredit-types = { path = "../../../core/types" }
+freshcredit-libsql-local = { path = "../local" }
