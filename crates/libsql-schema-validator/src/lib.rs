@@ -269,7 +269,7 @@ impl SchemaValidator {
     ) -> Result<Vec<ColumnInfo>> {
         // P0-SECURITY: Validate table name to prevent SQL injection
         validate_identifier(table_name)?;
-        
+
         let mut columns = Vec::new();
         let query = format!("PRAGMA table_info({table_name})");
 
@@ -303,7 +303,7 @@ impl SchemaValidator {
     ) -> Result<Vec<IndexInfo>> {
         // P0-SECURITY: Validate table name to prevent SQL injection
         validate_identifier(table_name)?;
-        
+
         let mut indexes = Vec::new();
         let query = format!("PRAGMA index_list({table_name})");
 
@@ -315,7 +315,7 @@ impl SchemaValidator {
 
             // P0-SECURITY: Validate index name to prevent SQL injection
             validate_identifier(&index_name)?;
-            
+
             // Get columns for this index
             let columns_query = format!("PRAGMA index_info({index_name})");
             let mut col_rows = connection.query(&columns_query, ()).await?;
@@ -345,7 +345,7 @@ impl SchemaValidator {
     ) -> Result<Vec<ForeignKeyInfo>> {
         // P0-SECURITY: Validate table name to prevent SQL injection
         validate_identifier(table_name)?;
-        
+
         let mut foreign_keys = Vec::new();
         let query = format!("PRAGMA foreign_key_list({table_name})");
 
