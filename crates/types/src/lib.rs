@@ -428,7 +428,7 @@ impl From<FreshCreditError> for ProblemDetails {
 }
 
 /// Standardized API response types for consistent API governance
-/// 
+///
 /// This module provides standardized response wrappers, pagination,
 /// and metadata types to address API governance inconsistencies
 /// identified in Round 24 research.
@@ -649,14 +649,14 @@ mod tests {
     #[test]
     fn test_typescript_export() {
         use ts_rs::TS;
-        
+
         // Verify TypeScript types can be generated
         let account_ts = Account::name();
         assert_eq!(account_ts, "Account");
-        
+
         let transaction_ts = Transaction::name();
         assert_eq!(transaction_ts, "Transaction");
-        
+
         let report_ts = FinancialReport::name();
         assert_eq!(report_ts, "FinancialReport");
     }

@@ -37,7 +37,9 @@ impl std::fmt::Display for EncryptionError {
             EncryptionError::NotConfigured => write!(f, "Encryption is not configured"),
             EncryptionError::DecryptionFailed(msg) => write!(f, "Decryption failed: {}", msg),
             EncryptionError::InvalidCiphertext => write!(f, "Invalid ciphertext format"),
-            EncryptionError::AuthenticationFailed => write!(f, "Authentication failed - ciphertext may be tampered"),
+            EncryptionError::AuthenticationFailed => {
+                write!(f, "Authentication failed - ciphertext may be tampered")
+            }
         }
     }
 }
@@ -107,7 +109,7 @@ impl EncryptionConfig {
     }
 
     /// Encrypt a token if encryption is available
-    /// 
+    ///
     /// CRITICAL SECURITY FIX: Never falls back to plaintext. Returns error on encryption failure.
     pub fn encrypt(&self, plaintext: &str) -> Result<String> {
         match &self.encryptor {
@@ -125,10 +127,9 @@ impl EncryptionConfig {
     /// This prevents masking configuration errors
     pub fn decrypt(&self, ciphertext: &str) -> Result<String, EncryptionError> {
         match &self.encryptor {
-            Some(enc) if self.enabled => {
-                enc.decrypt(ciphertext)
-                    .map_err(|e| EncryptionError::DecryptionFailed(e.to_string()))
-            }
+            Some(enc) if self.enabled => enc
+                .decrypt(ciphertext)
+                .map_err(|e| EncryptionError::DecryptionFailed(e.to_string())),
             _ => Err(EncryptionError::NotConfigured),
         }
     }
@@ -360,13 +361,17 @@ mod tests {
         };
 
         let plaintext = "my-secret-oauth-token";
-        let encrypted = config.encrypt(plaintext).expect("Encryption should succeed");
+        let encrypted = config
+            .encrypt(plaintext)
+            .expect("Encryption should succeed");
 
         // Encrypted should be different from plaintext
         assert_ne!(plaintext, encrypted);
 
         // Should decrypt back to original
-        let decrypted = config.decrypt(&encrypted).expect("Decryption should succeed");
+        let decrypted = config
+            .decrypt(&encrypted)
+            .expect("Decryption should succeed");
         assert_eq!(plaintext, decrypted);
     }
 
@@ -377,7 +382,7 @@ mod tests {
             enabled: true,
             encryptor: Some(TokenEncryptor::new(&generate_key()).unwrap()),
         };
-        
+
         // Plaintext should fail decryption (not silently return plaintext)
         let plaintext = "not-encrypted-plaintext";
         let result = config.decrypt(plaintext);

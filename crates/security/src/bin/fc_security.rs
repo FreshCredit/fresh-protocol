@@ -176,14 +176,12 @@ fn main() {
             println!("{encrypted}");
         }
 
-        Commands::Decrypt { ciphertext } => {
-            match decrypt_token(&ciphertext) {
-                Ok(decrypted) => println!("{decrypted}"),
-                Err(e) => {
-                    eprintln!("❌ Decryption failed: {}", e);
-                    std::process::exit(1);
-                }
+        Commands::Decrypt { ciphertext } => match decrypt_token(&ciphertext) {
+            Ok(decrypted) => println!("{decrypted}"),
+            Err(e) => {
+                eprintln!("❌ Decryption failed: {}", e);
+                std::process::exit(1);
             }
-        }
+        },
     }
 }

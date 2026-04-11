@@ -1,5 +1,5 @@
 //! Standardized API Response Types
-//! 
+//!
 //! Provides consistent response wrappers across all API endpoints
 //! addressing Round 24 API governance findings.
 //!
@@ -19,15 +19,15 @@
 //! let response = ApiResponse::<User>::error(error);
 //! ```
 
-use serde::{Deserialize, Serialize};
 use crate::ProblemDetails;
+use serde::{Deserialize, Serialize};
 
 // P1 FIX: ts-rs for TypeScript type generation
 #[cfg(feature = "typescript")]
 use ts_rs::TS;
 
 /// Standard API response wrapper for single resources
-/// 
+///
 /// This type provides a consistent response format across all API endpoints,
 /// addressing the API governance finding of mixed response formats.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -49,7 +49,7 @@ pub struct ApiResponse<T> {
 
 impl<T> ApiResponse<T> {
     /// Create a successful response with data
-    /// 
+    ///
     /// # Example
     /// ```
     /// let user = User { id: "123", name: "John" };
@@ -65,7 +65,7 @@ impl<T> ApiResponse<T> {
     }
 
     /// Create a successful response with data and metadata
-    /// 
+    ///
     /// Use this for paginated responses or when additional metadata is needed.
     pub fn success_with_meta(data: T, meta: ResponseMeta) -> Self {
         Self {
@@ -77,7 +77,7 @@ impl<T> ApiResponse<T> {
     }
 
     /// Create an error response
-    /// 
+    ///
     /// # Example
     /// ```
     /// let error = ProblemDetails::not_found("User not found");
@@ -94,7 +94,7 @@ impl<T> ApiResponse<T> {
 }
 
 /// Response metadata for pagination and filtering
-/// 
+///
 /// Provides consistent pagination information across all list endpoints.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "typescript", derive(TS))]
@@ -127,18 +127,13 @@ fn default_api_version() -> String {
 
 impl ResponseMeta {
     /// Create metadata for a paginated response
-    /// 
+    ///
     /// # Arguments
     /// * `total_count` - Total number of items available
     /// * `page` - Current page number (1-indexed)
     /// * `per_page` - Items per page
     /// * `request_id` - Unique request identifier for tracing
-    pub fn paginated(
-        total_count: i64,
-        page: u32,
-        per_page: u32,
-        request_id: String,
-    ) -> Self {
+    pub fn paginated(total_count: i64, page: u32, per_page: u32, request_id: String) -> Self {
         Self {
             total_count: Some(total_count),
             returned_count: per_page as usize,
@@ -151,7 +146,7 @@ impl ResponseMeta {
     }
 
     /// Create metadata for cursor-based pagination
-    /// 
+    ///
     /// Cursor-based pagination is preferred for high-volume data
     /// as it provides consistent performance regardless of dataset size.
     pub fn with_cursor(
@@ -185,14 +180,14 @@ impl ResponseMeta {
 }
 
 /// Standard pagination query parameters
-/// 
+///
 /// Use this struct as an Axum extractor for consistent pagination
 /// across all list endpoints.
-/// 
+///
 /// # Example
 /// ```
 /// use axum::extract::Query;
-/// 
+///
 /// async fn list_users(
 ///     Query(pagination): Query<PaginationQuery>,
 /// ) -> impl IntoResponse {
@@ -213,7 +208,7 @@ pub struct PaginationQuery {
     #[serde(default = "default_per_page")]
     pub per_page: u32,
     /// Cursor for cursor-based pagination
-    /// 
+    ///
     /// When provided, page/per_page are ignored
     pub cursor: Option<String>,
 }
@@ -228,7 +223,7 @@ const fn default_per_page() -> u32 {
 
 impl PaginationQuery {
     /// Validate and clamp pagination parameters
-    /// 
+    ///
     /// Ensures page >= 1 and 1 <= per_page <= 100
     pub fn validate(&self) -> Self {
         Self {
@@ -239,7 +234,7 @@ impl PaginationQuery {
     }
 
     /// Calculate SQL OFFSET value
-    /// 
+    ///
     /// Returns 0 for page 1, per_page for page 2, etc.
     pub fn offset(&self) -> i64 {
         ((self.page - 1) * self.per_page) as i64
@@ -257,26 +252,26 @@ impl PaginationQuery {
 }
 
 /// API version header constant
-/// 
+///
 /// Use this header in all API responses for client version tracking.
 pub const API_VERSION_HEADER: &str = "X-API-Version";
 
 /// Deprecation header constant (RFC 8594)
-/// 
+///
 /// Include this header when an endpoint is deprecated.
 /// Format: date or URL
 /// Example: `Deprecation: Sun, 01 Jun 2025 00:00:00 GMT`
 pub const DEPRECATION_HEADER: &str = "Deprecation";
 
 /// Sunset header constant (RFC 8594)
-/// 
+///
 /// Include this header to indicate when an endpoint will be removed.
 /// Format: HTTP date
 /// Example: `Sunset: Sun, 01 Sep 2025 00:00:00 GMT`
 pub const SUNSET_HEADER: &str = "Sunset";
 
 /// Request ID header constant
-/// 
+///
 /// Used for request tracing across services.
 pub const REQUEST_ID_HEADER: &str = "X-Request-ID";
 
@@ -288,7 +283,7 @@ mod tests {
     fn test_api_response_success() {
         let data = "test data";
         let response = ApiResponse::success(data);
-        
+
         assert!(response.success);
         assert_eq!(response.data, Some("test data"));
         assert!(response.error.is_none());
@@ -298,7 +293,7 @@ mod tests {
     fn test_api_response_error() {
         let error = ProblemDetails::not_found("Test not found");
         let response: ApiResponse<String> = ApiResponse::error(error);
-        
+
         assert!(!response.success);
         assert!(response.data.is_none());
         assert!(response.error.is_some());
@@ -311,7 +306,7 @@ mod tests {
             per_page: 20,
             cursor: None,
         };
-        
+
         assert_eq!(query.offset(), 0);
         assert_eq!(query.limit(), 20);
     }
@@ -319,11 +314,11 @@ mod tests {
     #[test]
     fn test_pagination_query_validation() {
         let query = PaginationQuery {
-            page: 0, // Invalid
+            page: 0,       // Invalid
             per_page: 200, // Too high
             cursor: None,
         };
-        
+
         let validated = query.validate();
         assert_eq!(validated.page, 1); // Clamped to 1
         assert_eq!(validated.per_page, 100); // Clamped to max
@@ -332,7 +327,7 @@ mod tests {
     #[test]
     fn test_response_meta_paginated() {
         let meta = ResponseMeta::paginated(1000, 2, 50, "req-123".to_string());
-        
+
         assert_eq!(meta.total_count, Some(1000));
         assert_eq!(meta.page, Some(2));
         assert_eq!(meta.per_page, Some(50));
