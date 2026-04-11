@@ -205,10 +205,7 @@ pub struct CircuitBreakerConnection {
 
 impl CircuitBreakerConnection {
     /// Create a new circuit breaker connection
-    pub fn new(
-        inner: Arc<dyn DatabaseConnection>,
-        config: CircuitBreakerConfig,
-    ) -> Arc<Self> {
+    pub fn new(inner: Arc<dyn DatabaseConnection>, config: CircuitBreakerConfig) -> Arc<Self> {
         Arc::new(Self {
             inner,
             config,
@@ -388,9 +385,7 @@ impl CircuitBreakerConnection {
             }
             CircuitBreakerState::HalfOpen => {
                 // Any failure in half-open goes back to open
-                warn!(
-                    "Circuit breaker transitioning from HALF_OPEN to OPEN due to test failure"
-                );
+                warn!("Circuit breaker transitioning from HALF_OPEN to OPEN due to test failure");
                 inner.state = CircuitBreakerState::Open;
                 inner.opened_at = Some(Instant::now());
                 inner.half_open_calls = inner.half_open_calls.saturating_sub(1);
@@ -429,10 +424,7 @@ impl CircuitBreakerConnection {
 #[async_trait]
 impl DatabaseConnection for CircuitBreakerConnection {
     async fn query(&self, sql: &str, params: Vec<libsql::Value>) -> anyhow::Result<libsql::Rows> {
-        match self
-            .execute(self.inner.query(sql, params))
-            .await
-        {
+        match self.execute(self.inner.query(sql, params)).await {
             Ok(rows) => Ok(rows),
             Err(CircuitBreakerError::CircuitOpen) => Err(anyhow::anyhow!(
                 "Database circuit breaker is OPEN - service temporarily unavailable"
@@ -445,10 +437,7 @@ impl DatabaseConnection for CircuitBreakerConnection {
     }
 
     async fn execute(&self, sql: &str, params: Vec<libsql::Value>) -> anyhow::Result<u64> {
-        match self
-            .execute(self.inner.execute(sql, params))
-            .await
-        {
+        match self.execute(self.inner.execute(sql, params)).await {
             Ok(count) => Ok(count),
             Err(CircuitBreakerError::CircuitOpen) => Err(anyhow::anyhow!(
                 "Database circuit breaker is OPEN - service temporarily unavailable"

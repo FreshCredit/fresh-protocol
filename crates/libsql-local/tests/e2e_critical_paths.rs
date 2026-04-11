@@ -522,7 +522,8 @@ async fn test_workflow_report_generation() -> Result<()> {
     conn.execute(
         "UPDATE reports SET blockchain_hash = ?1, status = 'anchored' WHERE id = ?2",
         libsql::params![hash.clone(), report_id.clone()],
-    ).await?;
+    )
+    .await?;
     println!("  ✅ Step 3: Hash anchored, status updated");
 
     // Verify (using parameterized query)

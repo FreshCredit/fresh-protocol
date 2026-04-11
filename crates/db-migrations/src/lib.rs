@@ -166,7 +166,7 @@ impl MigrationRunner {
     async fn apply_migration(&self, migration: &Migration) -> Result<()> {
         // Begin transaction for atomic migration application
         let tx = self.connection.transaction().await?;
-        
+
         // Execute the up SQL (may contain multiple statements)
         for statement in migration.up_sql.split(';') {
             let statement = statement.trim();
@@ -185,7 +185,7 @@ impl MigrationRunner {
                 Utc::now().to_rfc3339()
             ],
         ).await?;
-        
+
         // Commit transaction
         tx.commit().await?;
 
@@ -212,7 +212,7 @@ impl MigrationRunner {
 
         // Begin transaction for atomic rollback
         let tx = self.connection.transaction().await?;
-        
+
         // Execute the down SQL
         for statement in down_sql.split(';') {
             let statement = statement.trim();
@@ -225,8 +225,9 @@ impl MigrationRunner {
         tx.execute(
             "DELETE FROM schema_migrations WHERE version = ?",
             libsql::params![version],
-        ).await?;
-        
+        )
+        .await?;
+
         // Commit transaction
         tx.commit().await?;
 

@@ -354,7 +354,8 @@ impl ConnectionFactory {
     ///     Ok(())
     /// }
     /// ```
-    pub async fn create_with_circuit_breaker_from_env() -> anyhow::Result<Arc<CircuitBreakerConnection>> {
+    pub async fn create_with_circuit_breaker_from_env(
+    ) -> anyhow::Result<Arc<CircuitBreakerConnection>> {
         let config = ConnectionConfig::from_env()?;
         let cb_config = CircuitBreakerConfig::from_env();
         Self::create_with_circuit_breaker(&config, cb_config).await
@@ -409,7 +410,10 @@ impl ConnectionFactory {
                 Ok(conn)
             }
             Err(e) => {
-                tracing::warn!("Primary connection failed ({}), trying fallback without CB", e);
+                tracing::warn!(
+                    "Primary connection failed ({}), trying fallback without CB",
+                    e
+                );
 
                 // Try fallback without circuit breaker (local should be reliable)
                 match Self::create(fallback).await {

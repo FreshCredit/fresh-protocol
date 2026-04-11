@@ -132,7 +132,7 @@ impl LocalClient {
     ) -> Result<Vec<AiMessage>> {
         // P0-SECURITY: Clamp limit to prevent injection and unreasonable queries
         let limit_val = limit.map(|l| l.clamp(1, 1000)).unwrap_or(100);
-        
+
         // SECURITY FIX: Use parameterized query for LIMIT (libSQL supports this)
         let query = "SELECT id, conversation_id, role, content, file_attachment_id, tokens_used, model, created_at
              FROM ai_messages WHERE conversation_id = ?
