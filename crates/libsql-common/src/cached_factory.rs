@@ -1,7 +1,7 @@
 //! Cached connection factory for database-per-user architecture
 //!
 //! Optimized for Cloud Run: stateless, ephemeral, connection reuse across requests.
-//! 
+//!
 //! This factory maintains an LRU cache of database connections to minimize
 //! connection establishment overhead for frequently accessed users.
 //!
@@ -17,14 +17,14 @@
 //!         ttl: Duration::from_secs(300),
 //!         ..Default::default()
 //!     };
-//!     
+//!
 //!     let factory = CachedConnectionFactory::new(config, "auth_token".to_string());
 //!     let db = factory.get("user-123").await?;
-//!     
+//!
 //!     // Use the database
 //!     let conn = db.connect()?;
 //!     let rows = conn.query("SELECT 1", ()).await?;
-//!     
+//!
 //!     Ok(())
 //! }
 //! ```
@@ -166,13 +166,13 @@ impl CachedConnectionFactory {
             stats: Arc::new(std::sync::atomic::AtomicU64::new(0)),
             cleanup_handle: Arc::new(AsyncMutex::new(None)),
         };
-        
+
         // Start background cleanup task
         factory.start_cleanup_task();
-        
+
         factory
     }
-    
+
     /// Create from environment variables
     ///
     /// Uses `TURSO_AUTH_TOKEN` from environment for authentication.
@@ -184,12 +184,12 @@ impl CachedConnectionFactory {
     pub fn from_env() -> anyhow::Result<Self> {
         let auth_token = std::env::var("TURSO_AUTH_TOKEN")
             .map_err(|_| anyhow::anyhow!("TURSO_AUTH_TOKEN not set"))?;
-        
+
         let config = CachedFactoryConfig::from_env();
-        
+
         Ok(Self::new(config, auth_token))
     }
-    
+
     /// Get or create a database connection for a user
     ///
     /// Returns cached connection if available and not expired,
@@ -210,43 +210,43 @@ impl CachedConnectionFactory {
                 debug!(user_id = %user_id, "Cache hit");
                 // Update last used time
                 *last_used = Instant::now();
-                
+
                 // Update stats (approximate)
                 self.stats.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                
+
                 return Ok(db.clone());
             }
         }
-        
+
         // Cache miss - create new connection
         debug!(user_id = %user_id, "Cache miss, creating connection");
         let db = self.create_connection(user_id).await?;
         let db_arc = Arc::new(db);
-        
+
         // Store in cache
         self.connections.insert(
             user_id.to_string(),
             (db_arc.clone(), Instant::now())
         );
-        
+
         // Update stats
         self.stats.fetch_add(1 << 32, std::sync::atomic::Ordering::Relaxed);
-        
+
         // Evict oldest if over limit
         if self.connections.len() > self.config.max_connections {
             self.evict_oldest().await;
         }
-        
+
         Ok(db_arc)
     }
-    
+
     /// Create a new connection to user's database
     async fn create_connection(&self, user_id: &str) -> anyhow::Result<Database> {
         let url = self.url_builder.user_database_url(user_id);
         let https_url = url.replace("libsql://", "https://");
-        
+
         let retry_config = RetryConfig::default();
-        
+
         with_retry(&retry_config, || {
             let url = https_url.clone();
             let token = self.auth_token.clone();
@@ -257,45 +257,45 @@ impl CachedConnectionFactory {
             }
         }).await.map_err(|e| anyhow::anyhow!("Failed to create connection: {}", e))
     }
-    
+
     /// Evict oldest connection from cache
     async fn evict_oldest(&self) {
         let oldest = self.connections
             .iter()
             .min_by_key(|entry| entry.value().1)
             .map(|entry| entry.key().clone());
-        
+
         if let Some(user_id) = oldest {
             debug!(user_id = %user_id, "Evicting oldest connection");
             self.connections.remove(&user_id);
         }
     }
-    
+
     /// Start background cleanup task
     fn start_cleanup_task(&self) {
         let connections = Arc::clone(&self.connections);
         let ttl = self.config.ttl;
         let interval_duration = self.config.cleanup_interval;
-        
+
         let handle = tokio::spawn(async move {
             let mut interval = interval(interval_duration);
-            
+
             loop {
                 interval.tick().await;
-                
+
                 let now = Instant::now();
                 let to_remove: Vec<String> = connections
                     .iter()
                     .filter(|entry| now.duration_since(entry.value().1) > ttl)
                     .map(|entry| entry.key().clone())
                     .collect();
-                
+
                 let removed_count = to_remove.len();
                 for user_id in to_remove {
                     debug!(user_id = %user_id, "Cleaning up expired connection");
                     connections.remove(&user_id);
                 }
-                
+
                 if removed_count > 0 {
                     info!(
                         removed = removed_count,
@@ -305,11 +305,11 @@ impl CachedConnectionFactory {
                 }
             }
         });
-        
+
         let mut guard = self.cleanup_handle.lock().await;
         *guard = Some(handle);
     }
-    
+
     /// Get cache statistics
     pub fn stats(&self) -> CacheStats {
         let stats_val = self.stats.load(std::sync::atomic::Ordering::Relaxed);
@@ -319,7 +319,7 @@ impl CachedConnectionFactory {
             misses: stats_val >> 32,
         }
     }
-    
+
     /// Remove a specific user from cache
     ///
     /// Useful for logout or session invalidation scenarios.
@@ -327,7 +327,7 @@ impl CachedConnectionFactory {
         self.connections.remove(user_id);
         debug!(user_id = %user_id, "Invalidated cache entry");
     }
-    
+
     /// Clear all cached connections
     pub fn clear(&self) {
         self.connections.clear();
@@ -351,7 +351,7 @@ impl Drop for CachedConnectionFactory {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_cached_factory_config_default() {
         let config = CachedFactoryConfig::default();
@@ -359,7 +359,7 @@ mod tests {
         assert_eq!(config.ttl, Duration::from_secs(300));
         assert_eq!(config.cleanup_interval, Duration::from_secs(60));
     }
-    
+
     #[test]
     fn test_cache_stats_hit_rate() {
         let stats = CacheStats {
@@ -368,7 +368,7 @@ mod tests {
             misses: 10,
         };
         assert!((stats.hit_rate() - 0.9).abs() < 0.001);
-        
+
         let empty_stats = CacheStats {
             total_connections: 0,
             hits: 0,

@@ -1,9 +1,9 @@
 //! Migration runner CLI
 //!
 //! Usage:
-//!   cargo run --bin run-migrations -- --local <path>
-//!   cargo run --bin run-migrations -- --cloud <url> --token <token>
-//!   cargo run --bin run-migrations -- --rollback <version>
+//!   `cargo run --bin run-migrations -- --local <path>`
+//!   `cargo run --bin run-migrations -- --cloud <url> --token <token>`
+//!   `cargo run --bin run-migrations -- --rollback <version>`
 
 use anyhow::Result;
 use freshcredit_db_migrations::MigrationRunner;

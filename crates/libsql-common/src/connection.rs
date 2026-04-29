@@ -18,7 +18,7 @@
 //!         local_path: Some("/app/data/local.db".into()),
 //!         ..Default::default()
 //!     };
-//!     
+//!
 //!     let db = ConnectionFactory::create(&config).await?;
 //!     let rows = db.query("SELECT 1", vec![]).await?;
 //!     Ok(())
@@ -80,20 +80,20 @@ impl std::str::FromStr for ConnectionMode {
         match s.to_lowercase().as_str() {
             "remote" | "direct-remote" => Ok(ConnectionMode::DirectRemote),
             "local" | "local-only" => Ok(ConnectionMode::LocalOnly),
-            
+
             #[cfg(feature = "embedded-replica")]
             "replica" | "embedded-replica" => Ok(ConnectionMode::EmbeddedReplica),
-            
+
             #[cfg(feature = "embedded-replica")]
             "adaptive" => Ok(ConnectionMode::Adaptive),
-            
+
             #[cfg(not(feature = "embedded-replica"))]
             "replica" | "embedded-replica" | "adaptive" => Err(format!(
                 "Connection mode '{}' requires the 'embedded-replica' feature. \
                  Enable it in Cargo.toml: freshcredit-libsql-common = {{ features = [\"embedded-replica\"] }}",
                 s
             )),
-            
+
             _ => Err(format!("Unknown connection mode: {s}")),
         }
     }

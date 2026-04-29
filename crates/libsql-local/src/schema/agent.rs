@@ -27,7 +27,11 @@
 
 use anyhow::Result;
 use libsql::Connection;
-use tracing::{debug, info, warn};
+use tracing::{
+    debug,
+    info,
+    warn,
+};
 
 /// Initialize agent tables
 pub async fn initialize_agent_tables(conn: &Connection) -> Result<()> {

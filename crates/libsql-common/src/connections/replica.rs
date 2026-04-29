@@ -7,7 +7,11 @@ use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::RwLock;
 
-use crate::connection::{ConnectionHealth, ConnectionMode, DatabaseConnection};
+use crate::connection::{
+    ConnectionHealth,
+    ConnectionMode,
+    DatabaseConnection,
+};
 
 /// Embedded replica connection with background sync
 ///
@@ -29,7 +33,7 @@ use crate::connection::{ConnectionHealth, ConnectionMode, DatabaseConnection};
 ///         "my-token",
 ///         Some(60), // sync interval
 ///     ).await?;
-///     
+///
 ///     let rows = conn.query("SELECT 1", vec![]).await?;
 ///     Ok(())
 /// }

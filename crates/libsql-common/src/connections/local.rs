@@ -6,7 +6,11 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::Instant;
 
-use crate::connection::{ConnectionHealth, ConnectionMode, DatabaseConnection};
+use crate::connection::{
+    ConnectionHealth,
+    ConnectionMode,
+    DatabaseConnection,
+};
 
 /// Local-only SQLite connection
 ///

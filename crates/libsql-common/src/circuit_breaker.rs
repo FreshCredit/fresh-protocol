@@ -32,7 +32,7 @@
 //! async fn example() -> anyhow::Result<()> {
 //!     // Create underlying connection
 //!     let inner = ConnectionFactory::from_env().await?;
-//!     
+//!
 //!     // Wrap with circuit breaker
 //!     let cb_config = CircuitBreakerConfig {
 //!         failure_threshold: 5,
@@ -41,23 +41,37 @@
 //!         success_threshold: 2,
 //!     };
 //!     let db = CircuitBreakerConnection::new(inner, cb_config);
-//!     
+//!
 //!     // Use normally - circuit breaker handles failures automatically
 //!     let rows = db.query("SELECT * FROM users", vec![]).await?;
-//!     
+//!
 //!     Ok(())
 //! }
 //! ```
 
 use async_trait::async_trait;
 use std::fmt;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{
+    AtomicU64,
+    Ordering,
+};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::{
+    Duration,
+    Instant,
+};
 use tokio::sync::RwLock;
-use tracing::{debug, info, warn};
+use tracing::{
+    debug,
+    info,
+    warn,
+};
 
-use crate::connection::{ConnectionHealth, ConnectionMode, DatabaseConnection};
+use crate::connection::{
+    ConnectionHealth,
+    ConnectionMode,
+    DatabaseConnection,
+};
 
 /// Circuit breaker states
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

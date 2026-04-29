@@ -25,8 +25,14 @@
 #![allow(dead_code)]
 
 use anyhow::Result;
-use sha2::{Digest, Sha256};
-use std::time::{SystemTime, UNIX_EPOCH};
+use sha2::{
+    Digest,
+    Sha256,
+};
+use std::time::{
+    SystemTime,
+    UNIX_EPOCH,
+};
 
 // ============================================================================
 // Test Utilities

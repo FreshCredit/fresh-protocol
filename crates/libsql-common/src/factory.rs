@@ -24,19 +24,29 @@
 //!         auth_token: "token".to_string(),
 //!         ..Default::default()
 //!     };
-//!     
+//!
 //!     let db = ConnectionFactory::create(&config).await?;
 //!     let rows = db.query("SELECT 1", vec![]).await?;
-//!     
+//!
 //!     Ok(())
 //! }
 //! ```
 
 use std::sync::Arc;
 
-use crate::circuit_breaker::{CircuitBreakerConfig, CircuitBreakerConnection};
-use crate::connection::{ConnectionConfig, ConnectionMode, DatabaseConnection};
-use crate::connections::{LocalConnection, RemoteConnection};
+use crate::circuit_breaker::{
+    CircuitBreakerConfig,
+    CircuitBreakerConnection,
+};
+use crate::connection::{
+    ConnectionConfig,
+    ConnectionMode,
+    DatabaseConnection,
+};
+use crate::connections::{
+    LocalConnection,
+    RemoteConnection,
+};
 
 #[cfg(feature = "embedded-replica")]
 use crate::connections::ReplicaConnection;
@@ -237,13 +247,13 @@ impl ConnectionFactory {
     ///         auth_token: "token".to_string(),
     ///         ..Default::default()
     ///     };
-    ///     
+    ///
     ///     let fallback = ConnectionConfig {
     ///         mode: ConnectionMode::LocalOnly,
     ///         local_path: Some("/app/data/fallback.db".into()),
     ///         ..Default::default()
     ///     };
-    ///     
+    ///
     ///     let db = ConnectionFactory::create_with_fallback(&primary, &fallback).await?;
     ///     Ok(())
     /// }
@@ -324,10 +334,10 @@ impl ConnectionFactory {
     ///
     /// async fn example() -> anyhow::Result<()> {
     ///     let conn = ConnectionFactory::create_with_circuit_breaker_from_env().await?;
-    ///     
+    ///
     ///     // Operations automatically protected by circuit breaker
     ///     let rows = conn.query("SELECT * FROM users", vec![]).await?;
-    ///     
+    ///
     ///     Ok(())
     /// }
     /// ```
@@ -380,18 +390,18 @@ impl ConnectionFactory {
     ///         auth_token: "token".to_string(),
     ///         ..Default::default()
     ///     };
-    ///     
+    ///
     ///     let fallback = ConnectionConfig {
     ///         mode: ConnectionMode::LocalOnly,
     ///         local_path: Some("/app/data/fallback.db".into()),
     ///         ..Default::default()
     ///     };
-    ///     
+    ///
     ///     let cb_config = CircuitBreakerConfig::default();
     ///     let conn = ConnectionFactory::create_with_cb_and_fallback(
     ///         &primary, &fallback, cb_config
     ///     ).await?;
-    ///     
+    ///
     ///     Ok(())
     /// }
     /// ```
