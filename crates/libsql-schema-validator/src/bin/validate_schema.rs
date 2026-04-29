@@ -1,16 +1,19 @@
 //! Schema validation CLI tool
 //!
-//! Usage: cargo run --bin validate-schema -- [OPTIONS]
+//! Usage: `cargo run --bin validate-schema -- [OPTIONS]`
 //!
 //! Options:
-//!   --staging <path>    Path to staging database
-//!   --local <path>      Path to local database
-//!   --cloud <url>       URL to cloud database (requires TURSO_AUTH_TOKEN env var)
+//!   `--staging <path>`    Path to staging database
+//!   `--local <path>`      Path to local database
+//!   `--cloud <url>`       URL to cloud database (requires TURSO_AUTH_TOKEN env var)
 //!   --json              Output results as JSON
 //!   --verbose           Show detailed output
 
 use anyhow::Result;
-use freshcredit_libsql_schema_validator::{IssueSeverity, SchemaValidator};
+use freshcredit_libsql_schema_validator::{
+    IssueSeverity,
+    SchemaValidator,
+};
 use std::env;
 
 #[tokio::main]
