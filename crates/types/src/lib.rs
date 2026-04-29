@@ -3,8 +3,14 @@
 //! P1 FIX: Cross-language type sync with ts-rs
 //! Generate TypeScript types: cargo test --features typescript
 
-use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use chrono::{
+    DateTime,
+    Utc,
+};
+use serde::{
+    Deserialize,
+    Serialize,
+};
 use uuid::Uuid;
 
 // P1 FIX: ts-rs for TypeScript type generation
@@ -288,14 +294,14 @@ pub enum FreshCreditError {
 /// This standardized error format provides machine-readable error responses
 /// with optional human-readable descriptions.
 ///
-/// HARDCODED_URL: Problem type URIs use https://freshcredit.com/problems/* namespace
+/// HARDCODED_URL: Problem type URIs use <https://freshcredit.com/problems/*> namespace
 /// per RFC 7807. Update all helper methods if domain changes.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "typescript", derive(TS))]
 #[cfg_attr(feature = "typescript", ts(export))]
 pub struct ProblemDetails {
     /// A URI reference that identifies the problem type (RFC 7807 §3.1)
-    /// Example: "https://freshcredit.com/problems/validation-error"
+    /// Example: "<https://freshcredit.com/problems/validation-error>"
     #[serde(rename = "type")]
     pub problem_type: String,
 

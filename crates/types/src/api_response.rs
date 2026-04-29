@@ -20,7 +20,10 @@
 //! ```
 
 use crate::ProblemDetails;
-use serde::{Deserialize, Serialize};
+use serde::{
+    Deserialize,
+    Serialize,
+};
 
 // P1 FIX: ts-rs for TypeScript type generation
 #[cfg(feature = "typescript")]

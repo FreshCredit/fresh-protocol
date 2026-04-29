@@ -28,24 +28,42 @@
 
 // Clock re-exported from freshcredit-core-timing to avoid duplication
 // Use: freshcredit_security::Clock, freshcredit_security::MockClock, freshcredit_security::SystemClock
-pub use freshcredit_core_timing::{Clock, MockClock, SystemClock};
+pub use freshcredit_core_timing::{
+    Clock,
+    MockClock,
+    SystemClock,
+};
 
 // Backward compatibility: freshcredit_security::clock::Clock still works
 pub mod clock {
     //! Clock module - re-exported from freshcredit-core-timing
-    pub use freshcredit_core_timing::{Clock, MockClock, SystemClock};
+    pub use freshcredit_core_timing::{
+        Clock,
+        MockClock,
+        SystemClock,
+    };
 }
 
 pub mod encryption;
 
 // Re-export commonly used items
 pub use encryption::{
-    decrypt_token, encrypt_token, generate_base64_key, generate_hex_key, get_encryption_config,
-    EncryptionConfig, EncryptionError, TokenEncryptor, KEY_SIZE,
+    decrypt_token,
+    encrypt_token,
+    generate_base64_key,
+    generate_hex_key,
+    get_encryption_config,
+    EncryptionConfig,
+    EncryptionError,
+    TokenEncryptor,
+    KEY_SIZE,
 };
 
 use anyhow::Result;
-use blake2::{Blake2b512, Digest};
+use blake2::{
+    Blake2b512,
+    Digest,
+};
 
 /// Generate Blake2b-256 hash from serializable data
 pub fn blake2_256_hex<T: serde::Serialize>(value: &T) -> Result<String> {

@@ -3,9 +3,18 @@
 //! Implements business day calculations for ACH settlement dates (T+1 to T+4).
 //! Uses BusinessDayCalendar for holiday and weekend handling.
 
-use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
-use tracing::{info, warn};
+use chrono::{
+    DateTime,
+    Utc,
+};
+use serde::{
+    Deserialize,
+    Serialize,
+};
+use tracing::{
+    info,
+    warn,
+};
 
 use crate::calendar::BusinessDayCalendar;
 
@@ -188,7 +197,10 @@ pub enum SettlementStatus {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::{Duration, TimeZone};
+    use chrono::{
+        Duration,
+        TimeZone,
+    };
 
     #[test]
     fn test_standard_ach_settlement() {
