@@ -34,19 +34,9 @@
 
 use std::sync::Arc;
 
-use crate::circuit_breaker::{
-    CircuitBreakerConfig,
-    CircuitBreakerConnection,
-};
-use crate::connection::{
-    ConnectionConfig,
-    ConnectionMode,
-    DatabaseConnection,
-};
-use crate::connections::{
-    LocalConnection,
-    RemoteConnection,
-};
+use crate::circuit_breaker::{CircuitBreakerConfig, CircuitBreakerConnection};
+use crate::connection::{ConnectionConfig, ConnectionMode, DatabaseConnection};
+use crate::connections::{LocalConnection, RemoteConnection};
 
 #[cfg(feature = "embedded-replica")]
 use crate::connections::ReplicaConnection;

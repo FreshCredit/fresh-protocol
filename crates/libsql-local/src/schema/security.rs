@@ -185,10 +185,7 @@ pub async fn initialize_security_tables(conn: &Connection) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use libsql::{
-        Builder,
-        Value,
-    };
+    use libsql::{Builder, Value};
 
     async fn create_test_connection() -> Connection {
         let db = Builder::new_local(":memory:").build().await.unwrap();

@@ -7,11 +7,7 @@ use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::RwLock;
 
-use crate::connection::{
-    ConnectionHealth,
-    ConnectionMode,
-    DatabaseConnection,
-};
+use crate::connection::{ConnectionHealth, ConnectionMode, DatabaseConnection};
 
 /// Embedded replica connection with background sync
 ///
