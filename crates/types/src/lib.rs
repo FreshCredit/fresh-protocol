@@ -3,14 +3,8 @@
 //! P1 FIX: Cross-language type sync with ts-rs
 //! Generate TypeScript types: cargo test --features typescript
 
-use chrono::{
-    DateTime,
-    Utc,
-};
-use serde::{
-    Deserialize,
-    Serialize,
-};
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 // P1 FIX: ts-rs for TypeScript type generation

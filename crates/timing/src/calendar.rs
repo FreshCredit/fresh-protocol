@@ -3,12 +3,7 @@
 //! This module provides utilities for working with business days,
 //! accounting for weekends and US federal holidays.
 
-use chrono::{
-    Datelike,
-    Duration,
-    NaiveDate,
-    Weekday,
-};
+use chrono::{Datelike, Duration, NaiveDate, Weekday};
 use std::collections::HashSet;
 
 /// Business day calendar for settlement calculations

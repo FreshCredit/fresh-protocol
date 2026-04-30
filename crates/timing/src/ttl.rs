@@ -4,15 +4,8 @@
 //! such as sessions, CSRF tokens, rate limits, etc.
 
 use async_trait::async_trait;
-use chrono::{
-    DateTime,
-    Duration,
-    Utc,
-};
-use serde::{
-    Deserialize,
-    Serialize,
-};
+use chrono::{DateTime, Duration, Utc};
+use serde::{Deserialize, Serialize};
 
 /// TTL enforcement trait for ephemeral data
 #[async_trait]
