@@ -10,7 +10,10 @@
 //!   --verbose           Show detailed output
 
 use anyhow::Result;
-use freshcredit_libsql_schema_validator::{IssueSeverity, SchemaValidator};
+use freshcredit_libsql_schema_validator::{
+    IssueSeverity,
+    SchemaValidator,
+};
 use std::env;
 
 #[tokio::main]

@@ -17,10 +17,20 @@ use freshcredit_libsql_common::security::validate_identifier;
 
 // Re-export test utilities for external tests
 pub mod tests;
-use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use serde::{
+    Deserialize,
+    Serialize,
+};
+use std::collections::{
+    HashMap,
+    HashSet,
+};
 pub use tests::schema_sync_test::{
-    compare_schemas, load_migration_schema, parse_sql_schema, SchemaColumn, TableDef,
+    compare_schemas,
+    load_migration_schema,
+    parse_sql_schema,
+    SchemaColumn,
+    TableDef,
 };
 use tracing::info;
 
