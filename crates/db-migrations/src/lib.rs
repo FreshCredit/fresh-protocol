@@ -10,10 +10,22 @@
 //! - `{version}_{name}.up.sql` - Forward migration
 //! - `{version}_{name}.down.sql` - Rollback migration (optional)
 
-use anyhow::{Context, Result};
-use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
+use anyhow::{
+    Context,
+    Result,
+};
+use chrono::{
+    DateTime,
+    Utc,
+};
+use serde::{
+    Deserialize,
+    Serialize,
+};
+use sha2::{
+    Digest,
+    Sha256,
+};
 use std::collections::BTreeMap;
 use std::path::Path;
 use tokio::fs;

@@ -6,7 +6,10 @@
 use rand::Rng;
 use std::future::Future;
 use std::time::Duration;
-use tracing::{info, warn};
+use tracing::{
+    info,
+    warn,
+};
 
 /// Configuration for database connection retry behavior
 #[derive(Debug, Clone)]

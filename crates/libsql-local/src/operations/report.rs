@@ -6,7 +6,11 @@
 //!
 //! COMPLIANCE: §5 Data and Report Handling - user-owned data
 
-use freshcredit_types::{FinancialReport, FreshCreditResult, UserId};
+use freshcredit_types::{
+    FinancialReport,
+    FreshCreditResult,
+    UserId,
+};
 use tracing::info;
 
 use crate::LocalClient;

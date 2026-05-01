@@ -57,7 +57,10 @@
 //! };
 //! ```
 
-use serde::{Deserialize, Serialize};
+use serde::{
+    Deserialize,
+    Serialize,
+};
 
 // ============================================================================
 // Core User Types

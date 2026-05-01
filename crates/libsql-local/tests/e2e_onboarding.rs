@@ -8,7 +8,10 @@
 //! 5. Onboarding completion
 
 use anyhow::Result;
-use freshcredit_libsql_local::{LocalClient, UserProfile};
+use freshcredit_libsql_local::{
+    LocalClient,
+    UserProfile,
+};
 
 /// Helper to create a test profile
 fn create_test_profile(azure_id: &str, email: &str, display_name: &str) -> UserProfile {

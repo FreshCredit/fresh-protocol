@@ -5,7 +5,13 @@
 //! Cloud databases are per-user Turso instances with identical schema to local.
 
 use anyhow::Result;
-use freshcredit_types::{Account, FinancialReport, FreshCreditResult, Transaction, UserId};
+use freshcredit_types::{
+    Account,
+    FinancialReport,
+    FreshCreditResult,
+    Transaction,
+    UserId,
+};
 use tracing::info;
 
 /// Unified schema SQL embedded at compile time
@@ -384,7 +390,6 @@ impl CloudClient {
             Ok(None)
         }
     }
-
 }
 
 mod rest;

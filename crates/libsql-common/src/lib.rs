@@ -159,18 +159,31 @@ mod url_builder;
 
 // Re-exports for convenience
 pub use circuit_breaker::{
-    CircuitBreakerConfig, CircuitBreakerConnection, CircuitBreakerError, CircuitBreakerState,
+    CircuitBreakerConfig,
+    CircuitBreakerConnection,
+    CircuitBreakerError,
+    CircuitBreakerState,
     CircuitBreakerStats,
 };
 pub use connection::{
-    ConnectionConfig, ConnectionHealth, ConnectionMode, DatabaseConnection, DatabaseConnectionExt,
+    ConnectionConfig,
+    ConnectionHealth,
+    ConnectionMode,
+    DatabaseConnection,
+    DatabaseConnectionExt,
 };
 
 #[cfg(feature = "embedded-replica")]
 pub use connection::ReadConsistency;
-pub use connections::{LocalConnection, RemoteConnection};
+pub use connections::{
+    LocalConnection,
+    RemoteConnection,
+};
 
-pub use connection_factory::{with_retry, RetryConfig};
+pub use connection_factory::{
+    with_retry,
+    RetryConfig,
+};
 #[cfg(feature = "embedded-replica")]
 pub use connections::ReplicaConnection;
 pub use factory::ConnectionFactory;
