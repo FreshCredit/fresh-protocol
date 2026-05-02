@@ -1,4 +1,8 @@
-use super::*;
+use anyhow::Result;
+use libsql::Connection;
+use crate::schema::try_create_index;
+
+/// Initialize offer analytics indexes
 pub async fn initialize_offer_analytics_indexes(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_offer_analytics_offer_id ON offer_analytics(offer_id)",
@@ -45,10 +49,11 @@ pub async fn initialize_offer_analytics_indexes(conn: &Connection) -> Result<()>
     Ok(())
 }
 
+
 /// Initialize blockchain proofs table
 /// Stores NOMT/Substrate proofs for offline verification via smoldot
 /// COMPLIANCE: §1 - blockchain_proofs is browser-side for offline verification
-async fn initialize_blockchain_proofs_table(conn: &Connection) -> Result<()> {
+pub(crate) async fn initialize_blockchain_proofs_table(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS blockchain_proofs (
             id TEXT PRIMARY KEY,
@@ -75,13 +80,13 @@ async fn initialize_blockchain_proofs_table(conn: &Connection) -> Result<()> {
     .await?;
 
     // Indexes for blockchain_proofs
-    super::try_create_index(
+    try_create_index(
         conn,
         "CREATE INDEX IF NOT EXISTS idx_blockchain_proofs_hash ON blockchain_proofs (hash)",
     )
     .await?;
 
-    super::try_create_index(
+    try_create_index(
         conn,
         "CREATE INDEX IF NOT EXISTS idx_blockchain_proofs_user_id ON blockchain_proofs (user_id)",
     )
@@ -90,4 +95,3 @@ async fn initialize_blockchain_proofs_table(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
-/// Initialize all reports and provider tables

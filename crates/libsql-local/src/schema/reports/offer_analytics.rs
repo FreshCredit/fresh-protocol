@@ -1,4 +1,7 @@
-use super::*;
+use anyhow::Result;
+use libsql::Connection;
+
+/// Initialize offer analytics tables
 pub async fn initialize_offer_analytics_tables(conn: &Connection) -> Result<()> {
     // Daily offer analytics metrics
     conn.execute(
@@ -63,4 +66,3 @@ pub async fn initialize_offer_analytics_tables(conn: &Connection) -> Result<()> 
     Ok(())
 }
 
-/// Initialize offer analytics indexes

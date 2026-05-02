@@ -1,4 +1,7 @@
-use super::*;
+use anyhow::Result;
+use libsql::Connection;
+
+/// Initialize verification tables
 pub async fn initialize_verification_tables(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS verification_requests (
@@ -65,4 +68,3 @@ pub async fn initialize_verification_tables(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
-/// Initialize offer analytics tables
