@@ -2,15 +2,8 @@
 //!
 //! This module provides utilities for validating data freshness and detecting stale data.
 
-use chrono::{
-    DateTime,
-    Duration,
-    Utc,
-};
-use serde::{
-    Deserialize,
-    Serialize,
-};
+use chrono::{DateTime, Duration, Utc};
+use serde::{Deserialize, Serialize};
 
 /// Data freshness validator
 #[derive(Debug, Clone)]
