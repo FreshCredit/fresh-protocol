@@ -67,7 +67,7 @@ impl BusinessDayCalendar {
         current
     }
 
-    /// Add business days to a DateTime<Utc>
+    /// Add business days to a `DateTime<Utc>`
     pub fn add_business_days_datetime(
         &self,
         start: chrono::DateTime<chrono::Utc>,

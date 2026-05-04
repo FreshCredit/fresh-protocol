@@ -148,7 +148,13 @@ fn main() {
 
                 // Test roundtrip
                 let test = "test-token-12345";
-                let encrypted = encrypt_token(test);
+                let encrypted = match encrypt_token(test) {
+                    Ok(enc) => enc,
+                    Err(e) => {
+                        eprintln!("❌ Encryption failed: {}", e);
+                        std::process::exit(1);
+                    }
+                };
                 match decrypt_token(&encrypted) {
                     Ok(decrypted) if decrypted == test => {
                         println!("✅ Encryption roundtrip test passed!");
@@ -171,10 +177,13 @@ fn main() {
             }
         }
 
-        Commands::Encrypt { plaintext } => {
-            let encrypted = encrypt_token(&plaintext);
-            println!("{encrypted}");
-        }
+        Commands::Encrypt { plaintext } => match encrypt_token(&plaintext) {
+            Ok(encrypted) => println!("{encrypted}"),
+            Err(e) => {
+                eprintln!("❌ Encryption failed: {}", e);
+                std::process::exit(1);
+            }
+        },
 
         Commands::Decrypt { ciphertext } => match decrypt_token(&ciphertext) {
             Ok(decrypted) => println!("{decrypted}"),
