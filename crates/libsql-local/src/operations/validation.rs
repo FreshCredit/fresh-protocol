@@ -9,10 +9,7 @@
 use anyhow::Result;
 use tracing::info;
 
-use crate::{
-    LocalClient,
-    SchemaValidationResult,
-};
+use crate::{LocalClient, SchemaValidationResult};
 
 impl LocalClient {
     /// Validate database schema integrity

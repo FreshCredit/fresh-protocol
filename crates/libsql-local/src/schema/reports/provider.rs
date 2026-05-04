@@ -64,7 +64,6 @@ pub async fn initialize_provider_tables(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
-
 /// Seed demo provider offers if table is empty
 /// COMPLIANCE: §4 - Template rules - these are example offers for demonstration
 /// NOTE: These are demo offers. Providers must define their own terms in production.

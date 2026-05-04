@@ -31,13 +31,13 @@ use tracing::info;
 /// Initialize all Plaid tables (convenience function)
 pub async fn initialize_all_plaid_tables(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing plaid tables");
-    tables::initialize_plaid_auth_tables(conn).await?;
-    tables::initialize_plaid_assets_tables(conn).await?;
-    tables::initialize_plaid_reports_tables(conn).await?;
-    tables::initialize_plaid_income_tables(conn).await?;
-    tables::initialize_plaid_investments_tables(conn).await?;
-    tables::initialize_plaid_liabilities_tables(conn).await?;
-    tables::initialize_plaid_monitoring_tables(conn).await?;
+    tables::auth::initialize_plaid_auth_tables(conn).await?;
+    tables::assets::initialize_plaid_assets_tables(conn).await?;
+    tables::reports::initialize_plaid_reports_tables(conn).await?;
+    tables::income::initialize_plaid_income_tables(conn).await?;
+    tables::investments::initialize_plaid_investments_tables(conn).await?;
+    tables::liabilities::initialize_plaid_liabilities_tables(conn).await?;
+    tables::monitoring::initialize_plaid_monitoring_tables(conn).await?;
     indexes::initialize_plaid_indexes(conn).await?;
     Ok(())
 }

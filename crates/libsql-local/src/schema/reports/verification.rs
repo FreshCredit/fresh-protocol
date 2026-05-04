@@ -67,4 +67,3 @@ pub async fn initialize_verification_tables(conn: &Connection) -> Result<()> {
 
     Ok(())
 }
-

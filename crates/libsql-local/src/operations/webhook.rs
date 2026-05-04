@@ -8,11 +8,7 @@
 use anyhow::Result;
 use tracing::info;
 
-use crate::{
-    LocalClient,
-    WebhookEvent,
-    WebhookEventCounts,
-};
+use crate::{LocalClient, WebhookEvent, WebhookEventCounts};
 
 impl LocalClient {
     /// Store a webhook event for later processing (outbox pattern)

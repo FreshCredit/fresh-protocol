@@ -65,4 +65,3 @@ pub async fn initialize_offer_analytics_tables(conn: &Connection) -> Result<()> 
 
     Ok(())
 }
-

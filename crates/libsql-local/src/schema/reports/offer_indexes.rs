@@ -1,6 +1,6 @@
+use crate::schema::try_create_index;
 use anyhow::Result;
 use libsql::Connection;
-use crate::schema::try_create_index;
 
 /// Initialize offer analytics indexes
 pub async fn initialize_offer_analytics_indexes(conn: &Connection) -> Result<()> {
@@ -49,7 +49,6 @@ pub async fn initialize_offer_analytics_indexes(conn: &Connection) -> Result<()>
     Ok(())
 }
 
-
 /// Initialize blockchain proofs table
 /// Stores NOMT/Substrate proofs for offline verification via smoldot
 /// COMPLIANCE: §1 - blockchain_proofs is browser-side for offline verification
@@ -94,4 +93,3 @@ pub(crate) async fn initialize_blockchain_proofs_table(conn: &Connection) -> Res
 
     Ok(())
 }
-

@@ -6,11 +6,7 @@
 
 use anyhow::Result;
 
-use crate::{
-    AiConversation,
-    AiMessage,
-    LocalClient,
-};
+use crate::{AiConversation, AiMessage, LocalClient};
 
 impl LocalClient {
     /// Create a new conversation

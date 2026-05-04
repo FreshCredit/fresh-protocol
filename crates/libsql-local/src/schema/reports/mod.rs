@@ -17,13 +17,13 @@ use anyhow::Result;
 use libsql::Connection;
 use tracing::info;
 
-pub mod provider;
-pub mod verification;
 pub mod offer_analytics;
 pub mod offer_indexes;
+pub mod provider;
+pub mod verification;
 
-use provider::seed_demo_provider_offers;
 use offer_indexes::initialize_blockchain_proofs_table;
+use provider::seed_demo_provider_offers;
 
 /// Initialize reports and scoring tables
 pub async fn initialize_reports_tables(conn: &Connection) -> Result<()> {
@@ -111,7 +111,6 @@ pub async fn initialize_reports_tables(conn: &Connection) -> Result<()> {
 
     Ok(())
 }
-
 
 /// Initialize all reports and provider tables
 pub async fn initialize_all_reports_tables(conn: &Connection) -> Result<()> {
