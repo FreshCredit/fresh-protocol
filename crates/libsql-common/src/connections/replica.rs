@@ -29,7 +29,7 @@ use crate::connection::{ConnectionHealth, ConnectionMode, DatabaseConnection};
 ///         "my-token",
 ///         Some(60), // sync interval
 ///     ).await?;
-///     
+///
 ///     let rows = conn.query("SELECT 1", vec![]).await?;
 ///     Ok(())
 /// }

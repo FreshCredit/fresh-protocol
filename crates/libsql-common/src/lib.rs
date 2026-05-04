@@ -72,13 +72,13 @@
 //!         sync_interval_secs: Some(60),
 //!         ..Default::default()
 //!     };
-//!     
+//!
 //!     // Create connection
 //!     let db = ConnectionFactory::create(&config).await?;
-//!     
+//!
 //!     // Use the connection
 //!     let rows = db.query("SELECT * FROM users", vec![]).await?;
-//!     
+//!
 //!     Ok(())
 //! }
 //! ```
@@ -94,10 +94,10 @@
 //!     // TURSO_URL=libsql://my-db.turso.io
 //!     // TURSO_AUTH_TOKEN=my-token
 //!     // LIBSQL_LOCAL_PATH=/app/data/local.db
-//!     
+//!
 //!     let db = ConnectionFactory::from_env().await?;
 //!     let rows = db.query("SELECT 1", vec![]).await?;
-//!     
+//!
 //!     Ok(())
 //! }
 //! ```
@@ -116,16 +116,16 @@
 //!         auth_token: "token".to_string(),
 //!         ..Default::default()
 //!     };
-//!     
+//!
 //!     let fallback = ConnectionConfig {
 //!         mode: ConnectionMode::LocalOnly,
 //!         local_path: Some("/app/data/fallback.db".into()),
 //!         ..Default::default()
 //!     };
-//!     
+//!
 //!     // Will try primary first, then fallback
 //!     let db = ConnectionFactory::create_with_fallback(&primary, &fallback).await?;
-//!     
+//!
 //!     Ok(())
 //! }
 //! ```
@@ -140,11 +140,11 @@
 //!
 //! # Modules
 //!
-//! - [`connection`](crate::connection): Core trait definitions and configuration
-//! - [`connections`](crate::connections): Concrete connection implementations
-//! - [`factory`](crate::factory): Connection factory for creating connections
-//! - [`connection_factory`](crate::connection_factory): Retry logic and utilities
-//! - [`url_builder`](crate::url_builder): Turso URL construction utilities
+//! - `connection`: Core trait definitions and configuration
+//! - `connections`: Concrete connection implementations
+//! - `factory`: Connection factory for creating connections
+//! - `connection_factory`: Retry logic and utilities
+//! - `url_builder`: Turso URL construction utilities
 
 // Core modules
 pub mod circuit_breaker;

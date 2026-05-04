@@ -25,7 +25,7 @@ use crate::connection::{ConnectionHealth, ConnectionMode, DatabaseConnection};
 ///         "libsql://my-db.turso.io".to_string(),
 ///         "my-token".to_string(),
 ///     ).build().await?;
-///     
+///
 ///     let conn = RemoteConnection::new(db);
 ///     let rows = conn.query("SELECT 1", vec![]).await?;
 ///     Ok(())
