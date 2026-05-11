@@ -1,12 +1,12 @@
-//! Core schema definitions: user_profile, auth_tokens, user_preferences, api_keys, webauthn
+//! Core schema definitions: `user_profile`, `auth_tokens`, `user_preferences`, `api_keys`, webauthn
 //!
 //! Tables in this module:
-//! - user_profile: Core user identity (Entra ID integration)
-//! - user_preferences: Feature flags and app settings
-//! - auth_tokens: Session management (legacy, Entra handles primary auth)
-//! - api_keys: API key management for programmatic access
-//! - webauthn_credentials: FIDO2/passkey biometric authentication
-//! - kilt_dids: KILT Protocol DID storage
+//! - `user_profile`: Core user identity (Entra ID integration)
+//! - `user_preferences`: Feature flags and app settings
+//! - `auth_tokens`: Session management (legacy, Entra handles primary auth)
+//! - `api_keys`: API key management for programmatic access
+//! - `webauthn_credentials`: FIDO2/passkey biometric authentication
+//! - `kilt_dids`: KILT Protocol DID storage
 //!
 //! COMPLIANCE: §10 Unified Database Schema Architecture
 
@@ -16,10 +16,13 @@ use libsql::Connection;
 use super::try_create_index;
 use tracing::info;
 
-/// Initialize core tables (user_profile and related)
+/// Initialize core tables (`user_profile` and related)
 ///
-/// Creates 6 core tables: user_profile, user_preferences, auth_tokens,
-/// api_keys, webauthn_credentials, kilt_dids
+/// Creates 6 core tables: `user_profile`, `user_preferences`, `auth_tokens`,
+/// `api_keys`, `webauthn_credentials`, `kilt_dids`
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing core tables");
     // Create user_profile table first (referenced by other tables)
@@ -250,6 +253,9 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
 }
 
 /// Initialize core table indexes
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_core_indexes(conn: &Connection) -> Result<()> {
     try_create_index(
         conn,

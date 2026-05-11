@@ -1,10 +1,10 @@
 //! Platform schema definitions
 //!
 //! Contains platform-level tables:
-//! - data_approval_hashes: Blockchain hashes for data approval
+//! - `data_approval_hashes`: Blockchain hashes for data approval
 //! - referrals: Referral tracking
-//! - platform_metrics: Daily aggregated metrics
-//! - sales_pipeline: HubSpot sales data
+//! - `platform_metrics`: Daily aggregated metrics
+//! - `sales_pipeline`: `HubSpot` sales data
 //!
 //! COMPLIANCE: §10 Unified Database Schema Architecture
 
@@ -13,6 +13,9 @@ use libsql::Connection;
 use tracing::info;
 
 /// Initialize platform tables
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_platform_tables(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing platform tables");
     // Data approval hashes for blockchain anchoring

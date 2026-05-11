@@ -7,12 +7,16 @@ use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::RwLock;
 
-use crate::connection::{ConnectionHealth, ConnectionMode, DatabaseConnection};
+use crate::connection::{
+    ConnectionHealth,
+    ConnectionMode,
+    DatabaseConnection,
+};
 
 /// Embedded replica connection with background sync
 ///
 /// This connection type provides:
-/// - Local SQLite database for low-latency reads
+/// - Local `SQLite` database for low-latency reads
 /// - Automatic background synchronization with Turso
 /// - Offline capability (reads work when disconnected)
 ///
@@ -61,6 +65,9 @@ impl ReplicaConnection {
     }
 
     /// Create a new replica connection with all parameters
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn connect(
         local_path: impl AsRef<Path>,
         remote_url: &str,
@@ -82,6 +89,9 @@ impl ReplicaConnection {
     }
 
     /// Start background sync task
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     fn start_background_sync(&self, interval_secs: u64) {
         let db = self.db.clone();
         let last_sync = Arc::clone(&self.last_sync);
@@ -112,6 +122,9 @@ impl ReplicaConnection {
     }
 
     /// Explicit sync on demand
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn sync(&self) -> anyhow::Result<()> {
         self.db.sync().await?;
         let mut sync = self.last_sync.write().await;
@@ -125,11 +138,13 @@ impl ReplicaConnection {
     }
 
     /// Get the sync interval
-    pub fn sync_interval_secs(&self) -> Option<u64> {
+    #[must_use]
+    pub const fn sync_interval_secs(&self) -> Option<u64> {
         self.sync_interval_secs
     }
 
     /// Get the underlying database (for advanced operations)
+    #[must_use]
     pub fn database(&self) -> Arc<Database> {
         self.db.clone()
     }

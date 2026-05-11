@@ -8,10 +8,17 @@
 use anyhow::Result;
 use tracing::info;
 
-use crate::{LocalClient, WebhookEvent, WebhookEventCounts};
+use crate::{
+    LocalClient,
+    WebhookEvent,
+    WebhookEventCounts,
+};
 
 impl LocalClient {
     /// Store a webhook event for later processing (outbox pattern)
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn store_webhook_event(&self, event: &WebhookEvent) -> Result<bool> {
         info!(
             "Storing webhook event: {} from {}",
@@ -42,6 +49,9 @@ impl LocalClient {
     }
 
     /// Get pending webhook events for processing
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn get_pending_webhook_events(&self, limit: u32) -> Result<Vec<WebhookEvent>> {
         info!("Getting pending webhook events (limit: {})", limit);
 
@@ -51,7 +61,7 @@ impl LocalClient {
              WHERE status = 'pending'
              ORDER BY created_at ASC
              LIMIT ?",
-            libsql::params![limit as i64],
+            libsql::params![i64::from(limit)],
         ).await?;
 
         let mut events = Vec::new();
@@ -77,6 +87,9 @@ impl LocalClient {
     }
 
     /// Update webhook event status after processing
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn update_webhook_status(
         &self,
         event_id: &str,
@@ -109,7 +122,10 @@ impl LocalClient {
         Ok(affected > 0)
     }
 
-    /// Get webhook events that need retry (failed with retry_count < max_retries)
+    /// Get webhook events that need retry (failed with `retry_count` < `max_retries`)
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn get_webhook_events_for_retry(
         &self,
         max_retries: u32,
@@ -125,7 +141,7 @@ impl LocalClient {
              FROM webhook_events
              WHERE status = 'failed' AND retry_count < ?
              ORDER BY created_at ASC LIMIT 1000",
-            libsql::params![max_retries as i64],
+            libsql::params![i64::from(max_retries)],
         ).await?;
 
         let mut events = Vec::new();
@@ -151,6 +167,9 @@ impl LocalClient {
     }
 
     /// Move webhook to dead letter queue (max retries exceeded)
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn move_webhook_to_dead_letter(&self, event_id: &str) -> Result<bool> {
         info!("Moving webhook to dead letter: {}", event_id);
 
@@ -163,7 +182,10 @@ impl LocalClient {
         Ok(affected > 0)
     }
 
-    /// Get webhook event by event_id
+    /// Get webhook event by `event_id`
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn get_webhook_event(&self, event_id: &str) -> Result<Option<WebhookEvent>> {
         let mut rows = self.connection.query(
             "SELECT id, user_id, provider, event_type, event_id, payload, status, retry_count, processed_at, created_at
@@ -193,13 +215,16 @@ impl LocalClient {
     }
 
     /// Get recent webhook events for admin dashboard
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn get_recent_webhook_events(&self, limit: u32) -> Result<Vec<WebhookEvent>> {
         let mut rows = self.connection.query(
             "SELECT id, user_id, provider, event_type, event_id, payload, status, retry_count, processed_at, created_at
              FROM webhook_events
              ORDER BY created_at DESC
              LIMIT ?",
-            libsql::params![limit as i64],
+            libsql::params![i64::from(limit)],
         ).await?;
 
         let mut events = Vec::new();
@@ -225,6 +250,9 @@ impl LocalClient {
     }
 
     /// Get webhook event counts by status for admin dashboard
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn get_webhook_event_counts(&self) -> Result<WebhookEventCounts> {
         let mut rows = self
             .connection

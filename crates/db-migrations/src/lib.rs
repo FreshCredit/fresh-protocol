@@ -1,4 +1,4 @@
-//! Versioned database migration system for FreshCredit
+//! Versioned database migration system for `FreshCredit`
 //!
 //! This module provides a migration runner that:
 //! 1. Tracks applied migrations in a `schema_migrations` table
@@ -10,10 +10,22 @@
 //! - `{version}_{name}.up.sql` - Forward migration
 //! - `{version}_{name}.down.sql` - Rollback migration (optional)
 
-use anyhow::{Context, Result};
-use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
+use anyhow::{
+    Context,
+    Result,
+};
+use chrono::{
+    DateTime,
+    Utc,
+};
+use serde::{
+    Deserialize,
+    Serialize,
+};
+use sha2::{
+    Digest,
+    Sha256,
+};
 use std::collections::BTreeMap;
 use std::path::Path;
 use tokio::fs;
@@ -38,7 +50,7 @@ pub struct AppliedMigration {
     pub applied_at: DateTime<Utc>,
 }
 
-/// Migration runner for LibSQL databases
+/// Migration runner for `LibSQL` databases
 pub struct MigrationRunner {
     connection: libsql::Connection,
     migrations: BTreeMap<i64, Migration>,
@@ -46,7 +58,8 @@ pub struct MigrationRunner {
 
 impl MigrationRunner {
     /// Create a new migration runner with the given connection
-    pub fn new(connection: libsql::Connection) -> Self {
+    #[must_use]
+    pub const fn new(connection: libsql::Connection) -> Self {
         Self {
             connection,
             migrations: BTreeMap::new(),
@@ -54,7 +67,10 @@ impl MigrationRunner {
     }
 
     /// Load migrations from a directory
-    /// P0-FIX: Now async using tokio::fs to avoid blocking I/O
+    /// P0-FIX: Now async using `tokio::fs` to avoid blocking I/O
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn load_migrations_from_dir(&mut self, dir: &Path) -> Result<()> {
         if !fs::try_exists(dir).await? {
             return Err(anyhow::anyhow!("Migration directory not found: {dir:?}"));
@@ -66,7 +82,7 @@ impl MigrationRunner {
 
         while let Some(entry) = entries.next_entry().await? {
             let path = entry.path();
-            if path.extension().map(|e| e == "sql").unwrap_or(false) {
+            if path.extension().is_some_and(|e| e == "sql") {
                 let filename = path
                     .file_stem()
                     .ok_or_else(|| anyhow::anyhow!("Invalid filename: {path:?}"))?
@@ -101,7 +117,10 @@ impl MigrationRunner {
         Ok(())
     }
 
-    /// Ensure the schema_migrations table exists
+    /// Ensure the `schema_migrations` table exists
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn ensure_migrations_table(&self) -> Result<()> {
         self.connection
             .execute(
@@ -118,6 +137,9 @@ impl MigrationRunner {
     }
 
     /// Get list of applied migrations
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn get_applied_migrations(&self) -> Result<Vec<AppliedMigration>> {
         let mut applied = Vec::new();
         let mut rows = self.connection
@@ -130,8 +152,7 @@ impl MigrationRunner {
             let checksum: String = row.get(2)?;
             let applied_at_str: String = row.get(3)?;
             let applied_at = DateTime::parse_from_rfc3339(&applied_at_str)
-                .map(|dt| dt.with_timezone(&Utc))
-                .unwrap_or_else(|_| Utc::now());
+                .map_or_else(|_| Utc::now(), |dt| dt.with_timezone(&Utc));
             applied.push(AppliedMigration {
                 version,
                 name,
@@ -143,6 +164,9 @@ impl MigrationRunner {
     }
 
     /// Run all pending migrations
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn run_pending_migrations(&self) -> Result<Vec<i64>> {
         self.ensure_migrations_table().await?;
         let applied = self.get_applied_migrations().await?;
@@ -163,6 +187,9 @@ impl MigrationRunner {
     }
 
     /// Apply a single migration with transaction safety
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     async fn apply_migration(&self, migration: &Migration) -> Result<()> {
         // Begin transaction for atomic migration application
         let tx = self.connection.transaction().await?;
@@ -197,6 +224,9 @@ impl MigrationRunner {
     }
 
     /// Rollback a specific migration version with transaction safety
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn rollback_migration(&self, version: i64) -> Result<()> {
         let migration = self
             .migrations
@@ -236,6 +266,9 @@ impl MigrationRunner {
     }
 
     /// Check for checksum mismatches (modified migrations)
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn check_checksum_mismatches(&self) -> Result<Vec<(i64, String, String)>> {
         let applied = self.get_applied_migrations().await?;
         let mut mismatches = Vec::new();

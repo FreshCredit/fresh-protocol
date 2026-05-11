@@ -1,10 +1,10 @@
 //! Financial data database operations
 //!
 //! Operations for storing and retrieving account and transaction data:
-//! - store_account: Store account data in local database
-//! - store_transaction: Store transaction data in local database
-//! - get_user_accounts: Get all accounts for a user
-//! - get_user_transactions: Get all transactions for a user
+//! - `store_account`: Store account data in local database
+//! - `store_transaction`: Store transaction data in local database
+//! - `get_user_accounts`: Get all accounts for a user
+//! - `get_user_transactions`: Get all transactions for a user
 //!
 //! COMPLIANCE: §5 Data and Report Handling - user-owned data
 
@@ -15,6 +15,9 @@ use crate::LocalClient;
 
 impl LocalClient {
     /// Store account data in local database
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn store_account(&self, account: &freshcredit_types::Account) -> Result<()> {
         info!("Storing account locally: {}", account.id);
 
@@ -36,6 +39,9 @@ impl LocalClient {
     }
 
     /// Store transaction data in local database
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn store_transaction(
         &self,
         transaction: &freshcredit_types::Transaction,
@@ -62,6 +68,9 @@ impl LocalClient {
 
     /// Get all accounts for a user
     /// P0-PERF: Limited to 1000 accounts to prevent memory exhaustion
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn get_user_accounts(
         &self,
         user_id: &str,
@@ -106,6 +115,9 @@ impl LocalClient {
 
     /// Get all transactions for a user
     /// P0-PERF: Limited to 10000 transactions to prevent memory exhaustion
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn get_user_transactions(
         &self,
         user_id: &str,

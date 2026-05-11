@@ -3,7 +3,7 @@ use libsql::Connection;
 
 use crate::schema::try_create_index;
 
-/// Initialize crypto tables: crypto_wallets and crypto_payments.
+/// Initialize crypto tables: `crypto_wallets` and `crypto_payments`.
 pub async fn create_crypto_tables(conn: &Connection) -> Result<()> {
     // Crypto wallet connections (WalletConnect / Circle Wallets)
     // COMPLIANCE: §1 - This stores REFERENCES to external wallets only

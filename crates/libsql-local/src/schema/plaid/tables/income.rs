@@ -2,6 +2,9 @@ use anyhow::Result;
 use libsql::Connection;
 
 /// Initialize Plaid enrich and income tables
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_plaid_income_tables(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS enrich (

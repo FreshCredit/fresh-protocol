@@ -1,10 +1,10 @@
 //! File upload database operations
 //!
 //! Operations for storing and retrieving uploaded files:
-//! - save_uploaded_file: Save an uploaded file for AI analysis
-//! - get_uploaded_file: Get an uploaded file by ID
-//! - update_file_ai_analysis: Update AI analysis for an uploaded file
-//! - cleanup_expired_files: Delete expired files
+//! - `save_uploaded_file`: Save an uploaded file for AI analysis
+//! - `get_uploaded_file`: Get an uploaded file by ID
+//! - `update_file_ai_analysis`: Update AI analysis for an uploaded file
+//! - `cleanup_expired_files`: Delete expired files
 //!
 //! COMPLIANCE: §5 Data and Report Handling - user-owned data
 
@@ -17,7 +17,10 @@ use crate::UploadedFile;
 impl LocalClient {
     /// Save an uploaded file for AI analysis
     ///
-    /// Uses SaveUploadedFileParams struct to consolidate parameters
+    /// Uses `SaveUploadedFileParams` struct to consolidate parameters
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn save_uploaded_file(&self, params: &SaveUploadedFileParams<'_>) -> Result<String> {
         let id = uuid::Uuid::new_v4().to_string();
         let now = chrono::Utc::now().to_rfc3339();
@@ -41,9 +44,9 @@ impl LocalClient {
                 file_type,
                 params.file_size,
                 params.mime_type,
-                params.file_data.clone().map(libsql::Value::Blob).unwrap_or(libsql::Value::Null),
-                params.text_content.map(|s| s.to_string()),
-                params.conversation_id.map(|s| s.to_string()),
+                params.file_data.clone().map_or(libsql::Value::Null, libsql::Value::Blob),
+                params.text_content.map(std::string::ToString::to_string),
+                params.conversation_id.map(std::string::ToString::to_string),
                 now.clone(),
                 now,
                 expires_at
@@ -54,6 +57,9 @@ impl LocalClient {
     }
 
     /// Get an uploaded file by ID
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn get_uploaded_file(&self, file_id: &str) -> Result<Option<UploadedFile>> {
         let mut rows = self.connection.query(
             "SELECT id, user_id, filename, mime_type, file_size, file_data, text_content, ai_analysis, conversation_id, created_at, expires_at
@@ -81,6 +87,9 @@ impl LocalClient {
     }
 
     /// Update AI analysis for an uploaded file
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn update_file_ai_analysis(&self, file_id: &str, analysis: &str) -> Result<()> {
         self.connection
             .execute(
@@ -92,6 +101,9 @@ impl LocalClient {
     }
 
     /// Delete expired files
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn cleanup_expired_files(&self) -> Result<u64> {
         let now = chrono::Utc::now().to_rfc3339();
         let affected = self

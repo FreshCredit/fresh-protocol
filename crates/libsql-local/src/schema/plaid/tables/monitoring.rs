@@ -2,6 +2,9 @@ use anyhow::Result;
 use libsql::Connection;
 
 /// Initialize Plaid monitoring and recurring transaction tables
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_plaid_monitoring_tables(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS monitor (

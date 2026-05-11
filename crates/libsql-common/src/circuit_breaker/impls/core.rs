@@ -38,6 +38,9 @@ impl CircuitBreakerConnection {
     }
 
     /// Create from environment configuration
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn from_env(inner: Arc<dyn DatabaseConnection>) -> anyhow::Result<Arc<Self>> {
         let config = CircuitBreakerConfig::from_env();
         Ok(Self::new(inner, config))

@@ -6,7 +6,10 @@
 use rand::Rng;
 use std::future::Future;
 use std::time::Duration;
-use tracing::{info, warn};
+use tracing::{
+    info,
+    warn,
+};
 
 /// Configuration for database connection retry behavior
 #[derive(Debug, Clone)]
@@ -35,6 +38,7 @@ impl Default for RetryConfig {
 
 impl RetryConfig {
     /// Create from environment variables with fallback to defaults
+    #[must_use]
     pub fn from_env() -> Self {
         Self {
             initial_delay: Duration::from_millis(
@@ -89,6 +93,9 @@ impl RetryConfig {
 ///     CloudClient::new(&url, &token).await
 /// }).await;
 /// ```
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn with_retry<F, Fut, T, E>(config: &RetryConfig, mut operation: F) -> Result<T, E>
 where
     F: FnMut() -> Fut,

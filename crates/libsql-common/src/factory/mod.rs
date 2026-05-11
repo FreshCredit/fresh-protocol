@@ -6,7 +6,7 @@
 //! # Feature Flags
 //!
 //! - `remote` (default): Direct HTTP connections to Turso Cloud
-//! - `local-only` (default): Local SQLite connections
+//! - `local-only` (default): Local `SQLite` connections
 //! - `embedded-replica`: Local cache with background sync (opt-in)
 //!
 //! # Example
@@ -38,8 +38,15 @@ pub mod replica;
 
 use std::sync::Arc;
 
-use crate::circuit_breaker::{CircuitBreakerConfig, CircuitBreakerConnection};
-use crate::connection::{ConnectionConfig, ConnectionMode, DatabaseConnection};
+use crate::circuit_breaker::{
+    CircuitBreakerConfig,
+    CircuitBreakerConnection,
+};
+use crate::connection::{
+    ConnectionConfig,
+    ConnectionMode,
+    DatabaseConnection,
+};
 
 /// Factory for creating database connections
 pub struct ConnectionFactory;
@@ -107,6 +114,9 @@ impl ConnectionFactory {
     ///     Ok(())
     /// }
     /// ```
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn create_with_fallback(
         primary: &ConnectionConfig,
         fallback: &ConnectionConfig,
@@ -158,6 +168,9 @@ impl ConnectionFactory {
     ///     Ok(())
     /// }
     /// ```
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn from_env() -> anyhow::Result<Arc<dyn DatabaseConnection>> {
         let config = ConnectionConfig::from_env()?;
         Self::create(&config).await
@@ -190,6 +203,9 @@ impl ConnectionFactory {
     ///     Ok(())
     /// }
     /// ```
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn create_with_circuit_breaker(
         config: &ConnectionConfig,
         cb_config: CircuitBreakerConfig,
@@ -213,6 +229,9 @@ impl ConnectionFactory {
     ///     Ok(())
     /// }
     /// ```
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn create_with_circuit_breaker_from_env(
     ) -> anyhow::Result<Arc<CircuitBreakerConnection>> {
         let config = ConnectionConfig::from_env()?;
@@ -254,6 +273,9 @@ impl ConnectionFactory {
     ///     Ok(())
     /// }
     /// ```
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn create_with_cb_and_fallback(
         primary: &ConnectionConfig,
         fallback: &ConnectionConfig,

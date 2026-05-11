@@ -34,7 +34,7 @@ impl TursoUrlBuilder {
     // after adding "user-" prefix and organization suffix
     const MAX_USER_ID_LENGTH: usize = 28;
 
-    /// Create a new TursoUrlBuilder with the specified organization.
+    /// Create a new `TursoUrlBuilder` with the specified organization.
     ///
     /// Uses `aws-us-west-2` as the default region.
     pub fn new(organization: impl Into<String>) -> Self {
@@ -44,7 +44,7 @@ impl TursoUrlBuilder {
         }
     }
 
-    /// Create a new TursoUrlBuilder with custom organization and region.
+    /// Create a new `TursoUrlBuilder` with custom organization and region.
     pub fn with_region(organization: impl Into<String>, region: impl Into<String>) -> Self {
         Self {
             organization: organization.into(),
@@ -52,10 +52,11 @@ impl TursoUrlBuilder {
         }
     }
 
-    /// Create a TursoUrlBuilder from environment variables.
+    /// Create a `TursoUrlBuilder` from environment variables.
     ///
     /// Uses `TURSO_ORGANIZATION` env var, defaulting to "devonshigaki".
     /// Uses `TURSO_REGION` env var, defaulting to "aws-us-west-2".
+    #[must_use]
     pub fn from_env() -> Self {
         let organization =
             std::env::var("TURSO_ORGANIZATION").unwrap_or_else(|_| "devonshigaki".to_string());
@@ -74,6 +75,7 @@ impl TursoUrlBuilder {
     /// - Replaces non-alphanumeric characters with hyphens
     /// - Converts to lowercase
     /// - Truncates to 28 characters
+    #[must_use]
     pub fn user_database_name(&self, user_id: &str) -> String {
         let sanitized = self.sanitize_user_id(user_id);
         format!("user-{sanitized}")
@@ -82,6 +84,7 @@ impl TursoUrlBuilder {
     /// Generate the full Turso URL for a user's database.
     ///
     /// Format: `libsql://{db_name}-{organization}.{region}.turso.io`
+    #[must_use]
     pub fn user_database_url(&self, user_id: &str) -> String {
         let db_name = self.user_database_name(user_id);
         format!(
@@ -95,6 +98,7 @@ impl TursoUrlBuilder {
     /// Format: `https://{db_name}-{organization}.{region}.turso.io/v2/pipeline`
     ///
     /// Used for HTTP-based sync proxy operations.
+    #[must_use]
     pub fn user_pipeline_url(&self, user_id: &str) -> String {
         let db_name = self.user_database_name(user_id);
         format!(
@@ -107,7 +111,7 @@ impl TursoUrlBuilder {
     ///
     /// - Replaces non-alphanumeric characters with hyphens
     /// - Converts to lowercase
-    /// - Truncates to MAX_USER_ID_LENGTH (28) characters
+    /// - Truncates to `MAX_USER_ID_LENGTH` (28) characters
     fn sanitize_user_id(&self, user_id: &str) -> String {
         let sanitized: String = user_id
             .chars()
@@ -128,11 +132,13 @@ impl TursoUrlBuilder {
     }
 
     /// Get the organization name.
+    #[must_use]
     pub fn organization(&self) -> &str {
         &self.organization
     }
 
     /// Get the region.
+    #[must_use]
     pub fn region(&self) -> &str {
         &self.region
     }

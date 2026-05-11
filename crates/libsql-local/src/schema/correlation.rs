@@ -1,9 +1,9 @@
 //! Correlation engine schema definitions
 //!
 //! Contains correlation tables:
-//! - correlation_preferences: User correlation settings
-//! - correlation_insights: Generated insights
-//! - correlation_metrics: Aggregated metrics
+//! - `correlation_preferences`: User correlation settings
+//! - `correlation_insights`: Generated insights
+//! - `correlation_metrics`: Aggregated metrics
 //!
 //! COMPLIANCE: §10 Unified Database Schema Architecture
 
@@ -12,6 +12,9 @@ use libsql::Connection;
 use tracing::info;
 
 /// Initialize correlation engine tables
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_correlation_tables(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing correlation tables");
     conn.execute(

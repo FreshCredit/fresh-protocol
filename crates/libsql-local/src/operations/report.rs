@@ -1,18 +1,25 @@
 //! Financial report database operations
 //!
 //! Operations for storing and retrieving financial reports:
-//! - store_financial_report: Store financial report locally (uses reports table - BlockID)
-//! - get_financial_report: Retrieve financial report from local storage
+//! - `store_financial_report`: Store financial report locally (uses reports table - `BlockID`)
+//! - `get_financial_report`: Retrieve financial report from local storage
 //!
 //! COMPLIANCE: §5 Data and Report Handling - user-owned data
 
-use freshcredit_types::{FinancialReport, FreshCreditResult, UserId};
+use freshcredit_types::{
+    FinancialReport,
+    FreshCreditResult,
+    UserId,
+};
 use tracing::info;
 
 use crate::LocalClient;
 
 impl LocalClient {
-    /// Store financial report locally (uses reports table - BlockID)
+    /// Store financial report locally (uses reports table - `BlockID`)
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn store_financial_report(&self, report: &FinancialReport) -> FreshCreditResult<()> {
         info!(
             "Storing financial report locally for user: {}",
@@ -39,6 +46,9 @@ impl LocalClient {
     }
 
     /// Retrieve financial report from local storage using raw SQL
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn get_financial_report(
         &self,
         user_id: &UserId,

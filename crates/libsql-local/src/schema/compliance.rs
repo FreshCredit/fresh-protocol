@@ -1,11 +1,11 @@
 //! Compliance monitoring schema definitions
 //!
 //! Contains compliance tables:
-//! - compliance_scans: Scan records
-//! - compliance_rules: Rule definitions
-//! - compliance_findings: Scan findings
-//! - compliance_evidence: Evidence for findings
-//! - audit_events: Enhanced audit trail for PII access and data classification
+//! - `compliance_scans`: Scan records
+//! - `compliance_rules`: Rule definitions
+//! - `compliance_findings`: Scan findings
+//! - `compliance_evidence`: Evidence for findings
+//! - `audit_events`: Enhanced audit trail for PII access and data classification
 //!
 //! COMPLIANCE: §14 Compliance Monitoring System
 //! COMPLIANCE: §10 Unified Database Schema Architecture
@@ -16,6 +16,9 @@ use libsql::Connection;
 use tracing::info;
 
 /// Initialize compliance monitoring tables
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_compliance_tables(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing compliance tables");
     conn.execute(

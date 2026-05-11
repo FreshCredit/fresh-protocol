@@ -2,9 +2,9 @@
 //!
 //! Contains ticketing tables:
 //! - tickets: Support tickets, disputes, inquiries
-//! - ticket_comments: Threaded comments
-//! - ticket_assignments: Assignee tracking
-//! - ticket_sla_events: SLA breach events
+//! - `ticket_comments`: Threaded comments
+//! - `ticket_assignments`: Assignee tracking
+//! - `ticket_sla_events`: SLA breach events
 //!
 //! COMPLIANCE: §13 Ticketing System Architecture
 //! COMPLIANCE: §10 Unified Database Schema Architecture
@@ -14,6 +14,9 @@ use libsql::Connection;
 use tracing::info;
 
 /// Initialize ticketing system tables
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_ticketing_tables(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing ticketing tables");
     conn.execute(

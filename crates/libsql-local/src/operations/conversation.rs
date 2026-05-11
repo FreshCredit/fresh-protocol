@@ -6,10 +6,17 @@
 
 use anyhow::Result;
 
-use crate::{AiConversation, AiMessage, LocalClient};
+use crate::{
+    AiConversation,
+    AiMessage,
+    LocalClient,
+};
 
 impl LocalClient {
     /// Create a new conversation
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn create_conversation(
         &self,
         user_id: &str,
@@ -31,6 +38,9 @@ impl LocalClient {
     }
 
     /// Get conversation by ID
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn get_conversation(&self, conversation_id: &str) -> Result<Option<AiConversation>> {
         let mut rows = self
             .connection
@@ -56,6 +66,9 @@ impl LocalClient {
     }
 
     /// Get recent conversations for a user
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn get_user_conversations(
         &self,
         user_id: &str,
@@ -67,7 +80,7 @@ impl LocalClient {
                 "SELECT id, user_id, title, context, created_at, updated_at
              FROM ai_conversations WHERE user_id = ?
              ORDER BY updated_at DESC LIMIT ?",
-                libsql::params![user_id, limit as i64],
+                libsql::params![user_id, i64::from(limit)],
             )
             .await?;
 
@@ -86,6 +99,9 @@ impl LocalClient {
     }
 
     /// Add a message to a conversation
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn add_conversation_message(
         &self,
         conversation_id: &str,
@@ -107,7 +123,7 @@ impl LocalClient {
                 role,
                 content,
                 file_attachment_id,
-                tokens_used.map(|t| t as i64),
+                tokens_used.map(i64::from),
                 model,
                 now.clone()
             ],
@@ -125,13 +141,16 @@ impl LocalClient {
     }
 
     /// Get messages for a conversation
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn get_conversation_messages(
         &self,
         conversation_id: &str,
         limit: Option<u32>,
     ) -> Result<Vec<AiMessage>> {
         // P0-SECURITY: Clamp limit to prevent injection and unreasonable queries
-        let limit_val = limit.map(|l| l.clamp(1, 1000)).unwrap_or(100);
+        let limit_val = limit.map_or(100, |l| l.clamp(1, 1000));
 
         // SECURITY FIX: Use parameterized query for LIMIT (libSQL supports this)
         let query = "SELECT id, conversation_id, role, content, file_attachment_id, tokens_used, model, created_at
@@ -160,6 +179,9 @@ impl LocalClient {
     }
 
     /// Delete a conversation and all its messages
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn delete_conversation(&self, conversation_id: &str) -> Result<()> {
         self.connection
             .execute(
@@ -171,6 +193,9 @@ impl LocalClient {
     }
 
     /// Update conversation title (auto-generated from first message)
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn update_conversation_title(
         &self,
         conversation_id: &str,

@@ -2,6 +2,9 @@ use super::*;
 
 impl CloudClient {
     /// Get count of accounts from cloud (for sync status)
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn get_account_count(&self) -> FreshCreditResult<u64> {
         info!("Getting account count from cloud");
 
@@ -23,6 +26,9 @@ impl CloudClient {
     }
 
     /// Get count of transactions from cloud (for sync status)
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn get_transaction_count(&self) -> FreshCreditResult<u64> {
         info!("Getting transaction count from cloud");
 
@@ -44,6 +50,9 @@ impl CloudClient {
     }
 
     /// Get user preferences from cloud
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn get_user_preferences(
         &self,
         user_id: &str,
@@ -87,6 +96,9 @@ impl CloudClient {
     }
 
     /// Save user preferences to cloud
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn save_user_preferences(
         &self,
         user_id: &str,
@@ -120,9 +132,12 @@ impl CloudClient {
         Ok(())
     }
 
-    /// Get user profile by Azure ID (object_id) from per-user Turso cloud
+    /// Get user profile by Azure ID (`object_id`) from per-user Turso cloud
     ///
     /// ARCHITECTURE: Used by payments/plaid routes to read user data from per-user cloud.
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn get_user_profile_by_azure_id(
         &self,
         azure_id: &str,
@@ -197,6 +212,9 @@ impl CloudClient {
     /// Get all accounts for a user from per-user Turso cloud
     ///
     /// ARCHITECTURE: Used by payments/plaid routes to read account data from per-user cloud.
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn get_user_accounts(
         &self,
         user_id: &str,
@@ -231,8 +249,7 @@ impl CloudClient {
 
             let created_at_str: String = row.get(6).unwrap_or_default();
             let created_at = chrono::DateTime::parse_from_rfc3339(&created_at_str)
-                .map(|dt| dt.with_timezone(&chrono::Utc))
-                .unwrap_or_else(|_| chrono::Utc::now());
+                .map_or_else(|_| chrono::Utc::now(), |dt| dt.with_timezone(&chrono::Utc));
 
             accounts.push(freshcredit_types::Account {
                 id: row.get(0).unwrap_or_default(),
@@ -251,6 +268,9 @@ impl CloudClient {
     /// Get all transactions for a user from per-user Turso cloud
     ///
     /// ARCHITECTURE: Used by payments/plaid routes to read transaction data from per-user cloud.
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn get_user_transactions(
         &self,
         user_id: &str,
@@ -281,8 +301,7 @@ impl CloudClient {
             let merchant_name: Option<String> = row.get(7).ok();
             let date_str: String = row.get(6).unwrap_or_default();
             let date = chrono::DateTime::parse_from_rfc3339(&date_str)
-                .map(|dt| dt.with_timezone(&chrono::Utc))
-                .unwrap_or_else(|_| chrono::Utc::now());
+                .map_or_else(|_| chrono::Utc::now(), |dt| dt.with_timezone(&chrono::Utc));
 
             transactions.push(freshcredit_types::Transaction {
                 id: row.get(0).unwrap_or_default(),
@@ -303,6 +322,9 @@ impl CloudClient {
     ///
     /// ARCHITECTURE: Retrieves the encrypted access token for Plaid API calls.
     /// S2.3: Added for payment flow to retrieve real access tokens.
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn get_plaid_access_token(&self, user_id: &str) -> FreshCreditResult<Option<String>> {
         info!("Getting Plaid access token for user: {}", user_id);
 
@@ -331,6 +353,9 @@ impl CloudClient {
     ///
     /// ARCHITECTURE: Retrieves the encrypted access token for a specific account.
     /// S2.3: Added for payment flow to retrieve access token by account.
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn get_plaid_access_token_for_account(
         &self,
         account_id: &str,
@@ -362,6 +387,9 @@ impl CloudClient {
     ///
     /// ARCHITECTURE: Used by payment flow to get account details for a specific account.
     /// S2.3: Added for proper account lookup in payment flow.
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn get_account_by_id(
         &self,
         account_id: &str,
@@ -395,8 +423,7 @@ impl CloudClient {
 
             let created_at_str: String = row.get(6).unwrap_or_default();
             let created_at = chrono::DateTime::parse_from_rfc3339(&created_at_str)
-                .map(|dt| dt.with_timezone(&chrono::Utc))
-                .unwrap_or_else(|_| chrono::Utc::now());
+                .map_or_else(|_| chrono::Utc::now(), |dt| dt.with_timezone(&chrono::Utc));
 
             return Ok(Some(freshcredit_types::Account {
                 id: row.get(0).unwrap_or_default(),

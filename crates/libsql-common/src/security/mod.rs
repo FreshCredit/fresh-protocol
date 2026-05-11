@@ -6,6 +6,9 @@
 use std::fmt;
 
 /// Validates that an identifier (table/column name) contains only safe characters
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub fn validate_identifier(ident: &str) -> Result<(), SqlSecurityError> {
     if ident.is_empty() {
         return Err(SqlSecurityError::EmptyIdentifier);
@@ -28,12 +31,18 @@ pub fn validate_identifier(ident: &str) -> Result<(), SqlSecurityError> {
 }
 
 /// Safely formats a table name for use in SQL
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub fn safe_table_name(name: &str) -> Result<String, SqlSecurityError> {
     validate_identifier(name)?;
     Ok(name.to_string())
 }
 
 /// Safely formats a column name for use in SQL
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub fn safe_column_name(name: &str) -> Result<String, SqlSecurityError> {
     validate_identifier(name)?;
     Ok(name.to_string())
@@ -49,12 +58,12 @@ pub enum SqlSecurityError {
 impl fmt::Display for SqlSecurityError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            SqlSecurityError::EmptyIdentifier => write!(f, "Identifier cannot be empty"),
-            SqlSecurityError::InvalidCharacters(s) => {
-                write!(f, "Invalid characters in identifier: {}", s)
+            Self::EmptyIdentifier => write!(f, "Identifier cannot be empty"),
+            Self::InvalidCharacters(s) => {
+                write!(f, "Invalid characters in identifier: {s}")
             }
-            SqlSecurityError::ReservedKeyword(s) => {
-                write!(f, "Reserved keyword used as identifier: {}", s)
+            Self::ReservedKeyword(s) => {
+                write!(f, "Reserved keyword used as identifier: {s}")
             }
         }
     }

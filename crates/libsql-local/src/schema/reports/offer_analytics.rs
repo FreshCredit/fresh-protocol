@@ -2,6 +2,9 @@ use anyhow::Result;
 use libsql::Connection;
 
 /// Initialize offer analytics tables
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_offer_analytics_tables(conn: &Connection) -> Result<()> {
     // Daily offer analytics metrics
     conn.execute(

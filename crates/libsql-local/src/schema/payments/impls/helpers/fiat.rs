@@ -1,8 +1,8 @@
 use anyhow::Result;
 use libsql::Connection;
 
-/// Initialize fiat payment tables: customers, funding_sources, payments,
-/// stripe_plaid_payments, and virtual_accounts.
+/// Initialize fiat payment tables: customers, `funding_sources`, payments,
+/// `stripe_plaid_payments`, and `virtual_accounts`.
 pub async fn create_fiat_tables(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS customers (

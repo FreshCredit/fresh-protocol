@@ -1,4 +1,4 @@
-//! Webhook schema definitions: webhook_events, notifications
+//! Webhook schema definitions: `webhook_events`, notifications
 //!
 //! COMPLIANCE: §10 Unified Database Schema Architecture
 
@@ -9,6 +9,9 @@ use super::try_create_index;
 use tracing::info;
 
 /// Initialize webhook-related tables
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_webhook_tables(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing webhook tables");
     // Create webhook_events table

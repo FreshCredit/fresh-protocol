@@ -15,6 +15,9 @@ use super::try_create_index;
 use tracing::info;
 
 /// Initialize Plaid table indexes
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_plaid_indexes(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing plaid indexes");
     try_create_index(
@@ -83,6 +86,9 @@ pub async fn initialize_plaid_indexes(conn: &Connection) -> Result<()> {
 }
 
 /// Initialize payment table indexes
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_payment_indexes(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing payment indexes");
     try_create_index(
@@ -102,6 +108,9 @@ pub async fn initialize_payment_indexes(conn: &Connection) -> Result<()> {
 }
 
 /// Initialize business logic table indexes
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_business_indexes(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing business indexes");
     try_create_index(
@@ -153,6 +162,9 @@ pub async fn initialize_business_indexes(conn: &Connection) -> Result<()> {
 }
 
 /// Initialize notification and webhook indexes
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_notification_indexes(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing notification indexes");
     try_create_index(
@@ -184,6 +196,9 @@ pub async fn initialize_notification_indexes(conn: &Connection) -> Result<()> {
 }
 
 /// Initialize ticketing system indexes
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_ticketing_indexes(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing ticketing indexes");
     try_create_index(
@@ -228,6 +243,9 @@ pub async fn initialize_ticketing_indexes(conn: &Connection) -> Result<()> {
 }
 
 /// Initialize compliance monitoring indexes
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_compliance_indexes(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing compliance indexes");
     try_create_index(
@@ -269,6 +287,9 @@ pub async fn initialize_compliance_indexes(conn: &Connection) -> Result<()> {
 }
 
 /// Initialize platform table indexes
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_platform_indexes(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing platform indexes");
     try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_data_approval_hashes_user_id ON data_approval_hashes(user_id)").await?;
@@ -304,7 +325,10 @@ pub async fn initialize_platform_indexes(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
-/// Initialize LinkedIn table indexes
+/// Initialize `LinkedIn` table indexes
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_linkedin_indexes(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing linkedin indexes");
     try_create_index(
@@ -318,7 +342,10 @@ pub async fn initialize_linkedin_indexes(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
-/// Initialize HealthKit table indexes
+/// Initialize `HealthKit` table indexes
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_healthkit_indexes(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing healthkit indexes");
     try_create_index(
@@ -343,6 +370,9 @@ pub async fn initialize_healthkit_indexes(conn: &Connection) -> Result<()> {
 }
 
 /// Initialize correlation table indexes
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_correlation_indexes(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing correlation indexes");
     try_create_index(
@@ -366,6 +396,9 @@ pub async fn initialize_correlation_indexes(conn: &Connection) -> Result<()> {
 }
 
 /// Initialize Apple Music table indexes
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_apple_music_indexes(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing apple_music indexes");
     try_create_index(
@@ -382,6 +415,9 @@ pub async fn initialize_apple_music_indexes(conn: &Connection) -> Result<()> {
 }
 
 /// Initialize all indexes
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_all_indexes(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing all indexes");
     initialize_plaid_indexes(conn).await?;

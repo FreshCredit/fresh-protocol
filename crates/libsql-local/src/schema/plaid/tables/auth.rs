@@ -2,6 +2,9 @@ use anyhow::Result;
 use libsql::Connection;
 use tracing::info;
 
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_plaid_auth_tables(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing plaid tables");
     // Create auth table for account authentication data

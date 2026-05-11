@@ -5,7 +5,11 @@ use libsql::Database;
 use std::sync::Arc;
 use std::time::Instant;
 
-use crate::connection::{ConnectionHealth, ConnectionMode, DatabaseConnection};
+use crate::connection::{
+    ConnectionHealth,
+    ConnectionMode,
+    DatabaseConnection,
+};
 
 /// Direct remote connection to Turso
 ///
@@ -43,6 +47,9 @@ impl RemoteConnection {
     }
 
     /// Create a new remote connection with URL and token
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn connect(url: &str, token: &str) -> anyhow::Result<Self> {
         let db = libsql::Builder::new_remote(url.to_string(), token.to_string())
             .build()
@@ -51,6 +58,7 @@ impl RemoteConnection {
     }
 
     /// Get the underlying database (for advanced operations)
+    #[must_use]
     pub fn database(&self) -> Arc<Database> {
         self.db.clone()
     }

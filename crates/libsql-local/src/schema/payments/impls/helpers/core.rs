@@ -143,7 +143,7 @@ pub async fn create_bridge_tables(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
-/// Initialize gateway tables: gateway_sessions and gateway_transactions.
+/// Initialize gateway tables: `gateway_sessions` and `gateway_transactions`.
 pub async fn create_gateway_tables(conn: &Connection) -> Result<()> {
     // Gateway sessions - Circle Gateway fiat on/off ramp sessions (Phase 2B)
     // COMPLIANCE: §1 - Circle Gateway handles fiat custody, not FreshCredit

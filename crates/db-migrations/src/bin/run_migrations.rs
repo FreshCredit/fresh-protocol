@@ -14,110 +14,15 @@ use std::path::PathBuf;
 async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
 
-    let args: Vec<String> = env::args().collect();
-
-    let mut local_path: Option<String> = None;
-    let mut cloud_url: Option<String> = None;
-    let mut auth_token: Option<String> = None;
-    let mut migrations_dir: Option<String> = None;
-    let mut rollback_version: Option<i64> = None;
-    let mut check_only = false;
-
-    let mut i = 1;
-    while i < args.len() {
-        match args[i].as_str() {
-            "--local" => {
-                i += 1;
-                if i < args.len() {
-                    local_path = Some(args[i].clone());
-                }
-            }
-            "--cloud" => {
-                i += 1;
-                if i < args.len() {
-                    cloud_url = Some(args[i].clone());
-                }
-            }
-            "--token" => {
-                i += 1;
-                if i < args.len() {
-                    auth_token = Some(args[i].clone());
-                }
-            }
-            "--migrations" => {
-                i += 1;
-                if i < args.len() {
-                    migrations_dir = Some(args[i].clone());
-                }
-            }
-            "--rollback" => {
-                i += 1;
-                if i < args.len() {
-                    rollback_version = Some(args[i].parse()?);
-                }
-            }
-            "--check" => check_only = true,
-            "--help" | "-h" => {
-                print_help();
-                return Ok(());
-            }
-            _ => {}
-        }
-        i += 1;
-    }
-
-    // Determine migrations directory
-    let mig_dir = if let Some(dir) = migrations_dir {
-        PathBuf::from(dir)
-    } else {
-        // Default: look for migrations/ in current directory or parent
-        let current = env::current_dir()?;
-        if current.join("migrations").exists() {
-            current.join("migrations")
-        } else if current
-            .parent()
-            .map(|p| p.join("migrations").exists())
-            .unwrap_or(false)
-        {
-            // Safe: we just checked parent exists in the condition above
-            current
-                .parent()
-                .expect("parent checked above")
-                .join("migrations")
-        } else {
-            // Check from workspace root
-            let workspace_root = current
-                .ancestors()
-                .find(|p| p.join("Cargo.lock").exists())
-                .map(|p| p.to_path_buf())
-                .unwrap_or(current);
-            workspace_root.join("migrations")
-        }
-    };
-
+    let args = parse_args()?;
+    let mig_dir = find_migrations_dir(args.migrations_dir)?;
     println!("📁 Migrations directory: {mig_dir:?}");
 
-    // Build database connection
-    let conn = if let Some(path) = local_path {
-        println!("📦 Connecting to local database: {path}");
-        let db = libsql::Builder::new_local(&path).build().await?;
-        db.connect()?
-    } else if let Some(url) = cloud_url {
-        let token = auth_token.unwrap_or_else(|| env::var("TURSO_AUTH_TOKEN").unwrap_or_default());
-        println!("☁️  Connecting to cloud database: {url}");
-        let db = libsql::Builder::new_remote(url, token).build().await?;
-        db.connect()?
-    } else {
-        eprintln!("❌ No database specified. Use --local or --cloud");
-        print_help();
-        std::process::exit(1);
-    };
+    let conn = connect_database(args.local_path, args.cloud_url, args.auth_token).await?;
 
-    // Create runner and load migrations
     let mut runner = MigrationRunner::new(conn);
     runner.load_migrations_from_dir(&mig_dir).await?;
 
-    // Check for checksum mismatches
     let mismatches = runner.check_checksum_mismatches().await?;
     if !mismatches.is_empty() {
         eprintln!("⚠️  Checksum mismatches detected:");
@@ -129,23 +34,21 @@ async fn main() -> Result<()> {
                 &current[..8]
             );
         }
-        if check_only {
+        if args.check_only {
             std::process::exit(1);
         }
     }
 
-    if check_only {
+    if args.check_only {
         println!("✅ Migration check complete. No issues found.");
         return Ok(());
     }
 
-    // Handle rollback
-    if let Some(version) = rollback_version {
+    if let Some(version) = args.rollback_version {
         runner.rollback_migration(version).await?;
         return Ok(());
     }
 
-    // Run pending migrations
     let applied = runner.run_pending_migrations().await?;
     if applied.is_empty() {
         println!("✅ No pending migrations. Database is up to date.");
@@ -154,6 +57,123 @@ async fn main() -> Result<()> {
     }
 
     Ok(())
+}
+
+struct MigrationArgs {
+    local_path: Option<String>,
+    cloud_url: Option<String>,
+    auth_token: Option<String>,
+    migrations_dir: Option<String>,
+    rollback_version: Option<i64>,
+    check_only: bool,
+}
+
+fn parse_args() -> Result<MigrationArgs> {
+    let args: Vec<String> = env::args().collect();
+    let mut result = MigrationArgs {
+        local_path: None,
+        cloud_url: None,
+        auth_token: None,
+        migrations_dir: None,
+        rollback_version: None,
+        check_only: false,
+    };
+
+    let mut i = 1;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--local" => {
+                i += 1;
+                if i < args.len() {
+                    result.local_path = Some(args[i].clone());
+                }
+            }
+            "--cloud" => {
+                i += 1;
+                if i < args.len() {
+                    result.cloud_url = Some(args[i].clone());
+                }
+            }
+            "--token" => {
+                i += 1;
+                if i < args.len() {
+                    result.auth_token = Some(args[i].clone());
+                }
+            }
+            "--migrations" => {
+                i += 1;
+                if i < args.len() {
+                    result.migrations_dir = Some(args[i].clone());
+                }
+            }
+            "--rollback" => {
+                i += 1;
+                if i < args.len() {
+                    result.rollback_version = Some(args[i].parse()?);
+                }
+            }
+            "--check" => result.check_only = true,
+            "--help" | "-h" => {
+                print_help();
+                std::process::exit(0);
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+
+    Ok(result)
+}
+
+fn find_migrations_dir(migrations_dir: Option<String>) -> Result<PathBuf> {
+    if let Some(dir) = migrations_dir {
+        return Ok(PathBuf::from(dir));
+    }
+
+    let current = env::current_dir()?;
+    if current.join("migrations").exists() {
+        return Ok(current.join("migrations"));
+    }
+
+    if current
+        .parent()
+        .is_some_and(|p| p.join("migrations").exists())
+    {
+        return Ok(current
+            .parent()
+            .expect("parent checked above")
+            .join("migrations"));
+    }
+
+    let workspace_root = current
+        .ancestors()
+        .find(|p| p.join("Cargo.lock").exists())
+        .map(std::path::Path::to_path_buf)
+        .unwrap_or(current);
+    Ok(workspace_root.join("migrations"))
+}
+
+async fn connect_database(
+    local_path: Option<String>,
+    cloud_url: Option<String>,
+    auth_token: Option<String>,
+) -> Result<libsql::Connection> {
+    if let Some(path) = local_path {
+        println!("📦 Connecting to local database: {path}");
+        let db = libsql::Builder::new_local(&path).build().await?;
+        return Ok(db.connect()?);
+    }
+
+    if let Some(url) = cloud_url {
+        let token = auth_token.unwrap_or_else(|| env::var("TURSO_AUTH_TOKEN").unwrap_or_default());
+        println!("☁️  Connecting to cloud database: {url}");
+        let db = libsql::Builder::new_remote(url, token).build().await?;
+        return Ok(db.connect()?);
+    }
+
+    eprintln!("❌ No database specified. Use --local or --cloud");
+    print_help();
+    std::process::exit(1);
 }
 
 fn print_help() {

@@ -1,16 +1,16 @@
 //! Financial schema definitions: accounts, transactions
 //!
 //! Tables in this module:
-//! - accounts: Linked financial accounts (Plaid integration) + FreshCredit tradelines
+//! - accounts: Linked financial accounts (Plaid integration) + `FreshCredit` tradelines
 //! - transactions: Financial transaction records
 //!
 //! NOTE: balances table is in plaid.rs as it's part of Plaid Balance product
 //!
 //! TRADELINE SUPPORT:
-//! Accounts with account_type = 'loan_tradeline' or 'credit_tradeline' are
+//! Accounts with `account_type` = '`loan_tradeline`' or '`credit_tradeline`' are
 //! FreshCredit-originated tradelines from UCP credit product purchases.
 //! These use the origination_* and apr/term columns for tradeline tracking.
-//! Only products with product_category = 'credit' create tradelines.
+//! Only products with `product_category` = 'credit' create tradelines.
 //!
 //! COMPLIANCE: §10 Unified Database Schema Architecture
 
@@ -24,6 +24,9 @@ use tracing::info;
 ///
 /// Creates 2 tables: accounts, transactions
 /// NOTE: balances is in plaid.rs as part of Plaid Balance product
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_financial_tables(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing financial tables");
     // Create accounts table that matches production schema

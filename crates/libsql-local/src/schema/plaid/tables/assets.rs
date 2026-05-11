@@ -3,6 +3,9 @@ use libsql::Connection;
 use tracing::info;
 
 /// Initialize Plaid assets and balances tables
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_plaid_assets_tables(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing plaid tables");
     conn.execute(

@@ -5,19 +5,19 @@
 //! - identities: Identity data per account
 //! - assets: Asset Reports
 //! - balances: Balance history
-//! - consumer_reports: Consumer Reports (credit data)
+//! - `consumer_reports`: Consumer Reports (credit data)
 //! - employment: Employment verification
 //! - enrich: Transaction enrichment
 //! - income: Bank income
-//! - income_verification: Payroll/employment verification
-//! - investments_holdings, investments_securities, investments_transactions
+//! - `income_verification`: Payroll/employment verification
+//! - `investments_holdings`, `investments_securities`, `investments_transactions`
 //! - layer: Plaid Layer data
 //! - liabilities: Credit cards, mortgages, student loans
 //! - monitor: Plaid Monitor alerts
-//! - recurring_transactions: Recurring payment detection
-//! - signal_evaluations: Signal score evaluations
+//! - `recurring_transactions`: Recurring payment detection
+//! - `signal_evaluations`: Signal score evaluations
 //! - statements: Bank statements
-//! - transactions_sync: Transaction sync cursors
+//! - `transactions_sync`: Transaction sync cursors
 //!
 //! COMPLIANCE: §10 Unified Database Schema Architecture
 
@@ -29,6 +29,9 @@ use libsql::Connection;
 use tracing::info;
 
 /// Initialize all Plaid tables (convenience function)
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_all_plaid_tables(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing plaid tables");
     tables::auth::initialize_plaid_auth_tables(conn).await?;

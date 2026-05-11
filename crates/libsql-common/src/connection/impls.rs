@@ -7,12 +7,12 @@ use super::types::*;
 impl fmt::Display for ConnectionMode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ConnectionMode::DirectRemote => write!(f, "direct-remote"),
+            Self::DirectRemote => write!(f, "direct-remote"),
             #[cfg(feature = "embedded-replica")]
-            ConnectionMode::EmbeddedReplica => write!(f, "embedded-replica"),
-            ConnectionMode::LocalOnly => write!(f, "local-only"),
+            Self::EmbeddedReplica => write!(f, "embedded-replica"),
+            Self::LocalOnly => write!(f, "local-only"),
             #[cfg(feature = "embedded-replica")]
-            ConnectionMode::Adaptive => write!(f, "adaptive"),
+            Self::Adaptive => write!(f, "adaptive"),
         }
     }
 }
@@ -22,14 +22,14 @@ impl std::str::FromStr for ConnectionMode {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
-            "remote" | "direct-remote" => Ok(ConnectionMode::DirectRemote),
-            "local" | "local-only" => Ok(ConnectionMode::LocalOnly),
+            "remote" | "direct-remote" => Ok(Self::DirectRemote),
+            "local" | "local-only" => Ok(Self::LocalOnly),
 
             #[cfg(feature = "embedded-replica")]
-            "replica" | "embedded-replica" => Ok(ConnectionMode::EmbeddedReplica),
+            "replica" | "embedded-replica" => Ok(Self::EmbeddedReplica),
 
             #[cfg(feature = "embedded-replica")]
-            "adaptive" => Ok(ConnectionMode::Adaptive),
+            "adaptive" => Ok(Self::Adaptive),
 
             #[cfg(not(feature = "embedded-replica"))]
             "replica" | "embedded-replica" | "adaptive" => Err(format!(
@@ -47,9 +47,9 @@ impl std::str::FromStr for ConnectionMode {
 impl fmt::Display for ReadConsistency {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ReadConsistency::Eventual => write!(f, "eventual"),
-            ReadConsistency::Strong => write!(f, "strong"),
-            ReadConsistency::Adaptive => write!(f, "adaptive"),
+            Self::Eventual => write!(f, "eventual"),
+            Self::Strong => write!(f, "strong"),
+            Self::Adaptive => write!(f, "adaptive"),
         }
     }
 }
@@ -60,9 +60,9 @@ impl std::str::FromStr for ReadConsistency {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
-            "eventual" => Ok(ReadConsistency::Eventual),
-            "strong" => Ok(ReadConsistency::Strong),
-            "adaptive" => Ok(ReadConsistency::Adaptive),
+            "eventual" => Ok(Self::Eventual),
+            "strong" => Ok(Self::Strong),
+            "adaptive" => Ok(Self::Adaptive),
             _ => Err(format!("Unknown read consistency: {s}")),
         }
     }
@@ -70,7 +70,8 @@ impl std::str::FromStr for ReadConsistency {
 
 impl ConnectionHealth {
     /// Create a healthy status
-    pub fn healthy(mode: ConnectionMode, latency_ms: u64) -> Self {
+    #[must_use]
+    pub const fn healthy(mode: ConnectionMode, latency_ms: u64) -> Self {
         Self {
             mode,
             latency_ms,
@@ -81,7 +82,8 @@ impl ConnectionHealth {
     }
 
     /// Create an unhealthy status
-    pub fn unhealthy(mode: ConnectionMode, latency_ms: u64) -> Self {
+    #[must_use]
+    pub const fn unhealthy(mode: ConnectionMode, latency_ms: u64) -> Self {
         Self {
             mode,
             latency_ms,
@@ -111,6 +113,9 @@ impl Default for ConnectionConfig {
 
 impl ConnectionConfig {
     /// Create configuration from environment variables
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub fn from_env() -> anyhow::Result<Self> {
         use std::env;
 
@@ -168,6 +173,9 @@ impl ConnectionConfig {
     }
 
     /// Validate the configuration
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub fn validate(&self) -> anyhow::Result<()> {
         match self.mode {
             ConnectionMode::DirectRemote => {

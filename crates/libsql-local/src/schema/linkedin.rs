@@ -1,12 +1,12 @@
-//! LinkedIn professional data schema definitions
+//! `LinkedIn` professional data schema definitions
 //!
-//! Contains LinkedIn tables:
-//! - linkedin_profiles: Profile data
-//! - linkedin_experiences: Work experience
-//! - linkedin_education: Education history
-//! - linkedin_skills: Skills and endorsements
-//! - linkedin_certifications: Professional certifications
-//! - linkedin_languages: Language proficiencies
+//! Contains `LinkedIn` tables:
+//! - `linkedin_profiles`: Profile data
+//! - `linkedin_experiences`: Work experience
+//! - `linkedin_education`: Education history
+//! - `linkedin_skills`: Skills and endorsements
+//! - `linkedin_certifications`: Professional certifications
+//! - `linkedin_languages`: Language proficiencies
 //!
 //! COMPLIANCE: §10 Unified Database Schema Architecture
 
@@ -14,7 +14,10 @@ use anyhow::Result;
 use libsql::Connection;
 use tracing::info;
 
-/// Initialize LinkedIn tables
+/// Initialize `LinkedIn` tables
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_linkedin_tables(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing linkedin tables");
     conn.execute(

@@ -2,6 +2,9 @@ use anyhow::Result;
 use libsql::Connection;
 
 /// Initialize Plaid investments tables
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_plaid_investments_tables(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS investments_holdings (

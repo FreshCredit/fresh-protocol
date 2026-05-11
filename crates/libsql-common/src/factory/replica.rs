@@ -27,6 +27,9 @@ impl super::ConnectionFactory {
     ///
     /// This method requires the `embedded-replica` feature to be enabled.
     #[cfg(feature = "embedded-replica")]
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn create_replica(
         config: &ConnectionConfig,
     ) -> anyhow::Result<Arc<dyn DatabaseConnection>> {
@@ -52,6 +55,9 @@ impl super::ConnectionFactory {
     ///
     /// This method requires the `embedded-replica` feature to be enabled.
     #[cfg(feature = "embedded-replica")]
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn create_replica_with_params(
         local_path: impl AsRef<std::path::Path>,
         remote_url: &str,

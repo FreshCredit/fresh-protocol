@@ -1,14 +1,14 @@
 //! UCP (Universal Commerce Protocol) schema definitions
 //!
 //! Contains UCP-related tables:
-//! - ucp_checkout_sessions: Checkout session lifecycle
-//! - ucp_orders: Completed orders from checkout sessions
-//! - ucp_identity_links: OAuth 2.0 identity linking
-//! - ucp_merchants: Verified merchant directory for UCP discovery
-//! - user_offer_engagements: User journey tracking from offer view to tradeline
+//! - `ucp_checkout_sessions`: Checkout session lifecycle
+//! - `ucp_orders`: Completed orders from checkout sessions
+//! - `ucp_identity_links`: OAuth 2.0 identity linking
+//! - `ucp_merchants`: Verified merchant directory for UCP discovery
+//! - `user_offer_engagements`: User journey tracking from offer view to tradeline
 //!
 //! COMPLIANCE: §10 Unified Database Schema Architecture
-//! COMPLIANCE: AGENT-004 - All queries include user_id filter
+//! COMPLIANCE: AGENT-004 - All queries include `user_id` filter
 
 use anyhow::Result;
 use libsql::Connection;
@@ -17,6 +17,9 @@ use super::try_create_index;
 use tracing::info;
 
 /// Initialize all UCP tables
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_ucp_tables(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing ucp tables");
     // UCP Checkout Sessions

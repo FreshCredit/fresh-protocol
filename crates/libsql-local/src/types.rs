@@ -4,12 +4,12 @@
 //! Extracted from lib.rs as part of modular refactoring.
 //!
 //! Type categories:
-//! - Core types: UserProfile, UserPreferences, SchemaValidationResult
-//! - File types: UploadedFile, SaveUploadedFileParams
-//! - AI types: AiConversation, AiMessage
-//! - Scoring types: ScoringModelRecord (provider-defined, not FreshCredit-owned)
-//! - Workflow types: WorkflowRecord
-//! - Webhook types: WebhookEvent, WebhookEventCounts
+//! - Core types: `UserProfile`, `UserPreferences`, `SchemaValidationResult`
+//! - File types: `UploadedFile`, `SaveUploadedFileParams`
+//! - AI types: `AiConversation`, `AiMessage`
+//! - Scoring types: `ScoringModelRecord` (provider-defined, not FreshCredit-owned)
+//! - Workflow types: `WorkflowRecord`
+//! - Webhook types: `WebhookEvent`, `WebhookEventCounts`
 //!
 //! # Examples
 //!
@@ -57,7 +57,10 @@
 //! };
 //! ```
 
-use serde::{Deserialize, Serialize};
+use serde::{
+    Deserialize,
+    Serialize,
+};
 
 // ============================================================================
 // Core User Types
@@ -65,10 +68,10 @@ use serde::{Deserialize, Serialize};
 
 /// User profile for database storage (unified schema)
 /// Combines Entra ID claims with extended profile and Verified ID fields
-/// P0p: Added is_admin for first provider user admin rule (§27.4)
-/// P0g: Added provider_onboarding_complete for nav visibility (§28.1)
-/// ARCH-P2-001: Added phone_number, preferred_name, emergency_contact_name,
-///              emergency_contact_phone, employer_name for web schema alignment
+/// P0p: Added `is_admin` for first provider user admin rule (§27.4)
+/// P0g: Added `provider_onboarding_complete` for nav visibility (§28.1)
+/// ARCH-P2-001: Added `phone_number`, `preferred_name`, `emergency_contact_name`,
+///              `emergency_contact_phone`, `employer_name` for web schema alignment
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserProfile {
     pub id: String,
@@ -91,7 +94,7 @@ pub struct UserProfile {
     pub employment_status: Option<String>,
     pub annual_income: Option<i32>,
     // ARCH-P2-001: Extended profile fields for web schema alignment
-    /// Alternative phone number (separate from mobile_phone)
+    /// Alternative phone number (separate from `mobile_phone`)
     pub phone_number: Option<String>,
     /// User's preferred display name (nickname)
     pub preferred_name: Option<String>,
@@ -193,7 +196,7 @@ pub struct UploadedFile {
 
 /// Parameters for saving an uploaded file
 ///
-/// Consolidates function arguments to avoid clippy::too_many_arguments
+/// Consolidates function arguments to avoid `clippy::too_many_arguments`
 #[derive(Debug, Clone)]
 pub struct SaveUploadedFileParams<'a> {
     pub user_id: &'a str,
@@ -239,7 +242,7 @@ pub struct AiMessage {
 // ============================================================================
 
 /// Provider-defined scoring model record
-/// COMPLIANCE: §3 - Scoring logic is owned and defined by the provider, not FreshCredit
+/// COMPLIANCE: §3 - Scoring logic is owned and defined by the provider, not `FreshCredit`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScoringModelRecord {
     pub id: String,
@@ -300,6 +303,7 @@ pub struct WebhookEvent {
 
 impl WebhookEvent {
     /// Create a new pending webhook event
+    #[must_use]
     pub fn new_pending(
         provider: &str,
         event_type: &str,
@@ -333,7 +337,8 @@ pub struct WebhookEventCounts {
 }
 
 impl WebhookEventCounts {
-    pub fn total(&self) -> u64 {
+    #[must_use]
+    pub const fn total(&self) -> u64 {
         self.pending + self.processing + self.processed + self.failed + self.dead_letter
     }
 }

@@ -1,12 +1,12 @@
 //! Apple Music schema definitions
 //!
 //! Contains Apple Music tables:
-//! - apple_music_profiles: User's Apple Music profile
-//! - apple_music_library_songs: Library songs
-//! - apple_music_library_albums: Library albums
-//! - apple_music_playlists: Playlists
-//! - apple_music_recently_played: Listening history
-//! - apple_music_genre_stats: Aggregated genre statistics
+//! - `apple_music_profiles`: User's Apple Music profile
+//! - `apple_music_library_songs`: Library songs
+//! - `apple_music_library_albums`: Library albums
+//! - `apple_music_playlists`: Playlists
+//! - `apple_music_recently_played`: Listening history
+//! - `apple_music_genre_stats`: Aggregated genre statistics
 //!
 //! COMPLIANCE: §10 Unified Database Schema Architecture
 
@@ -15,6 +15,9 @@ use libsql::Connection;
 use tracing::info;
 
 /// Initialize Apple Music tables
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_apple_music_tables(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing apple_music tables");
     conn.execute(

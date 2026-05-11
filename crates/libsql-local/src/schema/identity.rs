@@ -1,8 +1,8 @@
-//! Identity schema definitions: identity_verification, verified_credentials
+//! Identity schema definitions: `identity_verification`, `verified_credentials`
 //!
 //! COMPLIANCE: §10 Unified Database Schema Architecture
-//! - identity_verification (singular) is used for Plaid IDV (NOT identity_verifications plural)
-//! - verified_credentials stores Entra Verified ID / KILT DID credentials
+//! - `identity_verification` (singular) is used for Plaid IDV (NOT `identity_verifications` plural)
+//! - `verified_credentials` stores Entra Verified ID / KILT DID credentials
 
 use anyhow::Result;
 use libsql::Connection;
@@ -11,6 +11,9 @@ use super::try_create_index;
 use tracing::info;
 
 /// Initialize identity-related tables
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_identity_tables(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing identity tables");
     // Create identity_verification table for Plaid IDV (singular)

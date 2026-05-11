@@ -1,35 +1,42 @@
 //! Agent schema tables
 //!
 //! Tables (Active):
-//! - agent_bindings: User-agent identity binding (user-owned)
-//! - agent_memories: User-designated facts (user-owned)
-//! - agentfs_kv_store: Agent state key-value store (agent-owned)
-//! - agentfs_tool_calls: Append-only tool call audit trail (agent-owned)
+//! - `agent_bindings`: User-agent identity binding (user-owned)
+//! - `agent_memories`: User-designated facts (user-owned)
+//! - `agentfs_kv_store`: Agent state key-value store (agent-owned)
+//! - `agentfs_tool_calls`: Append-only tool call audit trail (agent-owned)
 //!
 //! Tables (DEPRECATED - Phase 9.1 Consolidation):
-//! - agent_interactions: DEPRECATED - replaced by agentfs_tool_calls
-//! - agent_audit_events: DEPRECATED - replaced by agentfs_tool_calls
+//! - `agent_interactions`: DEPRECATED - replaced by `agentfs_tool_calls`
+//! - `agent_audit_events`: DEPRECATED - replaced by `agentfs_tool_calls`
 //!
-//! AgentFS Integration (Phase 9.1):
-//! - agentfs_kv_store: Key-value store for agent state (context cache, reasoning snapshots)
-//! - agentfs_tool_calls: Append-only audit trail for tool calls
+//! `AgentFS` Integration (Phase 9.1):
+//! - `agentfs_kv_store`: Key-value store for agent state (context cache, reasoning snapshots)
+//! - `agentfs_tool_calls`: Append-only audit trail for tool calls
 //!
 //! Phase 9 Columns (Enterprise Identity - PR-P0-3):
-//! - entra_object_id: Entra service principal object ID
-//! - verified_credential_did: Decentralized Identifier from verified credential
-//! - last_verified_at: Last identity verification timestamp
-//! - identity_verified: Whether identity has been verified (0/1)
+//! - `entra_object_id`: Entra service principal object ID
+//! - `verified_credential_did`: Decentralized Identifier from verified credential
+//! - `last_verified_at`: Last identity verification timestamp
+//! - `identity_verified`: Whether identity has been verified (0/1)
 //!
 //! COMPLIANCE:
-//! - AGENT-003: agentfs_tool_calls is append-only (INSERT only)
-//! - AGENT-004: All tables include user_id with mandatory filter
+//! - AGENT-003: `agentfs_tool_calls` is append-only (INSERT only)
+//! - AGENT-004: All tables include `user_id` with mandatory filter
 //! - AGENT-005: Tool calls store names/categories only, not message content
 
 use anyhow::Result;
 use libsql::Connection;
-use tracing::{debug, info, warn};
+use tracing::{
+    debug,
+    info,
+    warn,
+};
 
 /// Initialize agent tables
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_agent_tables(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing agent tables");
     // =========================================================================
@@ -197,6 +204,9 @@ pub async fn initialize_agent_tables(conn: &Connection) -> Result<()> {
 }
 
 /// Initialize agent indexes
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_agent_indexes(conn: &Connection) -> Result<()> {
     // Active table indexes
     conn.execute(
@@ -240,10 +250,13 @@ pub async fn initialize_agent_indexes(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
-/// PR-P0-3: Validate agent_bindings schema has Phase 9 columns
+/// PR-P0-3: Validate `agent_bindings` schema has Phase 9 columns
 ///
 /// Logs schema validation results at startup to help diagnose issues.
 /// This is non-blocking - missing columns are logged as warnings but don't fail startup.
+/// # Errors
+///
+/// Returns an error if the operation fails.
 async fn validate_agent_bindings_schema(conn: &Connection) {
     debug!("Validating agent_bindings schema (Phase 9 columns)");
 
@@ -299,10 +312,13 @@ async fn validate_agent_bindings_schema(conn: &Connection) {
     }
 }
 
-/// PR-P0-3: Public function to check if agent_bindings schema is valid
+/// PR-P0-3: Public function to check if `agent_bindings` schema is valid
 ///
 /// Returns Ok(true) if all Phase 9 columns are present, Ok(false) if some are missing,
 /// or Err if the table doesn't exist or query fails.
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn check_agent_bindings_schema(conn: &Connection) -> Result<bool> {
     let mut rows = conn.query("PRAGMA table_info(agent_bindings)", ()).await?;
 
@@ -322,6 +338,6 @@ pub async fn check_agent_bindings_schema(conn: &Connection) -> Result<bool> {
 
     let all_present = phase9_columns
         .iter()
-        .all(|col| columns.contains(&col.to_string()));
+        .all(|col| columns.contains(&(*col).to_string()));
     Ok(all_present)
 }

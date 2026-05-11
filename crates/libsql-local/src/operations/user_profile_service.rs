@@ -1,10 +1,10 @@
 //! User Profile Service Abstraction
 //!
-//! This module provides the UserProfileService trait that encapsulates
+//! This module provides the `UserProfileService` trait that encapsulates
 //! all user profile database operations, ensuring proper abstraction
 //! from direct SQL queries.
 //!
-//! COMPLIANCE: DB-010 - Use UserProfileService methods instead of direct queries
+//! COMPLIANCE: DB-010 - Use `UserProfileService` methods instead of direct queries
 
 use anyhow::Result;
 use async_trait::async_trait;
@@ -31,7 +31,7 @@ pub trait UserProfileService {
     async fn exists(&self, platform_user_id: &str) -> Result<bool>;
 }
 
-/// Implementation of UserProfileService for LocalClient
+/// Implementation of `UserProfileService` for `LocalClient`
 ///
 /// This implementation uses prepared statements and proper parameter binding
 /// to ensure security and performance.
@@ -58,10 +58,10 @@ impl UserProfileService for LocalClient {
     }
 }
 
-/// Internal implementation methods for LocalClient
+/// Internal implementation methods for `LocalClient`
 ///
 /// These methods contain the actual SQL queries and are marked as internal
-/// to discourage direct usage outside the UserProfileService trait.
+/// to discourage direct usage outside the `UserProfileService` trait.
 impl LocalClient {
     /// Internal: Store user profile
     pub(crate) async fn store_user_profile_internal(&self, profile: &UserProfile) -> Result<()> {

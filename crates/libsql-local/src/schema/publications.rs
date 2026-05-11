@@ -1,17 +1,17 @@
 //! Publications schema definitions
 //!
 //! Contains publication-related tables for academic/research publications:
-//! - publication_records: Canonical publication snapshots from public registries (ORCID, OpenAlex)
-//! - publication_claims: User-asserted claims binding records to their identity
-//! - publication_evidence: Supporting evidence for verification level upgrades
-//! - publication_events: Audit log for all claim state transitions
-//! - publication_disputes: User disputes for false matches or corrections
-//! - orcid_connections: ORCID identity anchoring for users
+//! - `publication_records`: Canonical publication snapshots from public registries (ORCID, `OpenAlex`)
+//! - `publication_claims`: User-asserted claims binding records to their identity
+//! - `publication_evidence`: Supporting evidence for verification level upgrades
+//! - `publication_events`: Audit log for all claim state transitions
+//! - `publication_disputes`: User disputes for false matches or corrections
+//! - `orcid_connections`: ORCID identity anchoring for users
 //!
 //! DATA TAXONOMY: User-Claimed Public Attribution
-//! - Underlying records are public (ORCID, OpenAlex, Crossref)
+//! - Underlying records are public (ORCID, `OpenAlex`, Crossref)
 //! - Binding to user is user-asserted, user-controlled, revocable
-//! - FreshCredit does not assert underlying facts, only stores user's claim
+//! - `FreshCredit` does not assert underlying facts, only stores user's claim
 //!
 //! COMPLIANCE: §10 Unified Database Schema Architecture
 //! COMPLIANCE: §6 data staging approval only, not credit decisioning
@@ -23,6 +23,9 @@ use super::try_create_index;
 use tracing::info;
 
 /// Initialize publication records table (canonical snapshots from public registries)
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_publication_records_table(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing publications tables");
     conn.execute(
@@ -72,6 +75,9 @@ pub async fn initialize_publication_records_table(conn: &Connection) -> Result<(
 }
 
 /// Initialize publication claims table (user-asserted bindings)
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_publication_claims_table(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing publications tables");
     conn.execute(
@@ -115,6 +121,9 @@ pub async fn initialize_publication_claims_table(conn: &Connection) -> Result<()
 }
 
 /// Initialize ORCID connections table (identity anchoring)
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_orcid_connections_table(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing publications tables");
     conn.execute(
@@ -154,6 +163,9 @@ pub async fn initialize_orcid_connections_table(conn: &Connection) -> Result<()>
 }
 
 /// Initialize publication evidence table (supporting documents for verification)
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_publication_evidence_table(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS publication_evidence (
@@ -180,6 +192,9 @@ pub async fn initialize_publication_evidence_table(conn: &Connection) -> Result<
 }
 
 /// Initialize publication events table (audit log)
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_publication_events_table(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS publication_events (
@@ -204,6 +219,9 @@ pub async fn initialize_publication_events_table(conn: &Connection) -> Result<()
 }
 
 /// Initialize publication disputes table
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_publication_disputes_table(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS publication_disputes (
@@ -227,6 +245,9 @@ pub async fn initialize_publication_disputes_table(conn: &Connection) -> Result<
 }
 
 /// Initialize publication shares table (provider consent for accessing publications)
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_publication_shares_table(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS publication_shares (
@@ -269,13 +290,16 @@ pub async fn initialize_publication_shares_table(conn: &Connection) -> Result<()
 /// Initialize all publication tables
 ///
 /// Table count: 7 tables
-/// - publication_records: Canonical snapshots from public registries (ORCID, OpenAlex)
-/// - publication_claims: User-asserted bindings
-/// - publication_evidence: Supporting documents
-/// - publication_events: Audit log
-/// - publication_disputes: User disputes
-/// - orcid_connections: ORCID identity anchoring
-/// - publication_shares: Provider consent for accessing publications
+/// - `publication_records`: Canonical snapshots from public registries (ORCID, `OpenAlex`)
+/// - `publication_claims`: User-asserted bindings
+/// - `publication_evidence`: Supporting documents
+/// - `publication_events`: Audit log
+/// - `publication_disputes`: User disputes
+/// - `orcid_connections`: ORCID identity anchoring
+/// - `publication_shares`: Provider consent for accessing publications
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_publication_tables(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing publications tables");
     initialize_publication_records_table(conn).await?;

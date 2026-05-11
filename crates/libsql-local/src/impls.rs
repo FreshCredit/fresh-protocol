@@ -1,7 +1,7 @@
 use anyhow::Result;
 use tracing::info;
 
-/// Local LibSQL database client
+/// Local `LibSQL` database client
 pub struct LocalClient {
     pub(crate) connection: libsql::Connection,
 }
@@ -9,6 +9,9 @@ pub struct LocalClient {
 impl LocalClient {
     /// Create a new local client
     #[must_use = "this returns a Result that should be handled"]
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn new(database_path: &str) -> Result<Self> {
         info!("Creating local LibSQL client at: {}", database_path);
 
@@ -24,6 +27,9 @@ impl LocalClient {
     /// Available in test builds and when `test-utils` feature is enabled.
     #[cfg(any(test, feature = "test-utils"))]
     #[must_use = "this returns a Result that should be handled"]
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn new_in_memory() -> Result<Self> {
         let db = libsql::Builder::new_local(":memory:").build().await?;
         let connection = db.connect()?;
@@ -31,7 +37,11 @@ impl LocalClient {
     }
 
     /// Get access to the underlying connection for direct queries
-    pub fn connection(&self) -> &libsql::Connection {
+    #[must_use]
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
+    pub const fn connection(&self) -> &libsql::Connection {
         &self.connection
     }
 
@@ -40,9 +50,12 @@ impl LocalClient {
     /// This function delegates to the schema module for table creation.
     /// All table definitions are in `schema/` submodules for maintainability.
     ///
-    /// HARDCODED_SCHEMA: 117 tables total across all modules (verified 2026-01-15)
+    /// `HARDCODED_SCHEMA`: 117 tables total across all modules (verified 2026-01-15)
     /// See `schema/mod.rs` for the complete table inventory.
     #[must_use = "this returns a Result that should be handled"]
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn initialize_schema(&self) -> Result<()> {
         info!("Initializing local database schema with modular schema definitions");
 
@@ -57,6 +70,9 @@ impl LocalClient {
 
     /// Execute a raw SQL query and return rows
     #[must_use = "this returns a Result that should be handled"]
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn query(&self, sql: &str, params: Vec<libsql::Value>) -> Result<libsql::Rows> {
         self.connection
             .query(sql, params)
@@ -66,6 +82,9 @@ impl LocalClient {
 
     /// Execute a raw SQL statement and return affected rows count
     #[must_use = "this returns a Result that should be handled"]
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn execute(&self, sql: &str, params: Vec<libsql::Value>) -> Result<u64> {
         self.connection
             .execute(sql, params)

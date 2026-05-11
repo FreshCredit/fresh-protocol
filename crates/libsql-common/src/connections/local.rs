@@ -6,12 +6,16 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::Instant;
 
-use crate::connection::{ConnectionHealth, ConnectionMode, DatabaseConnection};
+use crate::connection::{
+    ConnectionHealth,
+    ConnectionMode,
+    DatabaseConnection,
+};
 
-/// Local-only SQLite connection
+/// Local-only `SQLite` connection
 ///
 /// This connection type provides:
-/// - Pure local SQLite database (no remote sync)
+/// - Pure local `SQLite` database (no remote sync)
 /// - Lowest latency (no network overhead)
 /// - No cloud dependency
 ///
@@ -39,18 +43,25 @@ impl LocalConnection {
     }
 
     /// Create a new local connection with path
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn connect(path: impl AsRef<Path>) -> anyhow::Result<Self> {
         let db = libsql::Builder::new_local(path.as_ref()).build().await?;
         Ok(Self::new(db))
     }
 
     /// Create a new in-memory connection
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn in_memory() -> anyhow::Result<Self> {
         let db = libsql::Builder::new_local(":memory:").build().await?;
         Ok(Self::new(db))
     }
 
     /// Get the underlying database (for advanced operations)
+    #[must_use]
     pub fn database(&self) -> Arc<Database> {
         self.db.clone()
     }

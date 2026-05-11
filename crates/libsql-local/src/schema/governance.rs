@@ -1,12 +1,12 @@
 //! Governance system schema definitions
 //!
 //! Contains governance tables:
-//! - governance_proposals: Governance proposals for voting
-//! - governance_votes: Individual votes on proposals
-//! - governance_delegations: Voting power delegations
-//! - governance_treasury: Treasury balance and allocations
-//! - governance_treasury_transactions: Treasury transaction history
-//! - governance_stewards: Platform stewards with approval authority
+//! - `governance_proposals`: Governance proposals for voting
+//! - `governance_votes`: Individual votes on proposals
+//! - `governance_delegations`: Voting power delegations
+//! - `governance_treasury`: Treasury balance and allocations
+//! - `governance_treasury_transactions`: Treasury transaction history
+//! - `governance_stewards`: Platform stewards with approval authority
 //!
 //! COMPLIANCE: §7 Terminology and Copy Enforcement - Uses neutral governance terminology
 //! COMPLIANCE: §10 Unified Database Schema Architecture
@@ -16,6 +16,9 @@ use libsql::Connection;
 use tracing::info;
 
 /// Initialize governance system tables
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_governance_tables(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing governance tables");
     // Governance proposals table
@@ -142,6 +145,9 @@ pub async fn initialize_governance_tables(conn: &Connection) -> Result<()> {
 }
 
 /// Initialize governance indexes
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_governance_indexes(conn: &Connection) -> Result<()> {
     use super::try_create_index;
 

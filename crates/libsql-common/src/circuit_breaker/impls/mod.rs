@@ -9,9 +9,9 @@ pub use core::CircuitBreakerConnection;
 impl fmt::Display for CircuitBreakerState {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            CircuitBreakerState::Closed => write!(f, "closed"),
-            CircuitBreakerState::Open => write!(f, "open"),
-            CircuitBreakerState::HalfOpen => write!(f, "half-open"),
+            Self::Closed => write!(f, "closed"),
+            Self::Open => write!(f, "open"),
+            Self::HalfOpen => write!(f, "half-open"),
         }
     }
 }
@@ -42,6 +42,7 @@ impl Default for CircuitBreakerConfig {
 
 impl CircuitBreakerConfig {
     /// Create configuration from environment variables
+    #[must_use]
     pub fn from_env() -> Self {
         use std::env;
 

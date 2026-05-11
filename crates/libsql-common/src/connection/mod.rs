@@ -3,7 +3,7 @@
 //! This module provides a trait-based abstraction over different libSQL connection modes:
 //! - Direct remote (HTTP to Turso)
 //! - Embedded replica (local + background sync)
-//! - Local only (file-based SQLite)
+//! - Local only (file-based `SQLite`)
 //!
 //! # Example
 //!

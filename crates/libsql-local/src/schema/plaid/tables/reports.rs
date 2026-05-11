@@ -3,6 +3,9 @@ use libsql::Connection;
 use tracing::info;
 
 /// Initialize Plaid consumer reports and employment tables
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_plaid_reports_tables(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing plaid tables");
     conn.execute(

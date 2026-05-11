@@ -1,16 +1,20 @@
 //! Workflow and Scoring Model database operations
 //!
-//! BlockID Workflows and BlockScore Models:
+//! `BlockID` Workflows and `BlockScore` Models:
 //! - Workflow operations (save, get, delete, publish)
 //! - Scoring model operations (provider-defined models)
 //!
-//! COMPLIANCE: §3 - Scoring logic is owned and defined by the provider, not FreshCredit
+//! COMPLIANCE: §3 - Scoring logic is owned and defined by the provider, not `FreshCredit`
 //! COMPLIANCE: §4 workflow templates require provider customization
 
 use anyhow::Result;
 use tracing::info;
 
-use crate::{LocalClient, ScoringModelRecord, WorkflowRecord};
+use crate::{
+    LocalClient,
+    ScoringModelRecord,
+    WorkflowRecord,
+};
 
 impl LocalClient {
     // ========================================================================
@@ -19,6 +23,9 @@ impl LocalClient {
     // ========================================================================
 
     /// Save a provider-defined scoring model
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn save_scoring_model(&self, model: &ScoringModelRecord) -> Result<()> {
         info!(
             "Saving scoring model: {} for provider: {}",
@@ -54,6 +61,9 @@ impl LocalClient {
 
     /// Get scoring models for a provider
     /// P0-PERF: Limited to 1000 models to prevent memory exhaustion
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn get_scoring_models(&self, provider_id: &str) -> Result<Vec<ScoringModelRecord>> {
         info!("Getting scoring models for provider: {}", provider_id);
 
@@ -89,6 +99,9 @@ impl LocalClient {
     }
 
     /// Get a specific scoring model by ID
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn get_scoring_model(&self, model_id: &str) -> Result<Option<ScoringModelRecord>> {
         info!("Getting scoring model: {}", model_id);
 
@@ -123,6 +136,9 @@ impl LocalClient {
     }
 
     /// Delete a scoring model
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn delete_scoring_model(&self, model_id: &str) -> Result<bool> {
         info!("Deleting scoring model: {}", model_id);
 
@@ -139,6 +155,9 @@ impl LocalClient {
     // ========================================================================
 
     /// Save a workflow (flow builder)
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn save_workflow(&self, workflow: &WorkflowRecord) -> Result<()> {
         info!(
             "Saving workflow: {} for user: {}",
@@ -177,6 +196,9 @@ impl LocalClient {
     }
 
     /// Get all workflows for a user
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn get_workflows(&self, user_id: &str) -> Result<Vec<WorkflowRecord>> {
         info!("Getting workflows for user: {}", user_id);
 
@@ -216,6 +238,9 @@ impl LocalClient {
     }
 
     /// Get a specific workflow by ID
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn get_workflow(&self, workflow_id: &str) -> Result<Option<WorkflowRecord>> {
         info!("Getting workflow: {}", workflow_id);
 
@@ -254,6 +279,9 @@ impl LocalClient {
     }
 
     /// Delete a workflow
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn delete_workflow(&self, workflow_id: &str) -> Result<bool> {
         info!("Deleting workflow: {}", workflow_id);
 
@@ -268,7 +296,10 @@ impl LocalClient {
         Ok(affected > 0)
     }
 
-    /// Publish a workflow (set status to published and is_active to true)
+    /// Publish a workflow (set status to published and `is_active` to true)
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn publish_workflow(&self, workflow_id: &str) -> Result<bool> {
         info!("Publishing workflow: {}", workflow_id);
 

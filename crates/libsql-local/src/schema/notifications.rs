@@ -1,7 +1,7 @@
 //! Notifications and webhook schema definitions
 //!
 //! Contains notification tables:
-//! - webhook_events: Outbox pattern for webhook events
+//! - `webhook_events`: Outbox pattern for webhook events
 //! - notifications: In-app notifications
 //!
 //! COMPLIANCE: §10 Unified Database Schema Architecture
@@ -11,6 +11,9 @@ use libsql::Connection;
 use tracing::info;
 
 /// Initialize webhook and notification tables
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_notification_tables(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing notifications tables");
     conn.execute(

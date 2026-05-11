@@ -1,16 +1,16 @@
 //! Intellectual Property schema definitions
 //!
 //! Contains IP-related tables for patent, trademark, and copyright claims:
-//! - ip_records: Canonical IP record snapshots from public registries
-//! - ip_claims: User-asserted claims binding records to their identity
-//! - ip_evidence: Supporting evidence for verification level upgrades
-//! - ip_events: Audit log for all claim state transitions
-//! - ip_disputes: User disputes for false matches or corrections
+//! - `ip_records`: Canonical IP record snapshots from public registries
+//! - `ip_claims`: User-asserted claims binding records to their identity
+//! - `ip_evidence`: Supporting evidence for verification level upgrades
+//! - `ip_events`: Audit log for all claim state transitions
+//! - `ip_disputes`: User disputes for false matches or corrections
 //!
 //! DATA TAXONOMY: User-Claimed Public Attribution
 //! - Underlying records are public (USPTO, Copyright Office)
 //! - Binding to user is user-asserted, user-controlled, revocable
-//! - FreshCredit does not assert underlying facts, only stores user's claim
+//! - `FreshCredit` does not assert underlying facts, only stores user's claim
 //!
 //! COMPLIANCE: §10 Unified Database Schema Architecture
 //! COMPLIANCE: §6 data staging approval only, not credit decisioning
@@ -22,6 +22,9 @@ use super::try_create_index;
 use tracing::info;
 
 /// Initialize IP records table (canonical snapshots from public registries)
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_ip_records_table(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS ip_records (
@@ -59,6 +62,9 @@ pub async fn initialize_ip_records_table(conn: &Connection) -> Result<()> {
 }
 
 /// Initialize IP claims table (user-asserted bindings)
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_ip_claims_table(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS ip_claims (
@@ -97,6 +103,9 @@ pub async fn initialize_ip_claims_table(conn: &Connection) -> Result<()> {
 }
 
 /// Initialize IP evidence table (supporting documents for verification)
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_ip_evidence_table(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS ip_evidence (
@@ -124,6 +133,9 @@ pub async fn initialize_ip_evidence_table(conn: &Connection) -> Result<()> {
 }
 
 /// Initialize IP events table (audit log)
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_ip_events_table(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS ip_events (
@@ -154,6 +166,9 @@ pub async fn initialize_ip_events_table(conn: &Connection) -> Result<()> {
 }
 
 /// Initialize IP disputes table
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_ip_disputes_table(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS ip_disputes (
@@ -177,11 +192,14 @@ pub async fn initialize_ip_disputes_table(conn: &Connection) -> Result<()> {
 /// Initialize all IP tables
 ///
 /// Table count: 5 tables
-/// - ip_records: Canonical snapshots from public registries
-/// - ip_claims: User-asserted bindings
-/// - ip_evidence: Supporting documents
-/// - ip_events: Audit log
-/// - ip_disputes: User disputes
+/// - `ip_records`: Canonical snapshots from public registries
+/// - `ip_claims`: User-asserted bindings
+/// - `ip_evidence`: Supporting documents
+/// - `ip_events`: Audit log
+/// - `ip_disputes`: User disputes
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_ip_tables(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing ip tables");
     initialize_ip_records_table(conn).await?;

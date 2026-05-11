@@ -1,9 +1,9 @@
 //! Teams schema definitions
 //!
 //! Contains provider team management tables:
-//! - provider_teams: Team definitions for each provider
-//! - team_members: Team membership with roles
-//! - team_invites: Pending invitations to join teams
+//! - `provider_teams`: Team definitions for each provider
+//! - `team_members`: Team membership with roles
+//! - `team_invites`: Pending invitations to join teams
 //!
 //! COMPLIANCE: §10 Unified Database Schema Architecture
 //! COMPLIANCE: §27.4 Provider Admin Rules - First user is admin
@@ -13,6 +13,9 @@ use libsql::Connection;
 use tracing::info;
 
 /// Initialize teams tables
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_teams_tables(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing teams tables");
     // Provider teams - each provider can have multiple teams
@@ -81,6 +84,9 @@ pub async fn initialize_teams_tables(conn: &Connection) -> Result<()> {
 }
 
 /// Initialize teams indexes
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_teams_indexes(conn: &Connection) -> Result<()> {
     use super::try_create_index;
 

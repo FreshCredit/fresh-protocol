@@ -1,25 +1,36 @@
-//! Cloud LibSQL (Turso) database operations for FreshCredit
+//! Cloud `LibSQL` (Turso) database operations for `FreshCredit`
 //!
-//! // HARDCODED_SCHEMA: 105 tables in unified_schema.sql (104 Rust + 1 browser-specific blockchain_proofs) (verified 2026-01-05)
-//! Uses the unified 105-table schema from migrations/unified_schema.sql.
+//! // `HARDCODED_SCHEMA`: 105 tables in `unified_schema.sql` (104 Rust + 1 browser-specific `blockchain_proofs`) (verified 2026-01-05)
+//! Uses the unified 105-table schema from `migrations/unified_schema.sql`.
 //! Cloud databases are per-user Turso instances with identical schema to local.
 
+#![allow(clippy::wildcard_imports)]
+
 use anyhow::Result;
-use freshcredit_types::{Account, FinancialReport, FreshCreditResult, Transaction, UserId};
+use freshcredit_types::{
+    Account,
+    FinancialReport,
+    FreshCreditResult,
+    Transaction,
+    UserId,
+};
 use tracing::info;
 
 /// Unified schema SQL embedded at compile time
-/// // HARDCODED_SCHEMA: 105 tables (verified 2026-01-05)
-/// Source: migrations/unified_schema.sql
+/// // `HARDCODED_SCHEMA`: 105 tables (verified 2026-01-05)
+/// Source: `migrations/unified_schema.sql`
 const UNIFIED_SCHEMA_SQL: &str = include_str!("../../../../../migrations/unified_schema.sql");
 
-/// Cloud LibSQL database client for Turso
+/// Cloud `LibSQL` database client for Turso
 pub struct CloudClient {
     connection: libsql::Connection,
 }
 
 impl CloudClient {
     /// Create a new cloud client
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn new(database_url: &str, auth_token: &str) -> Result<Self> {
         info!("Creating cloud LibSQL client for Turso");
 
@@ -32,7 +43,10 @@ impl CloudClient {
     }
 
     /// Initialize cloud database schema using unified schema
-    /// // HARDCODED_SCHEMA: 105 tables (verified 2026-01-05)
+    /// // `HARDCODED_SCHEMA`: 105 tables (verified 2026-01-05)
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn initialize_schema(&self) -> Result<()> {
         info!("Initializing cloud database with unified schema (105 tables)");
 
@@ -58,11 +72,11 @@ impl CloudClient {
             }
         }
 
-        if !schema_exists {
+        if schema_exists {
+            info!("Cloud database schema already initialized");
+        } else {
             info!("Creating unified schema in cloud database");
             self.execute_unified_schema().await?;
-        } else {
-            info!("Cloud database schema already initialized");
         }
 
         info!("Cloud database schema initialization completed (44 tables)");
@@ -70,6 +84,9 @@ impl CloudClient {
     }
 
     /// Execute the unified schema SQL statements
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     async fn execute_unified_schema(&self) -> Result<()> {
         // Enable foreign key constraints first
         self.connection
@@ -111,7 +128,10 @@ impl CloudClient {
         Ok(())
     }
 
-    /// Sync financial report to cloud (uses reports table - BlockID)
+    /// Sync financial report to cloud (uses reports table - `BlockID`)
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn sync_financial_report(&self, report: &FinancialReport) -> FreshCreditResult<()> {
         info!(
             "Syncing financial report to cloud for user: {}",
@@ -138,6 +158,9 @@ impl CloudClient {
     }
 
     /// Get financial report from cloud
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn get_financial_report(
         &self,
         user_id: &UserId,
@@ -173,6 +196,9 @@ impl CloudClient {
     // directly in reports, scores, and offers tables per unified schema design.
 
     /// Sync account data to cloud
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn sync_account(&self, account: &Account) -> FreshCreditResult<()> {
         info!(
             "Syncing account {} to cloud for user: {}",
@@ -198,6 +224,9 @@ impl CloudClient {
     }
 
     /// Sync transaction data to cloud
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn sync_transaction(&self, transaction: &Transaction) -> FreshCreditResult<()> {
         info!(
             "Syncing transaction {} to cloud for account: {}",
@@ -224,6 +253,9 @@ impl CloudClient {
     }
 
     /// Sync user profile to cloud
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn sync_user_profile(
         &self,
         profile: &freshcredit_libsql_local::UserProfile,
@@ -261,6 +293,9 @@ impl CloudClient {
     ///
     /// ARCHITECTURE: This is used during onboarding when browser DB doesn't exist yet.
     /// After onboarding, browser DB becomes PRIMARY and syncs to per-user Turso cloud.
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn store_user_profile(
         &self,
         profile: &freshcredit_libsql_local::UserProfile,
@@ -317,6 +352,9 @@ impl CloudClient {
     }
 
     /// Get user profile from cloud
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn get_user_profile(
         &self,
         user_email: &str,

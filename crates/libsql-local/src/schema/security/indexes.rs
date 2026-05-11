@@ -4,6 +4,9 @@ use anyhow::Result;
 use libsql::Connection;
 
 /// Initialize security monitoring indexes
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_security_indexes(conn: &Connection) -> Result<()> {
     // Sessions table indexes
     conn.execute(

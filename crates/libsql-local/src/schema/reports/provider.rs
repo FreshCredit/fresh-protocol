@@ -2,6 +2,9 @@ use anyhow::Result;
 use libsql::Connection;
 
 /// Initialize provider offers and dispute tables
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_provider_tables(conn: &Connection) -> Result<()> {
     // COMPLIANCE: §2 - Neutral matching only, no recommendations
     conn.execute(

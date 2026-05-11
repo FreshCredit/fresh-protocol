@@ -4,6 +4,9 @@ use libsql::Connection;
 /// Helper to try creating an index, ignoring "no such column" errors
 /// This is needed because embedded replicas may sync from Turso cloud
 /// which could have an older schema without certain columns.
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn try_create_index(conn: &Connection, sql: &str) -> Result<()> {
     match conn.execute(sql, ()).await {
         Ok(_) => Ok(()),

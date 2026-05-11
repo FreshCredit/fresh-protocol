@@ -20,7 +20,7 @@ pub enum ConnectionMode {
     #[cfg(feature = "embedded-replica")]
     EmbeddedReplica,
 
-    /// Local-only SQLite database
+    /// Local-only `SQLite` database
     ///
     /// **Always available** - no feature flag required
     LocalOnly,

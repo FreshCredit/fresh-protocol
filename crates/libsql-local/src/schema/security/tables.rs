@@ -5,6 +5,9 @@ use libsql::Connection;
 use tracing::info;
 
 /// Initialize security monitoring tables
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_security_tables(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing security tables");
     // Sessions table for server-side session storage

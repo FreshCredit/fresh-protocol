@@ -1,6 +1,9 @@
 use std::sync::Arc;
 
-use crate::connection::{ConnectionConfig, DatabaseConnection};
+use crate::connection::{
+    ConnectionConfig,
+    DatabaseConnection,
+};
 use crate::connections::LocalConnection;
 
 impl super::ConnectionFactory {
@@ -16,6 +19,9 @@ impl super::ConnectionFactory {
     ///     Ok(())
     /// }
     /// ```
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn create_local(
         config: &ConnectionConfig,
     ) -> anyhow::Result<Arc<dyn DatabaseConnection>> {
@@ -29,6 +35,9 @@ impl super::ConnectionFactory {
     }
 
     /// Create a local-only connection with explicit path
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn create_local_with_path(
         path: impl AsRef<std::path::Path>,
     ) -> anyhow::Result<Arc<dyn DatabaseConnection>> {
@@ -49,6 +58,9 @@ impl super::ConnectionFactory {
     ///     Ok(())
     /// }
     /// ```
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn create_in_memory() -> anyhow::Result<Arc<dyn DatabaseConnection>> {
         let conn = LocalConnection::in_memory().await?;
         Ok(Arc::new(conn))

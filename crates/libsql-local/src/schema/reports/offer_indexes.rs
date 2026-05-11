@@ -3,6 +3,9 @@ use anyhow::Result;
 use libsql::Connection;
 
 /// Initialize offer analytics indexes
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_offer_analytics_indexes(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_offer_analytics_offer_id ON offer_analytics(offer_id)",
@@ -51,7 +54,7 @@ pub async fn initialize_offer_analytics_indexes(conn: &Connection) -> Result<()>
 
 /// Initialize blockchain proofs table
 /// Stores NOMT/Substrate proofs for offline verification via smoldot
-/// COMPLIANCE: §1 - blockchain_proofs is browser-side for offline verification
+/// COMPLIANCE: §1 - `blockchain_proofs` is browser-side for offline verification
 pub(crate) async fn initialize_blockchain_proofs_table(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS blockchain_proofs (

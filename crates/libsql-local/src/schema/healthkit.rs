@@ -1,12 +1,12 @@
-//! HealthKit schema definitions
+//! `HealthKit` schema definitions
 //!
 //! Contains Apple Health tables:
-//! - healthkit_profiles: User health profile metadata
-//! - healthkit_records: Health records (steps, heart rate, etc.)
-//! - healthkit_workouts: Workout sessions
-//! - healthkit_activity_summaries: Daily activity rings
-//! - healthkit_clinical_records: Clinical health records
-//! - healthkit_correlations: Correlated health data
+//! - `healthkit_profiles`: User health profile metadata
+//! - `healthkit_records`: Health records (steps, heart rate, etc.)
+//! - `healthkit_workouts`: Workout sessions
+//! - `healthkit_activity_summaries`: Daily activity rings
+//! - `healthkit_clinical_records`: Clinical health records
+//! - `healthkit_correlations`: Correlated health data
 //!
 //! COMPLIANCE: §10 Unified Database Schema Architecture
 
@@ -14,7 +14,10 @@ use anyhow::Result;
 use libsql::Connection;
 use tracing::info;
 
-/// Initialize HealthKit tables
+/// Initialize `HealthKit` tables
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_healthkit_tables(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing healthkit tables");
     conn.execute(

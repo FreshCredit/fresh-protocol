@@ -1,14 +1,17 @@
 //! Customer management schema tables
-//! - customer_activities: Activity timeline for customers
-//! - customer_segments: Customer segment definitions
-//! - customer_segment_memberships: Customer to segment mappings
-//! - customer_communications: Communication history with customers
+//! - `customer_activities`: Activity timeline for customers
+//! - `customer_segments`: Customer segment definitions
+//! - `customer_segment_memberships`: Customer to segment mappings
+//! - `customer_communications`: Communication history with customers
 
 use anyhow::Result;
 use libsql::Connection;
 use tracing::info;
 
 /// Initialize customer management tables
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_customer_tables(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing customers tables");
     // Customer activities table - tracks all customer interactions
@@ -90,6 +93,9 @@ pub async fn initialize_customer_tables(conn: &Connection) -> Result<()> {
 }
 
 /// Initialize indexes for customer tables
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_customer_indexes(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing customers tables");
     // Activity indexes

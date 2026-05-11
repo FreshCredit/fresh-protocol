@@ -1,8 +1,8 @@
 //! User preferences database operations
 //!
 //! Operations for storing and retrieving user preferences:
-//! - get_user_preferences: Get user preferences
-//! - save_user_preferences: Save user preferences
+//! - `get_user_preferences`: Get user preferences
+//! - `save_user_preferences`: Save user preferences
 //!
 //! P0g: Added onboarding dismissal fields (§27.3)
 //!
@@ -17,6 +17,9 @@ use crate::UserPreferences;
 impl LocalClient {
     /// Get user preferences
     /// P0g: Added onboarding dismissal fields (§27.3)
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn get_user_preferences(&self, user_id: &str) -> Result<Option<UserPreferences>> {
         info!("Getting preferences for user: {user_id}");
 
@@ -58,6 +61,9 @@ impl LocalClient {
 
     /// Save user preferences
     /// P0g: Added onboarding dismissal fields (§27.3)
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn save_user_preferences(
         &self,
         user_id: &str,
@@ -97,20 +103,20 @@ impl LocalClient {
                 libsql::params![
                     id,
                     user_id,
-                    prefs.ai_agent_enabled.unwrap_or(true) as i64,  // Default TRUE
-                    prefs.ai_feedback_enabled.unwrap_or(true) as i64,  // Default TRUE
-                    prefs.ai_offers_enabled.unwrap_or(true) as i64,  // Default TRUE
-                    prefs.ai_lenders_enabled.unwrap_or(true) as i64,  // Default TRUE
-                    prefs.cloud_sync_enabled.unwrap_or(true) as i64,
-                    prefs.blockchain_enabled.unwrap_or(true) as i64,
-                    prefs.email_notifications_enabled.unwrap_or(true) as i64,
-                    prefs.kilt_did_enabled.unwrap_or(false) as i64,
+                    i64::from(prefs.ai_agent_enabled.unwrap_or(true)),  // Default TRUE
+                    i64::from(prefs.ai_feedback_enabled.unwrap_or(true)),  // Default TRUE
+                    i64::from(prefs.ai_offers_enabled.unwrap_or(true)),  // Default TRUE
+                    i64::from(prefs.ai_lenders_enabled.unwrap_or(true)),  // Default TRUE
+                    i64::from(prefs.cloud_sync_enabled.unwrap_or(true)),
+                    i64::from(prefs.blockchain_enabled.unwrap_or(true)),
+                    i64::from(prefs.email_notifications_enabled.unwrap_or(true)),
+                    i64::from(prefs.kilt_did_enabled.unwrap_or(false)),
                     prefs.ai_mode.clone().unwrap_or_else(|| "auto".to_string()),
-                    prefs.mock_data_enabled.unwrap_or(false) as i64,
-                    prefs.onboarding_completed.unwrap_or(false) as i64,
-                    prefs.onboarding_permanently_dismissed.unwrap_or(false) as i64,
+                    i64::from(prefs.mock_data_enabled.unwrap_or(false)),
+                    i64::from(prefs.onboarding_completed.unwrap_or(false)),
+                    i64::from(prefs.onboarding_permanently_dismissed.unwrap_or(false)),
                     prefs.onboarding_reminder_dismissed_until.clone(),
-                    prefs.plaid_connection_skipped.unwrap_or(false) as i64,
+                    i64::from(prefs.plaid_connection_skipped.unwrap_or(false)),
                     prefs.plaid_reminder_dismissed_until.clone(),
                     now.clone(),
                     now

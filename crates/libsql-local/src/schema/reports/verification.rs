@@ -2,6 +2,9 @@ use anyhow::Result;
 use libsql::Connection;
 
 /// Initialize verification tables
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_verification_tables(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS verification_requests (

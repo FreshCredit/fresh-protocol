@@ -1,14 +1,14 @@
-//! AI schema definitions: ai_conversations, ai_messages, uploaded_files, ai_usage_metrics,
-//! ai_request_logs, ai_feedback, ai_model_configs
+//! AI schema definitions: `ai_conversations`, `ai_messages`, `uploaded_files`, `ai_usage_metrics`,
+//! `ai_request_logs`, `ai_feedback`, `ai_model_configs`
 //!
 //! Tables in this module:
-//! - ai_conversations: AI chat conversation records
-//! - ai_messages: Individual messages within conversations
-//! - uploaded_files: File attachments for AI multimodal input
-//! - ai_usage_metrics: Daily aggregated token/cost metrics (replaces in-memory AiMetrics)
-//! - ai_request_logs: Individual request logging for debugging
-//! - ai_feedback: User feedback collection for model improvement
-//! - ai_model_configs: Multi-model configuration and pricing
+//! - `ai_conversations`: AI chat conversation records
+//! - `ai_messages`: Individual messages within conversations
+//! - `uploaded_files`: File attachments for AI multimodal input
+//! - `ai_usage_metrics`: Daily aggregated token/cost metrics (replaces in-memory `AiMetrics`)
+//! - `ai_request_logs`: Individual request logging for debugging
+//! - `ai_feedback`: User feedback collection for model improvement
+//! - `ai_model_configs`: Multi-model configuration and pricing
 //!
 //! COMPLIANCE: §10 Unified Database Schema Architecture
 
@@ -20,12 +20,25 @@ use tracing::info;
 
 /// Initialize AI-related tables
 ///
-/// Creates 7 tables: ai_conversations, ai_messages, uploaded_files,
-/// ai_usage_metrics, ai_request_logs, ai_feedback, ai_model_configs
+/// Creates 7 tables: `ai_conversations`, `ai_messages`, `uploaded_files`,
+/// `ai_usage_metrics`, `ai_request_logs`, `ai_feedback`, `ai_model_configs`
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_ai_tables(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing ai tables");
-    // Create uploaded_files table for AI multimodal input
-    // NOTE: Created before ai_conversations to allow foreign key reference
+    create_uploaded_files_table(conn).await?;
+    create_ai_conversations_table(conn).await?;
+    create_ai_messages_table(conn).await?;
+    create_ai_usage_metrics_table(conn).await?;
+    create_ai_request_logs_table(conn).await?;
+    create_ai_feedback_table(conn).await?;
+    create_ai_model_configs_table(conn).await?;
+    create_ai_indexes(conn).await?;
+    Ok(())
+}
+
+async fn create_uploaded_files_table(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS uploaded_files (
             id TEXT PRIMARY KEY,
@@ -51,8 +64,10 @@ pub async fn initialize_ai_tables(conn: &Connection) -> Result<()> {
         (),
     )
     .await?;
+    Ok(())
+}
 
-    // Create AI conversations table for conversation memory
+async fn create_ai_conversations_table(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS ai_conversations (
             id TEXT PRIMARY KEY,
@@ -67,8 +82,10 @@ pub async fn initialize_ai_tables(conn: &Connection) -> Result<()> {
         (),
     )
     .await?;
+    Ok(())
+}
 
-    // Create AI messages table for conversation history
+async fn create_ai_messages_table(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS ai_messages (
             id TEXT PRIMARY KEY,
@@ -84,8 +101,10 @@ pub async fn initialize_ai_tables(conn: &Connection) -> Result<()> {
         (),
     )
     .await?;
+    Ok(())
+}
 
-    // Create AI usage metrics table (replaces in-memory AiMetrics struct)
+async fn create_ai_usage_metrics_table(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS ai_usage_metrics (
             id TEXT PRIMARY KEY,
@@ -107,8 +126,10 @@ pub async fn initialize_ai_tables(conn: &Connection) -> Result<()> {
         (),
     )
     .await?;
+    Ok(())
+}
 
-    // Create AI request logs table (for debugging and analytics)
+async fn create_ai_request_logs_table(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS ai_request_logs (
             id TEXT PRIMARY KEY,
@@ -129,8 +150,10 @@ pub async fn initialize_ai_tables(conn: &Connection) -> Result<()> {
         (),
     )
     .await?;
+    Ok(())
+}
 
-    // Create AI feedback table (supports ai_feedback_enabled preference)
+async fn create_ai_feedback_table(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS ai_feedback (
             id TEXT PRIMARY KEY,
@@ -150,8 +173,10 @@ pub async fn initialize_ai_tables(conn: &Connection) -> Result<()> {
         (),
     )
     .await?;
+    Ok(())
+}
 
-    // Create AI model configs table (multi-model support)
+async fn create_ai_model_configs_table(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS ai_model_configs (
             id TEXT PRIMARY KEY,
@@ -173,14 +198,20 @@ pub async fn initialize_ai_tables(conn: &Connection) -> Result<()> {
         (),
     )
     .await?;
+    Ok(())
+}
 
-    // Create indexes for AI tables (using defensive helper for cloud schema compatibility)
+async fn create_ai_indexes(conn: &Connection) -> Result<()> {
     try_create_index(
         conn,
         "CREATE INDEX IF NOT EXISTS idx_uploaded_files_user_id ON uploaded_files(user_id)",
     )
     .await?;
-    try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_uploaded_files_conversation ON uploaded_files(conversation_id)").await?;
+    try_create_index(
+        conn,
+        "CREATE INDEX IF NOT EXISTS idx_uploaded_files_conversation ON uploaded_files(conversation_id)",
+    )
+    .await?;
     try_create_index(
         conn,
         "CREATE INDEX IF NOT EXISTS idx_ai_conversations_user_id ON ai_conversations(user_id)",
@@ -191,9 +222,11 @@ pub async fn initialize_ai_tables(conn: &Connection) -> Result<()> {
         "CREATE INDEX IF NOT EXISTS idx_ai_messages_conversation ON ai_messages(conversation_id)",
     )
     .await?;
-
-    // Create indexes for new AI metrics tables
-    try_create_index(conn, "CREATE UNIQUE INDEX IF NOT EXISTS idx_ai_usage_metrics_user_date_model ON ai_usage_metrics(user_id, metric_date, model)").await?;
+    try_create_index(
+        conn,
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_ai_usage_metrics_user_date_model ON ai_usage_metrics(user_id, metric_date, model)",
+    )
+    .await?;
     try_create_index(
         conn,
         "CREATE INDEX IF NOT EXISTS idx_ai_usage_metrics_date ON ai_usage_metrics(metric_date)",
@@ -234,8 +267,11 @@ pub async fn initialize_ai_tables(conn: &Connection) -> Result<()> {
         "CREATE INDEX IF NOT EXISTS idx_ai_model_configs_user_id ON ai_model_configs(user_id)",
     )
     .await?;
-    try_create_index(conn, "CREATE UNIQUE INDEX IF NOT EXISTS idx_ai_model_configs_user_model ON ai_model_configs(user_id, model_name)").await?;
-
+    try_create_index(
+        conn,
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_ai_model_configs_user_model ON ai_model_configs(user_id, model_name)",
+    )
+    .await?;
     Ok(())
 }
 

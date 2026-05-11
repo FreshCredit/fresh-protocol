@@ -1,14 +1,14 @@
 //! Reports and scoring schema definitions
 //!
 //! Contains report and offer tables:
-//! - reports: Generated reports (BlockID)
-//! - scores: Provider-defined scoring models (BlockScore)
-//! - offers: Matched offers (BlockIQ)
-//! - provider_offers: Provider product catalog
+//! - reports: Generated reports (`BlockID`)
+//! - scores: Provider-defined scoring models (`BlockScore`)
+//! - offers: Matched offers (`BlockIQ`)
+//! - `provider_offers`: Provider product catalog
 //! - disputes: Consumer disputes
-//! - verification_requests: Data verification requests
-//! - phone_verification_codes: SMS verification
-//! - blockchain_proofs: NOMT/Substrate proof storage for offline verification
+//! - `verification_requests`: Data verification requests
+//! - `phone_verification_codes`: SMS verification
+//! - `blockchain_proofs`: NOMT/Substrate proof storage for offline verification
 //!
 //! COMPLIANCE: §2 - Neutral matching only, no recommendations
 //! COMPLIANCE: §10 Unified Database Schema Architecture
@@ -26,6 +26,9 @@ use offer_indexes::initialize_blockchain_proofs_table;
 use provider::seed_demo_provider_offers;
 
 /// Initialize reports and scoring tables
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_reports_tables(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing reports tables");
     conn.execute(
@@ -113,6 +116,9 @@ pub async fn initialize_reports_tables(conn: &Connection) -> Result<()> {
 }
 
 /// Initialize all reports and provider tables
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn initialize_all_reports_tables(conn: &Connection) -> Result<()> {
     initialize_reports_tables(conn).await?;
     provider::initialize_provider_tables(conn).await?;
