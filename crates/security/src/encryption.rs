@@ -15,15 +15,25 @@
 //! - NEVER disable encryption in production!
 
 use aes_gcm::{
-    aead::{Aead, KeyInit},
-    Aes256Gcm, Nonce,
+    aead::{
+        Aead,
+        KeyInit,
+    },
+    Aes256Gcm,
+    Nonce,
 };
-use anyhow::{anyhow, Result};
-use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
+use anyhow::{
+    anyhow,
+    Result,
+};
+use base64::{
+    engine::general_purpose::STANDARD as BASE64,
+    Engine,
+};
 use rand::RngCore;
 use std::sync::OnceLock;
 /// P1-FIX: Encryption errors that can occur during encryption/decryption
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EncryptionError {
     NotConfigured,
     DecryptionFailed(String),
@@ -34,10 +44,10 @@ pub enum EncryptionError {
 impl std::fmt::Display for EncryptionError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            EncryptionError::NotConfigured => write!(f, "Encryption is not configured"),
-            EncryptionError::DecryptionFailed(msg) => write!(f, "Decryption failed: {}", msg),
-            EncryptionError::InvalidCiphertext => write!(f, "Invalid ciphertext format"),
-            EncryptionError::AuthenticationFailed => {
+            Self::NotConfigured => write!(f, "Encryption is not configured"),
+            Self::DecryptionFailed(msg) => write!(f, "Decryption failed: {msg}"),
+            Self::InvalidCiphertext => write!(f, "Invalid ciphertext format"),
+            Self::AuthenticationFailed => {
                 write!(f, "Authentication failed - ciphertext may be tampered")
             }
         }
@@ -70,6 +80,9 @@ impl EncryptionConfig {
     /// Environment variables:
     /// - `FRESHCREDIT_ENCRYPTION_ENABLED`: "true" (default) or "false"
     /// - `FRESHCREDIT_TOKEN_ENCRYPTION_KEY`: 64-character hex key
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub fn from_env() -> Result<Self> {
         let enabled = std::env::var("FRESHCREDIT_ENCRYPTION_ENABLED")
             .map(|v| v.to_lowercase() != "false")
@@ -86,31 +99,35 @@ impl EncryptionConfig {
         }
 
         // Try to load encryption key
-        let encryptor = match std::env::var("FRESHCREDIT_TOKEN_ENCRYPTION_KEY") {
-            Ok(hex_key) => {
-                let enc = TokenEncryptor::from_hex_key(&hex_key)?;
-                tracing::info!("✅ Token encryption enabled with configured key");
-                Some(enc)
-            }
-            Err(_) => {
-                tracing::warn!(
-                    "⚠️ FRESHCREDIT_TOKEN_ENCRYPTION_KEY not set. Tokens stored in plaintext."
-                );
-                None
-            }
+        let encryptor = if let Ok(hex_key) = std::env::var("FRESHCREDIT_TOKEN_ENCRYPTION_KEY") {
+            let enc = TokenEncryptor::from_hex_key(&hex_key)?;
+            tracing::info!("✅ Token encryption enabled with configured key");
+            Some(enc)
+        } else {
+            tracing::warn!(
+                "⚠️ FRESHCREDIT_TOKEN_ENCRYPTION_KEY not set. Tokens stored in plaintext."
+            );
+            None
         };
 
         Ok(Self { enabled, encryptor })
     }
 
     /// Check if encryption is actually available (enabled AND key is configured)
-    pub fn is_available(&self) -> bool {
+    #[must_use]
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
+    pub const fn is_available(&self) -> bool {
         self.enabled && self.encryptor.is_some()
     }
 
     /// Encrypt a token if encryption is available
     ///
     /// CRITICAL SECURITY FIX: Never falls back to plaintext. Returns error on encryption failure.
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub fn encrypt(&self, plaintext: &str) -> Result<String> {
         match &self.encryptor {
             Some(enc) if self.enabled => enc.encrypt(plaintext).map_err(|e| {
@@ -125,6 +142,9 @@ impl EncryptionConfig {
     ///
     /// P1-FIX: Returns Result instead of silently falling back to plaintext
     /// This prevents masking configuration errors
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub fn decrypt(&self, ciphertext: &str) -> Result<String, EncryptionError> {
         match &self.encryptor {
             Some(enc) if self.enabled => enc
@@ -136,6 +156,9 @@ impl EncryptionConfig {
 }
 
 /// Get or initialize the global encryption configuration
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub fn get_encryption_config() -> &'static EncryptionConfig {
     ENCRYPTION_CONFIG.get_or_init(|| {
         EncryptionConfig::from_env().unwrap_or_else(|e| {
@@ -152,6 +175,9 @@ pub fn get_encryption_config() -> &'static EncryptionConfig {
 ///
 /// This is the primary API for encrypting tokens throughout the application.
 /// CRITICAL SECURITY FIX: Returns Result to prevent silent plaintext storage.
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub fn encrypt_token(plaintext: &str) -> Result<String> {
     get_encryption_config().encrypt(plaintext)
 }
@@ -161,6 +187,9 @@ pub fn encrypt_token(plaintext: &str) -> Result<String> {
 /// This is the primary API for decrypting tokens throughout the application.
 /// Handles both encrypted and plaintext tokens gracefully.
 /// P1-FIX: Returns Result instead of panicking on decryption failure
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub fn decrypt_token(ciphertext: &str) -> Result<String, EncryptionError> {
     get_encryption_config().decrypt(ciphertext)
 }
@@ -190,7 +219,7 @@ impl Clone for TokenEncryptor {
 }
 
 impl TokenEncryptor {
-    /// Create a new TokenEncryptor with a 256-bit key
+    /// Create a new `TokenEncryptor` with a 256-bit key
     ///
     /// # Arguments
     /// * `key` - 32-byte encryption key
@@ -217,19 +246,25 @@ impl TokenEncryptor {
         })
     }
 
-    /// Create a TokenEncryptor from a hex-encoded key
+    /// Create a `TokenEncryptor` from a hex-encoded key
     ///
     /// # Arguments
     /// * `hex_key` - 64-character hex string representing a 256-bit key
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub fn from_hex_key(hex_key: &str) -> Result<Self> {
         let key = hex::decode(hex_key).map_err(|e| anyhow!("Invalid hex key: {e}"))?;
         Self::new(&key)
     }
 
-    /// Create a TokenEncryptor from a base64-encoded key
+    /// Create a `TokenEncryptor` from a base64-encoded key
     ///
     /// # Arguments
     /// * `base64_key` - Base64 string representing a 256-bit key
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub fn from_base64_key(base64_key: &str) -> Result<Self> {
         let key = BASE64
             .decode(base64_key)
@@ -240,6 +275,9 @@ impl TokenEncryptor {
     /// Encrypt a plaintext token
     ///
     /// Returns base64-encoded ciphertext (nonce || ciphertext || tag)
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub fn encrypt(&self, plaintext: &str) -> Result<String> {
         // Generate random nonce using cryptographically secure RNG
         // SECURITY FIX: Use OsRng instead of thread_rng() for cryptographic operations
@@ -264,6 +302,9 @@ impl TokenEncryptor {
     /// Decrypt a ciphertext token
     ///
     /// Input should be base64-encoded (nonce || ciphertext || tag)
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub fn decrypt(&self, ciphertext: &str) -> Result<String> {
         let combined = BASE64
             .decode(ciphertext)
@@ -287,7 +328,8 @@ impl TokenEncryptor {
 }
 
 /// Generate a random 256-bit key for AES-256-GCM
-/// SECURITY FIX: Uses OsRng for cryptographically secure key generation
+/// SECURITY FIX: Uses `OsRng` for cryptographically secure key generation
+#[must_use]
 pub fn generate_key() -> [u8; KEY_SIZE] {
     let mut key = [0u8; KEY_SIZE];
     rand::rngs::OsRng.fill_bytes(&mut key);
@@ -295,11 +337,13 @@ pub fn generate_key() -> [u8; KEY_SIZE] {
 }
 
 /// Generate a random 256-bit key and return as hex string
+#[must_use]
 pub fn generate_hex_key() -> String {
     hex::encode(generate_key())
 }
 
 /// Generate a random 256-bit key and return as base64 string
+#[must_use]
 pub fn generate_base64_key() -> String {
     BASE64.encode(generate_key())
 }

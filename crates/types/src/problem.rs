@@ -1,7 +1,13 @@
 //! API response wrappers and error types
 
-use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use chrono::{
+    DateTime,
+    Utc,
+};
+use serde::{
+    Deserialize,
+    Serialize,
+};
 
 #[cfg(feature = "typescript")]
 use ts_rs::TS;
@@ -27,6 +33,7 @@ impl<T> ApiResponse<T> {
         }
     }
 
+    #[must_use]
     pub fn error(message: String) -> Self {
         Self {
             success: false,
@@ -37,10 +44,10 @@ impl<T> ApiResponse<T> {
     }
 }
 
-/// Result type for FreshCredit operations
+/// Result type for `FreshCredit` operations
 pub type FreshCreditResult<T> = Result<T, FreshCreditError>;
 
-/// FreshCredit error types
+/// `FreshCredit` error types
 #[derive(Debug, Clone, Serialize, Deserialize, thiserror::Error)]
 pub enum FreshCreditError {
     #[error("Validation error: {0}")]
@@ -82,6 +89,7 @@ pub struct ProblemDetails {
 }
 
 impl ProblemDetails {
+    #[must_use]
     pub fn new(problem_type: &str, title: &str, status: u16) -> Self {
         Self {
             problem_type: problem_type.to_string(),
@@ -94,6 +102,7 @@ impl ProblemDetails {
         }
     }
 
+    #[must_use]
     pub fn validation_error(detail: &str) -> Self {
         Self::new(
             "https://freshcredit.com/problems/validation-error",
@@ -103,6 +112,7 @@ impl ProblemDetails {
         .with_detail(detail)
     }
 
+    #[must_use]
     pub fn unauthorized(detail: &str) -> Self {
         Self::new(
             "https://freshcredit.com/problems/unauthorized",
@@ -112,6 +122,7 @@ impl ProblemDetails {
         .with_detail(detail)
     }
 
+    #[must_use]
     pub fn forbidden(detail: &str) -> Self {
         Self::new(
             "https://freshcredit.com/problems/forbidden",
@@ -121,6 +132,7 @@ impl ProblemDetails {
         .with_detail(detail)
     }
 
+    #[must_use]
     pub fn not_found(detail: &str) -> Self {
         Self::new(
             "https://freshcredit.com/problems/not-found",
@@ -130,6 +142,7 @@ impl ProblemDetails {
         .with_detail(detail)
     }
 
+    #[must_use]
     pub fn internal_error(detail: &str) -> Self {
         Self::new(
             "https://freshcredit.com/problems/internal-error",
@@ -139,21 +152,25 @@ impl ProblemDetails {
         .with_detail(detail)
     }
 
+    #[must_use]
     pub fn with_detail(mut self, detail: &str) -> Self {
         self.detail = Some(detail.to_string());
         self
     }
 
+    #[must_use]
     pub fn with_instance(mut self, instance: &str) -> Self {
         self.instance = Some(instance.to_string());
         self
     }
 
+    #[must_use]
     pub fn with_context(mut self, context: serde_json::Value) -> Self {
         self.context = Some(context);
         self
     }
 
+    #[must_use]
     pub fn with_request_id(mut self, request_id: &str) -> Self {
         self.request_id = Some(request_id.to_string());
         self

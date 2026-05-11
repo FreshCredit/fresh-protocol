@@ -1,11 +1,20 @@
-//! ACH settlement timing calculations for FreshCredit
+//! ACH settlement timing calculations for `FreshCredit`
 //!
 //! Implements business day calculations for ACH settlement dates (T+1 to T+4).
-//! Uses BusinessDayCalendar for holiday and weekend handling.
+//! Uses `BusinessDayCalendar` for holiday and weekend handling.
 
-use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
-use tracing::{info, warn};
+use chrono::{
+    DateTime,
+    Utc,
+};
+use serde::{
+    Deserialize,
+    Serialize,
+};
+use tracing::{
+    info,
+    warn,
+};
 
 use crate::calendar::BusinessDayCalendar;
 
@@ -16,6 +25,7 @@ pub struct SettlementCalculator {
 
 impl SettlementCalculator {
     /// Create new settlement calculator with default US calendar
+    #[must_use]
     pub fn new() -> Self {
         Self {
             calendar: BusinessDayCalendar::us_banking(),
@@ -23,7 +33,8 @@ impl SettlementCalculator {
     }
 
     /// Create settlement calculator with custom calendar
-    pub fn with_calendar(calendar: BusinessDayCalendar) -> Self {
+    #[must_use]
+    pub const fn with_calendar(calendar: BusinessDayCalendar) -> Self {
         Self { calendar }
     }
 
@@ -96,6 +107,7 @@ impl SettlementCalculator {
     }
 
     /// Get settlement status based on current time
+    #[must_use]
     pub fn get_settlement_status(
         &self,
         initiated_at: DateTime<Utc>,
@@ -114,6 +126,7 @@ impl SettlementCalculator {
     }
 
     /// Calculate days until settlement
+    #[must_use]
     pub fn days_until_settlement(
         &self,
         initiated_at: DateTime<Utc>,
@@ -147,11 +160,12 @@ pub enum AchSettlementType {
 
 impl AchSettlementType {
     /// Get business days for settlement type
-    pub fn business_days(&self) -> i64 {
+    #[must_use]
+    pub const fn business_days(&self) -> i64 {
         match self {
-            AchSettlementType::ThreeDaySettlement => 3, // T+3 for regular ACH
-            AchSettlementType::SameDay => 1,            // T+1 for same-day
-            AchSettlementType::NextDay => 1,            // T+1 for next-day
+            Self::ThreeDaySettlement => 3, // T+3 for regular ACH
+            Self::SameDay => 1,            // T+1 for same-day
+            Self::NextDay => 1,            // T+1 for next-day
         }
     }
 }
@@ -188,7 +202,10 @@ pub enum SettlementStatus {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::{Duration, TimeZone};
+    use chrono::{
+        Duration,
+        TimeZone,
+    };
 
     #[test]
     fn test_standard_ach_settlement() {

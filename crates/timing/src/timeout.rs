@@ -32,7 +32,8 @@ impl Default for TimeoutEnforcer {
 
 impl TimeoutEnforcer {
     /// Create a new timeout enforcer
-    pub fn new(default_timeout: Duration, max_timeout: Duration) -> Self {
+    #[must_use]
+    pub const fn new(default_timeout: Duration, max_timeout: Duration) -> Self {
         Self {
             default_timeout,
             max_timeout,
@@ -40,6 +41,7 @@ impl TimeoutEnforcer {
     }
 
     /// Create from environment variables
+    #[must_use]
     pub fn from_env() -> Self {
         Self {
             default_timeout: Duration::from_millis(
@@ -58,6 +60,9 @@ impl TimeoutEnforcer {
     }
 
     /// Execute an operation with timeout enforcement
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn execute<F, Fut, T, E>(
         &self,
         operation: F,
@@ -79,6 +84,9 @@ impl TimeoutEnforcer {
     }
 
     /// Execute an operation with the default timeout
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn execute_default<F, Fut, T, E>(&self, operation: F) -> Result<T, TimeoutError<E>>
     where
         F: FnOnce() -> Fut,

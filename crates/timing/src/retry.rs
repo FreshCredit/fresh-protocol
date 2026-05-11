@@ -40,7 +40,8 @@ impl Default for ExponentialBackoff {
 
 impl ExponentialBackoff {
     /// Create a new exponential backoff strategy
-    pub fn new(
+    #[must_use]
+    pub const fn new(
         initial_delay: Duration,
         max_delay: Duration,
         max_attempts: u32,
@@ -55,6 +56,7 @@ impl ExponentialBackoff {
     }
 
     /// Create from environment variables
+    #[must_use]
     pub fn from_env() -> Self {
         Self {
             initial_delay: Duration::from_millis(
@@ -109,11 +111,14 @@ pub struct RetryExecutor<S: RetryStrategy> {
 
 impl<S: RetryStrategy> RetryExecutor<S> {
     /// Create a new retry executor with the given strategy
-    pub fn new(strategy: S) -> Self {
+    pub const fn new(strategy: S) -> Self {
         Self { strategy }
     }
 
     /// Execute an operation with retry logic
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
     pub async fn execute<F, Fut, T, E>(&self, mut operation: F) -> Result<T, E>
     where
         F: FnMut() -> Fut,
@@ -148,6 +153,9 @@ impl<S: RetryStrategy> RetryExecutor<S> {
 ///     db.query("SELECT * FROM users WHERE id = ?", params![user_id]).await
 /// }).await?;
 /// ```
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn with_retry<F, Fut, T, E>(operation: F) -> Result<T, E>
 where
     F: FnMut() -> Fut,
@@ -165,6 +173,9 @@ where
 ///     external_api.call().await
 /// }).await?;
 /// ```
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub async fn with_retry_attempts<F, Fut, T, E>(max_attempts: u32, operation: F) -> Result<T, E>
 where
     F: FnMut() -> Fut,

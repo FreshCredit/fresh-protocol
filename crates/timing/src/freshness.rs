@@ -2,8 +2,15 @@
 //!
 //! This module provides utilities for validating data freshness and detecting stale data.
 
-use chrono::{DateTime, Duration, Utc};
-use serde::{Deserialize, Serialize};
+use chrono::{
+    DateTime,
+    Duration,
+    Utc,
+};
+use serde::{
+    Deserialize,
+    Serialize,
+};
 
 /// Data freshness validator
 #[derive(Debug, Clone)]
@@ -33,6 +40,7 @@ impl Default for FreshnessThresholds {
 
 impl FreshnessThresholds {
     /// Create freshness thresholds from environment variables
+    #[must_use]
     pub fn from_env() -> Self {
         Self {
             plaid_transactions: Duration::days(
@@ -75,11 +83,13 @@ pub struct FreshnessStatus {
 
 impl FreshnessStatus {
     /// Check if data is critically stale (>100% of threshold)
+    #[must_use]
     pub fn is_critically_stale(&self) -> bool {
         self.staleness_percentage > 100.0
     }
 
     /// Check if data is approaching staleness (>80% of threshold)
+    #[must_use]
     pub fn is_approaching_stale(&self) -> bool {
         self.staleness_percentage > 80.0 && !self.is_critically_stale()
     }
@@ -96,16 +106,19 @@ pub enum DataType {
 
 impl FreshnessValidator {
     /// Create a new freshness validator with the given thresholds
-    pub fn new(thresholds: FreshnessThresholds) -> Self {
+    #[must_use]
+    pub const fn new(thresholds: FreshnessThresholds) -> Self {
         Self { thresholds }
     }
 
     /// Create a freshness validator with default thresholds
+    #[must_use]
     pub fn with_default_thresholds() -> Self {
         Self::new(FreshnessThresholds::default())
     }
 
     /// Check freshness of data
+    #[must_use]
     pub fn check_freshness(
         &self,
         data_type: DataType,

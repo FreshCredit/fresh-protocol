@@ -1,7 +1,13 @@
-//! Core domain types for FreshCredit
+//! Core domain types for `FreshCredit`
 
-use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use chrono::{
+    DateTime,
+    Utc,
+};
+use serde::{
+    Deserialize,
+    Serialize,
+};
 use uuid::Uuid;
 
 #[cfg(feature = "typescript")]
@@ -24,7 +30,7 @@ pub struct Account {
     pub created_at: DateTime<Utc>,
 }
 
-/// Account types supported by FreshCredit
+/// Account types supported by `FreshCredit`
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[cfg_attr(feature = "typescript", derive(TS))]
 #[cfg_attr(feature = "typescript", ts(export))]
@@ -88,7 +94,7 @@ pub enum PaymentStatus {
 }
 
 /// Payment method types
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum PaymentMethodType {
     Card,
@@ -96,8 +102,8 @@ pub enum PaymentMethodType {
     CryptoWallet,
 }
 
-/// Payment processors supported by FreshCredit
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+/// Payment processors supported by `FreshCredit`
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum PaymentProcessor {
     Stripe,
@@ -106,7 +112,7 @@ pub enum PaymentProcessor {
 }
 
 /// Card brand types
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum CardBrand {
     Visa,

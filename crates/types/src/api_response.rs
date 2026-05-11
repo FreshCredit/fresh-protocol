@@ -20,7 +20,10 @@
 //! ```
 
 use crate::ProblemDetails;
-use serde::{Deserialize, Serialize};
+use serde::{
+    Deserialize,
+    Serialize,
+};
 
 // P1 FIX: ts-rs for TypeScript type generation
 #[cfg(feature = "typescript")]
@@ -55,7 +58,7 @@ impl<T> ApiResponse<T> {
     /// let user = User { id: "123", name: "John" };
     /// let response = ApiResponse::success(user);
     /// ```
-    pub fn success(data: T) -> Self {
+    pub const fn success(data: T) -> Self {
         Self {
             success: true,
             data: Some(data),
@@ -67,7 +70,7 @@ impl<T> ApiResponse<T> {
     /// Create a successful response with data and metadata
     ///
     /// Use this for paginated responses or when additional metadata is needed.
-    pub fn success_with_meta(data: T, meta: ResponseMeta) -> Self {
+    pub const fn success_with_meta(data: T, meta: ResponseMeta) -> Self {
         Self {
             success: true,
             data: Some(data),
@@ -83,7 +86,8 @@ impl<T> ApiResponse<T> {
     /// let error = ProblemDetails::not_found("User not found");
     /// let response = ApiResponse::<User>::error(error);
     /// ```
-    pub fn error(error: ProblemDetails) -> Self {
+    #[must_use]
+    pub const fn error(error: ProblemDetails) -> Self {
         Self {
             success: false,
             data: None,
@@ -133,6 +137,7 @@ impl ResponseMeta {
     /// * `page` - Current page number (1-indexed)
     /// * `per_page` - Items per page
     /// * `request_id` - Unique request identifier for tracing
+    #[must_use]
     pub fn paginated(total_count: i64, page: u32, per_page: u32, request_id: String) -> Self {
         Self {
             total_count: Some(total_count),
@@ -149,6 +154,7 @@ impl ResponseMeta {
     ///
     /// Cursor-based pagination is preferred for high-volume data
     /// as it provides consistent performance regardless of dataset size.
+    #[must_use]
     pub fn with_cursor(
         returned_count: usize,
         next_cursor: Option<String>,
@@ -166,6 +172,7 @@ impl ResponseMeta {
     }
 
     /// Create simple metadata without pagination
+    #[must_use]
     pub fn simple(returned_count: usize, request_id: String) -> Self {
         Self {
             total_count: None,
@@ -209,7 +216,7 @@ pub struct PaginationQuery {
     pub per_page: u32,
     /// Cursor for cursor-based pagination
     ///
-    /// When provided, page/per_page are ignored
+    /// When provided, `page/per_page` are ignored
     pub cursor: Option<String>,
 }
 
@@ -224,7 +231,8 @@ const fn default_per_page() -> u32 {
 impl PaginationQuery {
     /// Validate and clamp pagination parameters
     ///
-    /// Ensures page >= 1 and 1 <= per_page <= 100
+    /// Ensures page >= 1 and 1 <= `per_page` <= 100
+    #[must_use]
     pub fn validate(&self) -> Self {
         Self {
             page: self.page.max(1),
@@ -235,18 +243,21 @@ impl PaginationQuery {
 
     /// Calculate SQL OFFSET value
     ///
-    /// Returns 0 for page 1, per_page for page 2, etc.
-    pub fn offset(&self) -> i64 {
+    /// Returns 0 for page 1, `per_page` for page 2, etc.
+    #[must_use]
+    pub const fn offset(&self) -> i64 {
         ((self.page - 1) * self.per_page) as i64
     }
 
     /// Calculate SQL LIMIT value
-    pub fn limit(&self) -> i64 {
+    #[must_use]
+    pub const fn limit(&self) -> i64 {
         self.per_page as i64
     }
 
     /// Check if cursor-based pagination is being used
-    pub fn is_cursor_based(&self) -> bool {
+    #[must_use]
+    pub const fn is_cursor_based(&self) -> bool {
         self.cursor.is_some()
     }
 }

@@ -1,9 +1,12 @@
 //! Clock abstraction for time operations
 //!
 //! This module provides a trait-based clock abstraction that allows for testable
-//! time operations throughout the FreshCredit codebase.
+//! time operations throughout the `FreshCredit` codebase.
 
-use chrono::{DateTime, Utc};
+use chrono::{
+    DateTime,
+    Utc,
+};
 
 /// Clock abstraction for time operations
 ///
@@ -47,7 +50,8 @@ pub struct MockClock {
 
 impl MockClock {
     /// Create a new mock clock with the given time
-    pub fn new(time: DateTime<Utc>) -> Self {
+    #[must_use]
+    pub const fn new(time: DateTime<Utc>) -> Self {
         Self { current_time: time }
     }
 

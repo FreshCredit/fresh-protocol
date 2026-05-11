@@ -1,4 +1,4 @@
-//! ID generation utilities for FreshCredit
+//! ID generation utilities for `FreshCredit`
 //!
 //! This module provides consistent ID generation patterns across the codebase.
 //! All ID generation should use these utilities rather than direct UUID calls.
@@ -9,6 +9,7 @@ use uuid::Uuid;
 ///
 /// Use this for general-purpose unique identifiers.
 #[inline]
+#[must_use]
 pub fn new_id() -> String {
     Uuid::new_v4().to_string()
 }
@@ -17,54 +18,63 @@ pub fn new_id() -> String {
 ///
 /// Example: `prefixed_id("rpt")` returns `"rpt_550e8400-e29b-41d4-a716-446655440000"`
 #[inline]
+#[must_use]
 pub fn prefixed_id(prefix: &str) -> String {
     format!("{}_{}", prefix, Uuid::new_v4())
 }
 
 /// Generate a session ID
 #[inline]
+#[must_use]
 pub fn session_id() -> String {
     prefixed_id("session")
 }
 
 /// Generate a request ID
 #[inline]
+#[must_use]
 pub fn request_id() -> String {
     prefixed_id("req")
 }
 
 /// Generate a report ID
 #[inline]
+#[must_use]
 pub fn report_id() -> String {
     prefixed_id("rpt")
 }
 
 /// Generate a payment method ID
 #[inline]
+#[must_use]
 pub fn payment_method_id(processor: &str) -> String {
     format!("pm_{}_{}", processor, Uuid::new_v4())
 }
 
 /// Generate a transaction ID
 #[inline]
+#[must_use]
 pub fn transaction_id() -> String {
     prefixed_id("txn")
 }
 
 /// Generate a workflow ID
 #[inline]
+#[must_use]
 pub fn workflow_id() -> String {
     prefixed_id("wf")
 }
 
-/// Generate a model ID (for BlockScore models)
+/// Generate a model ID (for `BlockScore` models)
 #[inline]
+#[must_use]
 pub fn model_id() -> String {
     prefixed_id("model")
 }
 
 /// Generate an item ID (for Plaid items)
 #[inline]
+#[must_use]
 pub fn item_id() -> String {
     prefixed_id("item")
 }

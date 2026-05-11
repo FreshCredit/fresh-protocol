@@ -1,6 +1,6 @@
-//! FreshCredit Core Timing Module
+//! `FreshCredit` Core Timing Module
 //!
-//! This module provides timing abstractions and utilities for the FreshCredit platform.
+//! This module provides timing abstractions and utilities for the `FreshCredit` platform.
 //! All timing logic should use these abstractions rather than direct time operations.
 //!
 //! ## Modules
@@ -25,15 +25,48 @@ pub mod ttl;
 
 // Re-export commonly used types
 pub use calendar::BusinessDayCalendar;
-pub use clock::{Clock, MockClock, SystemClock};
-pub use freshness::{DataType, FreshnessStatus, FreshnessThresholds, FreshnessValidator};
+pub use clock::{
+    Clock,
+    MockClock,
+    SystemClock,
+};
+pub use freshness::{
+    DataType,
+    FreshnessStatus,
+    FreshnessThresholds,
+    FreshnessValidator,
+};
 pub use id::{
-    item_id, model_id, new_id, payment_method_id, prefixed_id, report_id, request_id, session_id,
-    transaction_id, workflow_id,
+    item_id,
+    model_id,
+    new_id,
+    payment_method_id,
+    prefixed_id,
+    report_id,
+    request_id,
+    session_id,
+    transaction_id,
+    workflow_id,
 };
 pub use retry::{
-    with_retry, with_retry_attempts, ExponentialBackoff, RetryExecutor, RetryStrategy,
+    with_retry,
+    with_retry_attempts,
+    ExponentialBackoff,
+    RetryExecutor,
+    RetryStrategy,
 };
-pub use settlement::{AchSettlementType, SettlementCalculator, SettlementDate, SettlementStatus};
-pub use timeout::{TimeoutEnforcer, TimeoutError};
-pub use ttl::{TtlConfig, TtlEnforcement, TtlError};
+pub use settlement::{
+    AchSettlementType,
+    SettlementCalculator,
+    SettlementDate,
+    SettlementStatus,
+};
+pub use timeout::{
+    TimeoutEnforcer,
+    TimeoutError,
+};
+pub use ttl::{
+    TtlConfig,
+    TtlEnforcement,
+    TtlError,
+};

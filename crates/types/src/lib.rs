@@ -1,4 +1,4 @@
-//! Core domain types for FreshCredit
+//! Core domain types for `FreshCredit`
 //!
 //! P1 FIX: Cross-language type sync with ts-rs
 //! Generate TypeScript types: cargo test --features typescript

@@ -3,7 +3,12 @@
 //! This module provides utilities for working with business days,
 //! accounting for weekends and US federal holidays.
 
-use chrono::{Datelike, Duration, NaiveDate, Weekday};
+use chrono::{
+    Datelike,
+    Duration,
+    NaiveDate,
+    Weekday,
+};
 use std::collections::HashSet;
 
 /// Business day calendar for settlement calculations
@@ -14,6 +19,7 @@ pub struct BusinessDayCalendar {
 
 impl BusinessDayCalendar {
     /// Create a new business day calendar with US federal holidays for current and next year
+    #[must_use]
     pub fn new() -> Self {
         let mut holidays = HashSet::new();
 
@@ -25,12 +31,14 @@ impl BusinessDayCalendar {
     }
 
     /// Create a new business day calendar with US banking holidays (alias for new)
+    #[must_use]
     pub fn us_banking() -> Self {
         Self::new()
     }
 
     /// Create a business day calendar with custom holidays
-    pub fn with_holidays(holidays: HashSet<NaiveDate>) -> Self {
+    #[must_use]
+    pub const fn with_holidays(holidays: HashSet<NaiveDate>) -> Self {
         Self { holidays }
     }
 
@@ -42,6 +50,7 @@ impl BusinessDayCalendar {
     }
 
     /// Check if a date is a business day
+    #[must_use]
     pub fn is_business_day(&self, date: NaiveDate) -> bool {
         !self.is_weekend(date) && !self.holidays.contains(&date)
     }
@@ -51,14 +60,15 @@ impl BusinessDayCalendar {
         matches!(date.weekday(), Weekday::Sat | Weekday::Sun)
     }
 
-    /// Add business days to a date (NaiveDate version)
+    /// Add business days to a date (`NaiveDate` version)
+    #[must_use]
     pub fn add_business_days(&self, start: NaiveDate, days: i32) -> NaiveDate {
         let mut current = start;
         let mut remaining = days.abs();
         let direction = if days >= 0 { 1 } else { -1 };
 
         while remaining > 0 {
-            current += Duration::days(direction as i64);
+            current += Duration::days(i64::from(direction));
             if self.is_business_day(current) {
                 remaining -= 1;
             }
@@ -68,6 +78,10 @@ impl BusinessDayCalendar {
     }
 
     /// Add business days to a `DateTime<Utc>`
+    #[must_use]
+    /// # Panics
+    ///
+    /// Panics if preconditions are not met.
     pub fn add_business_days_datetime(
         &self,
         start: chrono::DateTime<chrono::Utc>,
@@ -90,6 +104,7 @@ impl BusinessDayCalendar {
     }
 
     /// Calculate business days between two dates
+    #[must_use]
     pub fn business_days_between(&self, start: NaiveDate, end: NaiveDate) -> i32 {
         let mut count = 0;
         let mut current = start;
@@ -105,11 +120,13 @@ impl BusinessDayCalendar {
     }
 
     /// Get the next business day from the given date
+    #[must_use]
     pub fn next_business_day(&self, date: NaiveDate) -> NaiveDate {
         self.add_business_days(date, 1)
     }
 
     /// Get the previous business day from the given date
+    #[must_use]
     pub fn previous_business_day(&self, date: NaiveDate) -> NaiveDate {
         self.add_business_days(date, -1)
     }
