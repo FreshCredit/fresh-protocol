@@ -1,4 +1,4 @@
-//! Schema validation and drift detection for LibSQL databases
+//! Schema validation and drift detection for `LibSQL` databases
 //!
 //! This module provides tools to detect schema drift between staging, local, and cloud databases.
 //! It ensures all three database types maintain the same schema structure.
@@ -17,9 +17,22 @@ pub mod types;
 pub mod validator;
 
 pub use tests::schema_sync_test::{
-    compare_schemas, load_migration_schema, parse_sql_schema, SchemaColumn, TableDef,
+    compare_schemas,
+    load_migration_schema,
+    parse_sql_schema,
+    SchemaColumn,
+    TableDef,
 };
 pub use types::{
-    ColumnInfo, ForeignKeyInfo, IndexInfo, IssueSeverity, IssueType, SchemaIssue,
-    SchemaValidationResult, SchemaValidator, SchemaWarning, TableSchema, ValidationSummary,
+    ColumnInfo,
+    ForeignKeyInfo,
+    IndexInfo,
+    IssueSeverity,
+    IssueType,
+    SchemaIssue,
+    SchemaValidationResult,
+    SchemaValidator,
+    SchemaWarning,
+    TableSchema,
+    ValidationSummary,
 };

@@ -7,7 +7,8 @@ mod tests;
 
 impl SchemaValidator {
     /// Create a new schema validator
-    pub fn new() -> Self {
+    #[must_use]
+    pub const fn new() -> Self {
         Self {
             staging_connection: None,
             local_connection: None,
@@ -16,18 +17,21 @@ impl SchemaValidator {
     }
 
     /// Add staging database connection
+    #[must_use]
     pub fn with_staging(mut self, connection: libsql::Connection) -> Self {
         self.staging_connection = Some(connection);
         self
     }
 
     /// Add local database connection
+    #[must_use]
     pub fn with_local(mut self, connection: libsql::Connection) -> Self {
         self.local_connection = Some(connection);
         self
     }
 
     /// Add cloud database connection
+    #[must_use]
     pub fn with_cloud(mut self, connection: libsql::Connection) -> Self {
         self.cloud_connection = Some(connection);
         self

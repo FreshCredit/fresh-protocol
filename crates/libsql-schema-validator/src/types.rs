@@ -1,4 +1,7 @@
-use serde::{Deserialize, Serialize};
+use serde::{
+    Deserialize,
+    Serialize,
+};
 
 /// Schema validation result
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -22,7 +25,7 @@ pub struct SchemaIssue {
 }
 
 /// Issue severity
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum IssueSeverity {
     Critical, // Schema drift that breaks functionality
     High,     // Missing tables or columns
@@ -75,7 +78,7 @@ pub struct TableSchema {
 }
 
 /// Column information
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ColumnInfo {
     pub name: String,
     pub data_type: String,
@@ -85,7 +88,7 @@ pub struct ColumnInfo {
 }
 
 /// Index information
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct IndexInfo {
     pub name: String,
     pub columns: Vec<String>,
@@ -93,7 +96,7 @@ pub struct IndexInfo {
 }
 
 /// Foreign key information
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ForeignKeyInfo {
     pub from_column: String,
     pub to_table: String,

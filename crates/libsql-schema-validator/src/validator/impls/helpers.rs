@@ -3,8 +3,15 @@ use freshcredit_libsql_common::security::validate_identifier;
 use std::collections::HashSet;
 
 use crate::types::{
-    ColumnInfo, ForeignKeyInfo, IndexInfo, IssueSeverity, IssueType, SchemaIssue, SchemaValidator,
-    SchemaWarning, ValidationSummary,
+    ColumnInfo,
+    ForeignKeyInfo,
+    IndexInfo,
+    IssueSeverity,
+    IssueType,
+    SchemaIssue,
+    SchemaValidator,
+    SchemaWarning,
+    ValidationSummary,
 };
 
 impl SchemaValidator {
@@ -204,7 +211,10 @@ impl SchemaValidator {
         issues: &[SchemaIssue],
         warnings: &[SchemaWarning],
     ) -> ValidationSummary {
-        let total_tables_checked = all_schemas.values().map(|s| s.len()).sum();
+        let total_tables_checked = all_schemas
+            .values()
+            .map(std::collections::HashMap::len)
+            .sum();
         let total_columns_checked = all_schemas
             .values()
             .flat_map(|s| s.values())

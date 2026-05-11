@@ -9,12 +9,15 @@
 //! 3. If Turso tables have different columns than Rust expects, index creation fails
 
 use anyhow::Result;
-use std::collections::{HashMap, HashSet};
+use std::collections::{
+    HashMap,
+    HashSet,
+};
 use std::fs;
 use std::path::Path;
 
 /// Represents a column extracted from schema definitions
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SchemaColumn {
     pub name: String,
     pub data_type: String,
@@ -29,6 +32,10 @@ pub struct TableDef {
 }
 
 /// Extract table definitions from SQL CREATE TABLE statements
+#[must_use]
+/// # Panics
+///
+/// Panics if preconditions are not met.
 pub fn parse_sql_schema(sql: &str) -> HashMap<String, TableDef> {
     let mut tables = HashMap::new();
 
@@ -117,7 +124,10 @@ fn parse_columns(columns_str: &str) -> Vec<SchemaColumn> {
     columns
 }
 
-/// Load and parse the unified_schema.sql migration file
+/// Load and parse the `unified_schema.sql` migration file
+/// # Errors
+///
+/// Returns an error if the operation fails.
 pub fn load_migration_schema(project_root: &Path) -> Result<HashMap<String, TableDef>> {
     let migration_path = project_root.join("migrations/unified_schema.sql");
     let sql = fs::read_to_string(&migration_path)?;
@@ -125,6 +135,7 @@ pub fn load_migration_schema(project_root: &Path) -> Result<HashMap<String, Tabl
 }
 
 /// Compare two schemas and return differences
+#[must_use]
 pub fn compare_schemas(
     source_name: &str,
     source: &HashMap<String, TableDef>,
