@@ -209,3 +209,95 @@ fn print_human_readable(
     println!("🕐 Checked at: {}", result.checked_at);
     println!();
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use freshcredit_libsql_schema_validator::{
+        IssueSeverity,
+        IssueType,
+        SchemaIssue,
+        SchemaValidationResult,
+        ValidationSummary,
+    };
+
+    fn make_result(valid: bool, issues: Vec<SchemaIssue>, warnings: Vec<freshcredit_libsql_schema_validator::SchemaWarning>) -> SchemaValidationResult {
+        SchemaValidationResult {
+            is_valid: valid,
+            databases_checked: vec!["local".to_string()],
+            summary: ValidationSummary {
+                total_tables_checked: 5,
+                total_columns_checked: 20,
+                total_indexes_checked: 3,
+                critical_issues: issues.iter().filter(|i| i.severity == IssueSeverity::Critical).count(),
+                high_issues: issues.iter().filter(|i| i.severity == IssueSeverity::High).count(),
+                medium_issues: issues.iter().filter(|i| i.severity == IssueSeverity::Medium).count(),
+                low_issues: issues.iter().filter(|i| i.severity == IssueSeverity::Low).count(),
+                warnings: warnings.len(),
+            },
+            issues,
+            warnings,
+            checked_at: "2024-01-01T00:00:00Z".to_string(),
+        }
+    }
+
+    #[test]
+    fn test_print_human_readable_valid() {
+        let result = make_result(true, vec![], vec![]);
+        print_human_readable(&result, false);
+    }
+
+    #[test]
+    fn test_print_human_readable_invalid_with_issues() {
+        let issues = vec![
+            SchemaIssue {
+                database: "local".to_string(),
+                severity: IssueSeverity::Critical,
+                issue_type: IssueType::MissingTable,
+                description: "Missing users table".to_string(),
+                affected_object: "users".to_string(),
+            },
+            SchemaIssue {
+                database: "local".to_string(),
+                severity: IssueSeverity::High,
+                issue_type: IssueType::MissingColumn,
+                description: "Missing email column".to_string(),
+                affected_object: "users.email".to_string(),
+            },
+            SchemaIssue {
+                database: "local".to_string(),
+                severity: IssueSeverity::Medium,
+                issue_type: IssueType::ColumnTypeMismatch,
+                description: "Type mismatch".to_string(),
+                affected_object: "users.id".to_string(),
+            },
+            SchemaIssue {
+                database: "local".to_string(),
+                severity: IssueSeverity::Low,
+                issue_type: IssueType::MissingIndex,
+                description: "Missing index".to_string(),
+                affected_object: "users.id".to_string(),
+            },
+        ];
+        let result = make_result(false, issues, vec![]);
+        print_human_readable(&result, false);
+    }
+
+    #[test]
+    fn test_print_human_readable_verbose() {
+        let issues = vec![SchemaIssue {
+            database: "local".to_string(),
+            severity: IssueSeverity::High,
+            issue_type: IssueType::MissingColumn,
+            description: "Missing email".to_string(),
+            affected_object: "users.email".to_string(),
+        }];
+        let warnings = vec![freshcredit_libsql_schema_validator::SchemaWarning {
+            database: "local".to_string(),
+            warning_type: "unused_index".to_string(),
+            description: "Unused index".to_string(),
+        }];
+        let result = make_result(false, issues, warnings);
+        print_human_readable(&result, true);
+    }
+}
