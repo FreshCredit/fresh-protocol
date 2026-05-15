@@ -137,6 +137,14 @@ mod tests {
         let row = rows.next().await.unwrap().unwrap();
         let value: i32 = row.get(0).unwrap();
         assert_eq!(value, 1);
+
+        // Test database() accessor
+        let db = conn.database();
+        let c = db.connect().unwrap();
+        let mut rows = c.query("SELECT 2", ()).await.unwrap();
+        let row = rows.next().await.unwrap().unwrap();
+        let value: i32 = row.get(0).unwrap();
+        assert_eq!(value, 2);
     }
 
     #[tokio::test]

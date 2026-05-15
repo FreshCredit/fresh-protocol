@@ -342,3 +342,234 @@ mod tests {
         assert_ne!(checksum, checksum3);
     }
 }
+
+#[cfg(test)]
+mod async_tests {
+    use super::*;
+
+    async fn in_memory_runner() -> Result<MigrationRunner> {
+        let db = libsql::Builder::new_local(":memory:").build().await?;
+        let conn = db.connect()?;
+        Ok(MigrationRunner::new(conn))
+    }
+
+    #[tokio::test]
+    async fn test_ensure_migrations_table() {
+        let runner = in_memory_runner().await.unwrap();
+        runner.ensure_migrations_table().await.unwrap();
+        // Should be idempotent
+        runner.ensure_migrations_table().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_get_applied_migrations_empty() {
+        let runner = in_memory_runner().await.unwrap();
+        runner.ensure_migrations_table().await.unwrap();
+        let applied = runner.get_applied_migrations().await.unwrap();
+        assert!(applied.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_load_migrations_from_dir_not_found() {
+        let mut runner = in_memory_runner().await.unwrap();
+        let result = runner
+            .load_migrations_from_dir(Path::new("/nonexistent/migrations"))
+            .await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_load_migrations_from_dir_success() {
+        let temp_dir = std::env::temp_dir().join(format!("test_migrations_{}", std::process::id()));
+        std::fs::create_dir_all(&temp_dir).unwrap();
+
+        std::fs::write(
+            temp_dir.join("001_initial_schema.up.sql"),
+            "CREATE TABLE test1 (id INTEGER PRIMARY KEY);",
+        )
+        .unwrap();
+        std::fs::write(
+            temp_dir.join("001_initial_schema.down.sql"),
+            "DROP TABLE test1;",
+        )
+        .unwrap();
+        std::fs::write(
+            temp_dir.join("002_add_indexes.up.sql"),
+            "CREATE INDEX idx_test1 ON test1(id);",
+        )
+        .unwrap();
+
+        let mut runner = in_memory_runner().await.unwrap();
+        runner.load_migrations_from_dir(&temp_dir).await.unwrap();
+        assert_eq!(runner.migrations.len(), 2);
+        assert!(runner.migrations.contains_key(&1));
+        assert!(runner.migrations.contains_key(&2));
+        assert!(runner.migrations[&1].down_sql.is_some());
+        assert!(runner.migrations[&2].down_sql.is_none());
+
+        std::fs::remove_dir_all(&temp_dir).unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_apply_and_get_applied_migration() {
+        let runner = in_memory_runner().await.unwrap();
+        runner.ensure_migrations_table().await.unwrap();
+
+        let migration = Migration {
+            version: 1,
+            name: "initial".to_string(),
+            up_sql: "CREATE TABLE test_apply (id INTEGER PRIMARY KEY)".to_string(),
+            down_sql: Some("DROP TABLE test_apply".to_string()),
+            checksum: compute_checksum("CREATE TABLE test_apply (id INTEGER PRIMARY KEY)"),
+        };
+
+        runner.apply_migration(&migration).await.unwrap();
+
+        let applied = runner.get_applied_migrations().await.unwrap();
+        assert_eq!(applied.len(), 1);
+        assert_eq!(applied[0].version, 1);
+        assert_eq!(applied[0].name, "initial");
+    }
+
+    #[tokio::test]
+    async fn test_run_pending_migrations() {
+        let temp_dir = std::env::temp_dir().join(format!("test_pending_{}", std::process::id()));
+        std::fs::create_dir_all(&temp_dir).unwrap();
+        std::fs::write(
+            temp_dir.join("001_create_test.up.sql"),
+            "CREATE TABLE pending_test (id INTEGER PRIMARY KEY);",
+        )
+        .unwrap();
+        std::fs::write(
+            temp_dir.join("002_insert_data.up.sql"),
+            "INSERT INTO pending_test VALUES (1);",
+        )
+        .unwrap();
+
+        let mut runner = in_memory_runner().await.unwrap();
+        runner.load_migrations_from_dir(&temp_dir).await.unwrap();
+        let applied = runner.run_pending_migrations().await.unwrap();
+        assert_eq!(applied.len(), 2);
+        assert_eq!(applied, vec![1, 2]);
+
+        // Running again should apply nothing
+        let applied2 = runner.run_pending_migrations().await.unwrap();
+        assert!(applied2.is_empty());
+
+        std::fs::remove_dir_all(&temp_dir).unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_rollback_migration() {
+        let mut runner = in_memory_runner().await.unwrap();
+        runner.ensure_migrations_table().await.unwrap();
+
+        let migration = Migration {
+            version: 1,
+            name: "create_test".to_string(),
+            up_sql: "CREATE TABLE rollback_test (id INTEGER PRIMARY KEY)".to_string(),
+            down_sql: Some("DROP TABLE rollback_test".to_string()),
+            checksum: compute_checksum("CREATE TABLE rollback_test (id INTEGER PRIMARY KEY)"),
+        };
+
+        runner.apply_migration(&migration).await.unwrap();
+        let applied = runner.get_applied_migrations().await.unwrap();
+        assert_eq!(applied.len(), 1);
+
+        // Insert into runner.migrations so rollback_migration can find it
+        runner.migrations.insert(1, migration);
+        runner.rollback_migration(1).await.unwrap();
+
+        let applied_after = runner.get_applied_migrations().await.unwrap();
+        assert!(applied_after.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_check_checksum_mismatches() {
+        let runner = in_memory_runner().await.unwrap();
+        runner.ensure_migrations_table().await.unwrap();
+
+        let migration = Migration {
+            version: 1,
+            name: "initial".to_string(),
+            up_sql: "CREATE TABLE checksum_test (id INTEGER PRIMARY KEY)".to_string(),
+            down_sql: None,
+            checksum: compute_checksum("CREATE TABLE checksum_test (id INTEGER PRIMARY KEY)"),
+        };
+
+        runner.apply_migration(&migration).await.unwrap();
+
+        // No mismatch when checksums match
+        let mismatches = runner.check_checksum_mismatches().await.unwrap();
+        assert!(mismatches.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_check_checksum_mismatches_mismatch() {
+        let mut runner = in_memory_runner().await.unwrap();
+        runner.ensure_migrations_table().await.unwrap();
+
+        let migration = Migration {
+            version: 1,
+            name: "initial".to_string(),
+            up_sql: "CREATE TABLE checksum_test (id INTEGER PRIMARY KEY)".to_string(),
+            down_sql: None,
+            checksum: compute_checksum("CREATE TABLE checksum_test (id INTEGER PRIMARY KEY)"),
+        };
+
+        runner.apply_migration(&migration).await.unwrap();
+
+        // Insert a migration with a different checksum into self.migrations
+        let tampered_migration = Migration {
+            version: 1,
+            name: "initial".to_string(),
+            up_sql: "CREATE TABLE checksum_test (id INTEGER PRIMARY KEY)".to_string(),
+            down_sql: None,
+            checksum: compute_checksum("TAMPERED SQL"),
+        };
+        runner.migrations.insert(1, tampered_migration);
+
+        let mismatches = runner.check_checksum_mismatches().await.unwrap();
+        assert_eq!(mismatches.len(), 1);
+        assert_eq!(mismatches[0].0, 1);
+    }
+
+    #[tokio::test]
+    async fn test_rollback_migration_not_found() {
+        let runner = in_memory_runner().await.unwrap();
+        let result = runner.rollback_migration(999).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_rollback_migration_no_down_sql() {
+        let mut runner = in_memory_runner().await.unwrap();
+        runner.ensure_migrations_table().await.unwrap();
+
+        let migration = Migration {
+            version: 1,
+            name: "no_down".to_string(),
+            up_sql: "CREATE TABLE no_down_test (id INTEGER PRIMARY KEY)".to_string(),
+            down_sql: None,
+            checksum: compute_checksum("CREATE TABLE no_down_test (id INTEGER PRIMARY KEY)"),
+        };
+
+        runner.apply_migration(&migration).await.unwrap();
+        runner.migrations.insert(1, migration);
+
+        let result = runner.rollback_migration(1).await;
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_migration_filename_invalid() {
+        assert!(parse_migration_filename("invalid").is_err());
+        assert!(parse_migration_filename("").is_err());
+        assert!(parse_migration_filename("noversion").is_err());
+    }
+
+    #[test]
+    fn test_parse_migration_filename_bad_version() {
+        assert!(parse_migration_filename("abc_name").is_err());
+    }
+}

@@ -36,3 +36,4 @@ libsql = { workspace = true }
 
 [dev-dependencies]
 tokio-test = "0.4"
+rustls = { version = "0.23", default-features = false, features = ["ring"] }

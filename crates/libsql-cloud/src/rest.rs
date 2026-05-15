@@ -151,8 +151,11 @@ impl CloudClient {
                         given_name, family_name, surname, mobile_phone, job_title,
                         street_address, city, state_province, postal_code, country_region,
                         date_of_birth, ssn_last_four, employment_status, annual_income,
-                        role, tenant_id, object_id, verified_id_credential_id,
-                        verified_id_status, verified_id_issued_at, created_at, updated_at
+                        phone_number, preferred_name, emergency_contact_name,
+                        emergency_contact_phone, employer_name, role, is_admin,
+                        provider_onboarding_complete, tenant_id, object_id,
+                        verified_id_credential_id, verified_id_status,
+                        verified_id_issued_at, created_at, updated_at
                  FROM user_profile WHERE azure_id = ? OR object_id = ?",
                 libsql::params![azure_id.to_string(), azure_id.to_string()],
             )
@@ -194,15 +197,15 @@ impl CloudClient {
                 role: row.get(24).unwrap_or_else(|_| "consumer".to_string()),
                 is_admin: row.get::<i64>(25).unwrap_or(0) != 0,
                 provider_onboarding_complete: row.get::<i64>(26).unwrap_or(0) != 0,
-                mfa_enabled: row.get::<i64>(27).unwrap_or(0) != 0,
-                mfa_verified_at: row.get(28).ok(),
-                tenant_id: row.get(29).unwrap_or_default(),
-                object_id: row.get(30).unwrap_or_default(),
-                verified_id_credential_id: row.get(31).ok(),
-                verified_id_status: row.get(32).unwrap_or_else(|_| "pending".to_string()),
-                verified_id_issued_at: row.get(33).ok(),
-                created_at: row.get(34).unwrap_or_default(),
-                updated_at: row.get(35).unwrap_or_default(),
+                mfa_enabled: false,
+                mfa_verified_at: None,
+                tenant_id: row.get(27).unwrap_or_default(),
+                object_id: row.get(28).unwrap_or_default(),
+                verified_id_credential_id: row.get(29).ok(),
+                verified_id_status: row.get(30).unwrap_or_else(|_| "pending".to_string()),
+                verified_id_issued_at: row.get(31).ok(),
+                created_at: row.get(32).unwrap_or_default(),
+                updated_at: row.get(33).unwrap_or_default(),
             }))
         } else {
             Ok(None)

@@ -69,7 +69,10 @@ struct MigrationArgs {
 }
 
 fn parse_args() -> Result<MigrationArgs> {
-    let args: Vec<String> = env::args().collect();
+    parse_args_from(&env::args().collect::<Vec<String>>())
+}
+
+fn parse_args_from(args: &[String]) -> Result<MigrationArgs> {
     let mut result = MigrationArgs {
         local_path: None,
         cloud_url: None,
@@ -81,39 +84,39 @@ fn parse_args() -> Result<MigrationArgs> {
 
     let mut i = 1;
     while i < args.len() {
-        match args[i].as_str() {
-            "--local" => {
+        match args.get(i).map(|s| s.as_str()) {
+            Some("--local") => {
                 i += 1;
-                if i < args.len() {
-                    result.local_path = Some(args[i].clone());
+                if let Some(val) = args.get(i) {
+                    result.local_path = Some(val.clone());
                 }
             }
-            "--cloud" => {
+            Some("--cloud") => {
                 i += 1;
-                if i < args.len() {
-                    result.cloud_url = Some(args[i].clone());
+                if let Some(val) = args.get(i) {
+                    result.cloud_url = Some(val.clone());
                 }
             }
-            "--token" => {
+            Some("--token") => {
                 i += 1;
-                if i < args.len() {
-                    result.auth_token = Some(args[i].clone());
+                if let Some(val) = args.get(i) {
+                    result.auth_token = Some(val.clone());
                 }
             }
-            "--migrations" => {
+            Some("--migrations") => {
                 i += 1;
-                if i < args.len() {
-                    result.migrations_dir = Some(args[i].clone());
+                if let Some(val) = args.get(i) {
+                    result.migrations_dir = Some(val.clone());
                 }
             }
-            "--rollback" => {
+            Some("--rollback") => {
                 i += 1;
-                if i < args.len() {
-                    result.rollback_version = Some(args[i].parse()?);
+                if let Some(val) = args.get(i) {
+                    result.rollback_version = Some(val.parse()?);
                 }
             }
-            "--check" => result.check_only = true,
-            "--help" | "-h" => {
+            Some("--check") => result.check_only = true,
+            Some("--help") | Some("-h") => {
                 print_help();
                 std::process::exit(0);
             }
@@ -174,6 +177,79 @@ async fn connect_database(
     eprintln!("❌ No database specified. Use --local or --cloud");
     print_help();
     std::process::exit(1);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_find_migrations_dir_with_override() {
+        let result = find_migrations_dir(Some("/tmp/migrations".to_string())).unwrap();
+        assert_eq!(result, PathBuf::from("/tmp/migrations"));
+    }
+
+    #[test]
+    fn test_find_migrations_dir_fallback() {
+        let result = find_migrations_dir(None).unwrap();
+        assert!(result.ends_with("migrations"));
+    }
+
+    #[test]
+    fn test_print_help_does_not_panic() {
+        print_help();
+    }
+
+    #[test]
+    fn test_parse_args_local() {
+        let args = vec!["run-migrations".to_string(), "--local".to_string(), "/tmp/db.db".to_string()];
+        let result = parse_args_from(&args).unwrap();
+        assert_eq!(result.local_path, Some("/tmp/db.db".to_string()));
+    }
+
+    #[test]
+    fn test_parse_args_cloud() {
+        let args = vec!["run-migrations".to_string(), "--cloud".to_string(), "https://db.turso.io".to_string(), "--token".to_string(), "abc".to_string()];
+        let result = parse_args_from(&args).unwrap();
+        assert_eq!(result.cloud_url, Some("https://db.turso.io".to_string()));
+        assert_eq!(result.auth_token, Some("abc".to_string()));
+    }
+
+    #[test]
+    fn test_parse_args_migrations_dir() {
+        let args = vec!["run-migrations".to_string(), "--migrations".to_string(), "/tmp/mig".to_string()];
+        let result = parse_args_from(&args).unwrap();
+        assert_eq!(result.migrations_dir, Some("/tmp/mig".to_string()));
+    }
+
+    #[test]
+    fn test_parse_args_rollback() {
+        let args = vec!["run-migrations".to_string(), "--rollback".to_string(), "42".to_string()];
+        let result = parse_args_from(&args).unwrap();
+        assert_eq!(result.rollback_version, Some(42));
+    }
+
+    #[test]
+    fn test_parse_args_check_only() {
+        let args = vec!["run-migrations".to_string(), "--check".to_string()];
+        let result = parse_args_from(&args).unwrap();
+        assert!(result.check_only);
+    }
+
+    #[test]
+    fn test_parse_args_empty() {
+        let args = vec!["run-migrations".to_string()];
+        let result = parse_args_from(&args).unwrap();
+        assert!(result.local_path.is_none());
+        assert!(result.cloud_url.is_none());
+        assert!(!result.check_only);
+    }
+
+    #[test]
+    fn test_parse_args_invalid_rollback() {
+        let args = vec!["run-migrations".to_string(), "--rollback".to_string(), "not-a-number".to_string()];
+        assert!(parse_args_from(&args).is_err());
+    }
 }
 
 fn print_help() {
