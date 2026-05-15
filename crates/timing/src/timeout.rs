@@ -99,7 +99,10 @@ impl TimeoutEnforcer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
     use tokio::time::sleep;
+
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     #[tokio::test]
     async fn test_timeout_success() {
@@ -153,5 +156,78 @@ mod tests {
             Err(TimeoutError::OperationError(e)) => assert_eq!(e, "operation failed"),
             _ => panic!("Expected operation error"),
         }
+    }
+
+    #[test]
+    fn test_timeout_enforcer_from_env() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        unsafe {
+            std::env::set_var("WORKFLOW_DEFAULT_TIMEOUT_MS", "15000");
+            std::env::set_var("WORKFLOW_MAX_TIMEOUT_MS", "600000");
+        }
+
+        let enforcer = TimeoutEnforcer::from_env();
+        assert_eq!(enforcer.default_timeout, Duration::from_millis(15000));
+        assert_eq!(enforcer.max_timeout, Duration::from_millis(600000));
+
+        unsafe {
+            std::env::remove_var("WORKFLOW_DEFAULT_TIMEOUT_MS");
+            std::env::remove_var("WORKFLOW_MAX_TIMEOUT_MS");
+        }
+    }
+
+    #[tokio::test]
+    async fn test_execute_default_timeout() {
+        let enforcer = TimeoutEnforcer::new(Duration::from_millis(500), Duration::from_secs(10));
+
+        let result = enforcer
+            .execute_default(|| async {
+                sleep(Duration::from_millis(50)).await;
+                Ok::<_, String>(42)
+            })
+            .await;
+
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), 42);
+    }
+
+    #[tokio::test]
+    async fn test_timeout_with_max_cap() {
+        let enforcer = TimeoutEnforcer::new(Duration::from_secs(1), Duration::from_millis(100));
+
+        // Requested timeout (1s) exceeds max (100ms), should be capped
+        let result = enforcer
+            .execute(
+                || async {
+                    sleep(Duration::from_millis(200)).await;
+                    Ok::<_, String>(42)
+                },
+                Some(Duration::from_secs(1)),
+            )
+            .await;
+
+        assert!(result.is_err());
+        match result {
+            Err(TimeoutError::Timeout(d)) => assert_eq!(d, Duration::from_millis(100)),
+            _ => panic!("Expected timeout capped at max"),
+        }
+    }
+
+    #[test]
+    fn test_timeout_enforcer_from_env_defaults() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        std::env::remove_var("WORKFLOW_DEFAULT_TIMEOUT_MS");
+        std::env::remove_var("WORKFLOW_MAX_TIMEOUT_MS");
+
+        let enforcer = TimeoutEnforcer::from_env();
+        assert_eq!(enforcer.default_timeout, Duration::from_millis(30000));
+        assert_eq!(enforcer.max_timeout, Duration::from_millis(300000));
+    }
+
+    #[test]
+    fn test_timeout_enforcer_new() {
+        let enforcer = TimeoutEnforcer::new(Duration::from_secs(10), Duration::from_secs(60));
+        assert_eq!(enforcer.default_timeout, Duration::from_secs(10));
+        assert_eq!(enforcer.max_timeout, Duration::from_secs(60));
     }
 }

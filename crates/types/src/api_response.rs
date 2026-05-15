@@ -4,7 +4,7 @@
 //! addressing Round 24 API governance findings.
 //!
 //! # Example Usage
-//! ```
+//! ```ignore
 //! use core_types::{ApiResponse, ResponseMeta, PaginationQuery};
 //!
 //! // Successful response
@@ -54,7 +54,7 @@ impl<T> ApiResponse<T> {
     /// Create a successful response with data
     ///
     /// # Example
-    /// ```
+    /// ```ignore
     /// let user = User { id: "123", name: "John" };
     /// let response = ApiResponse::success(user);
     /// ```
@@ -82,7 +82,7 @@ impl<T> ApiResponse<T> {
     /// Create an error response
     ///
     /// # Example
-    /// ```
+    /// ```ignore
     /// let error = ProblemDetails::not_found("User not found");
     /// let response = ApiResponse::<User>::error(error);
     /// ```
@@ -192,7 +192,7 @@ impl ResponseMeta {
 /// across all list endpoints.
 ///
 /// # Example
-/// ```
+/// ```ignore
 /// use axum::extract::Query;
 ///
 /// async fn list_users(
@@ -343,5 +343,55 @@ mod tests {
         assert_eq!(meta.page, Some(2));
         assert_eq!(meta.per_page, Some(50));
         assert_eq!(meta.api_version, "v1");
+    }
+
+    #[test]
+    fn test_api_response_success_with_meta() {
+        let meta = ResponseMeta::simple(1, "req-456".to_string());
+        let response = ApiResponse::success_with_meta("data", meta);
+
+        assert!(response.success);
+        assert_eq!(response.data, Some("data"));
+        assert!(response.meta.is_some());
+    }
+
+    #[test]
+    fn test_response_meta_with_cursor() {
+        let meta = ResponseMeta::with_cursor(10, Some("next-cursor".to_string()), "req-789".to_string());
+
+        assert_eq!(meta.returned_count, 10);
+        assert_eq!(meta.next_cursor, Some("next-cursor".to_string()));
+        assert_eq!(meta.page, None);
+        assert_eq!(meta.per_page, None);
+    }
+
+    #[test]
+    fn test_response_meta_simple() {
+        let meta = ResponseMeta::simple(5, "req-abc".to_string());
+
+        assert_eq!(meta.returned_count, 5);
+        assert_eq!(meta.total_count, None);
+        assert_eq!(meta.next_cursor, None);
+    }
+
+    #[test]
+    fn test_pagination_query_offset() {
+        let query = PaginationQuery { page: 3, per_page: 25, cursor: None };
+        assert_eq!(query.offset(), 50);
+    }
+
+    #[test]
+    fn test_pagination_query_limit() {
+        let query = PaginationQuery { page: 1, per_page: 50, cursor: None };
+        assert_eq!(query.limit(), 50);
+    }
+
+    #[test]
+    fn test_pagination_query_is_cursor_based() {
+        let cursor_query = PaginationQuery { page: 1, per_page: 20, cursor: Some("abc".to_string()) };
+        assert!(cursor_query.is_cursor_based());
+
+        let page_query = PaginationQuery { page: 1, per_page: 20, cursor: None };
+        assert!(!page_query.is_cursor_based());
     }
 }

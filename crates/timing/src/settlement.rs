@@ -281,4 +281,72 @@ mod tests {
         // Should be at least 3 business days (could be more if weekends/holidays)
         assert!(days >= 3);
     }
+
+    #[test]
+    fn test_settlement_calculator_with_calendar() {
+        let calendar = BusinessDayCalendar::new();
+        let calculator = SettlementCalculator::with_calendar(calendar);
+
+        let initiated = Utc.with_ymd_and_hms(2025, 1, 6, 10, 0, 0).unwrap();
+        let result = calculator.calculate_settlement_date(initiated, AchSettlementType::SameDay);
+
+        assert_eq!(result.business_days, 1);
+    }
+
+    #[test]
+    fn test_settlement_status_settling_today() {
+        let calculator = SettlementCalculator::new();
+
+        // For SameDay ACH, settlement should be the next business day
+        let initiated = Utc::now() - Duration::days(1);
+        let status = calculator.get_settlement_status(initiated, AchSettlementType::SameDay);
+
+        // Could be SettlingToday or Overdue depending on when the test runs
+        assert!(
+            status == SettlementStatus::SettlingToday
+                || status == SettlementStatus::Overdue
+                || status == SettlementStatus::InTransit
+        );
+    }
+
+    #[test]
+    fn test_settlement_calculator_default() {
+        let calculator: SettlementCalculator = Default::default();
+        let initiated = Utc.with_ymd_and_hms(2025, 1, 6, 10, 0, 0).unwrap();
+        let result = calculator.calculate_settlement_date(initiated, AchSettlementType::NextDay);
+        assert_eq!(result.business_days, 1);
+    }
+
+    #[test]
+    fn test_next_day_ach_settlement() {
+        let calculator = SettlementCalculator::new();
+
+        let initiated = Utc.with_ymd_and_hms(2025, 1, 6, 10, 0, 0).unwrap(); // Monday
+        let result = calculator.calculate_settlement_date(initiated, AchSettlementType::NextDay);
+
+        assert_eq!(result.business_days, 1);
+        assert_eq!(result.settlement_type, AchSettlementType::NextDay);
+    }
+
+    #[test]
+    fn test_ach_settlement_type_business_days() {
+        assert_eq!(AchSettlementType::ThreeDaySettlement.business_days(), 3);
+        assert_eq!(AchSettlementType::SameDay.business_days(), 1);
+        assert_eq!(AchSettlementType::NextDay.business_days(), 1);
+    }
+
+    #[test]
+    fn test_settlement_date_fields() {
+        let calculator = SettlementCalculator::new();
+        let initiated = Utc.with_ymd_and_hms(2025, 1, 6, 10, 0, 0).unwrap();
+        let result =
+            calculator.calculate_settlement_date(initiated, AchSettlementType::ThreeDaySettlement);
+
+        assert_eq!(result.initiated_at, initiated);
+        assert_eq!(
+            result.settlement_type,
+            AchSettlementType::ThreeDaySettlement
+        );
+        assert_eq!(result.business_days, 3);
+    }
 }
