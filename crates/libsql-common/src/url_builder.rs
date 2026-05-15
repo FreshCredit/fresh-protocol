@@ -181,4 +181,33 @@ mod tests {
         let db_name = builder.user_database_name("user+test!@#$%^&*()");
         assert_eq!(db_name, "user-user-test----------");
     }
+
+    #[test]
+    fn test_with_region() {
+        let builder = TursoUrlBuilder::with_region("myorg", "eu-west-1");
+        let url = builder.user_database_url("testuser");
+        assert!(url.contains("myorg"));
+        assert!(url.contains("eu-west-1"));
+    }
+
+    #[test]
+    fn test_user_pipeline_url() {
+        let builder = TursoUrlBuilder::new("testorg");
+        let url = builder.user_pipeline_url("user@example.com");
+        assert!(url.starts_with("https://"));
+        assert!(url.contains("/v2/pipeline"));
+        assert!(url.contains("testorg"));
+    }
+
+    #[test]
+    fn test_organization() {
+        let builder = TursoUrlBuilder::new("myorg");
+        assert_eq!(builder.organization(), "myorg");
+    }
+
+    #[test]
+    fn test_region() {
+        let builder = TursoUrlBuilder::with_region("org", "ap-south-1");
+        assert_eq!(builder.region(), "ap-south-1");
+    }
 }
