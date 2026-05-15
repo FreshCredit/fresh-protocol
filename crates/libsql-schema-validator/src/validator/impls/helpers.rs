@@ -255,3 +255,148 @@ impl SchemaValidator {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::*;
+
+    fn test_validator() -> SchemaValidator {
+        SchemaValidator {
+            staging_connection: None,
+            local_connection: None,
+            cloud_connection: None,
+        }
+    }
+
+    fn test_column(name: &str, data_type: &str) -> ColumnInfo {
+        ColumnInfo {
+            name: name.to_string(),
+            data_type: data_type.to_string(),
+            not_null: false,
+            default_value: None,
+            primary_key: false,
+        }
+    }
+
+    fn test_index(name: &str, columns: &[&str]) -> IndexInfo {
+        IndexInfo {
+            name: name.to_string(),
+            columns: columns.iter().map(|s| s.to_string()).collect(),
+            unique: false,
+        }
+    }
+
+    #[test]
+    fn test_compare_columns_missing() {
+        let validator = test_validator();
+        let ref_cols = vec![test_column("id", "INTEGER"), test_column("email", "TEXT")];
+        let actual_cols = vec![test_column("id", "INTEGER")];
+        let mut issues = vec![];
+
+        validator.compare_columns("db1", "users", &ref_cols, &actual_cols, &mut issues);
+
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].issue_type, IssueType::MissingColumn);
+        assert!(issues[0].description.contains("email"));
+    }
+
+    #[test]
+    fn test_compare_columns_extra() {
+        let validator = test_validator();
+        let ref_cols = vec![test_column("id", "INTEGER")];
+        let actual_cols = vec![test_column("id", "INTEGER"), test_column("extra", "TEXT")];
+        let mut issues = vec![];
+
+        validator.compare_columns("db1", "users", &ref_cols, &actual_cols, &mut issues);
+
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].issue_type, IssueType::ExtraColumn);
+        assert!(issues[0].description.contains("extra"));
+    }
+
+    #[test]
+    fn test_compare_columns_equal() {
+        let validator = test_validator();
+        let cols = vec![test_column("id", "INTEGER"), test_column("email", "TEXT")];
+        let mut issues = vec![];
+
+        validator.compare_columns("db1", "users", &cols, &cols, &mut issues);
+
+        assert!(issues.is_empty());
+    }
+
+    #[test]
+    fn test_compare_indexes_missing() {
+        let validator = test_validator();
+        let ref_idx = vec![test_index("idx_email", &["email"])];
+        let actual_idx = vec![];
+        let mut issues = vec![];
+        let mut warnings = vec![];
+
+        validator.compare_indexes(
+            "db1",
+            "users",
+            &ref_idx,
+            &actual_idx,
+            &mut issues,
+            &mut warnings,
+        );
+
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].issue_type, IssueType::MissingIndex);
+    }
+
+    #[test]
+    fn test_calculate_summary_empty() {
+        let validator = test_validator();
+        let schemas = std::collections::HashMap::new();
+        let summary = validator.calculate_summary(&schemas, &[], &[]);
+
+        assert_eq!(summary.total_tables_checked, 0);
+        assert_eq!(summary.critical_issues, 0);
+        assert_eq!(summary.warnings, 0);
+    }
+
+    #[test]
+    fn test_calculate_summary_with_issues() {
+        let validator = test_validator();
+        let mut schemas = std::collections::HashMap::new();
+        let mut tables = std::collections::HashMap::new();
+        tables.insert(
+            "users".to_string(),
+            TableSchema {
+                name: "users".to_string(),
+                columns: vec![test_column("id", "INTEGER"), test_column("email", "TEXT")],
+                indexes: vec![test_index("idx_email", &["email"])],
+                foreign_keys: vec![],
+            },
+        );
+        schemas.insert("local".to_string(), tables);
+
+        let issues = vec![
+            SchemaIssue {
+                severity: IssueSeverity::Critical,
+                database: "local".to_string(),
+                issue_type: IssueType::MissingTable,
+                description: "test".to_string(),
+                affected_object: "test".to_string(),
+            },
+            SchemaIssue {
+                severity: IssueSeverity::High,
+                database: "local".to_string(),
+                issue_type: IssueType::MissingColumn,
+                description: "test".to_string(),
+                affected_object: "test".to_string(),
+            },
+        ];
+
+        let summary = validator.calculate_summary(&schemas, &issues, &[]);
+
+        assert_eq!(summary.total_tables_checked, 1);
+        assert_eq!(summary.total_columns_checked, 2);
+        assert_eq!(summary.total_indexes_checked, 1);
+        assert_eq!(summary.critical_issues, 1);
+        assert_eq!(summary.high_issues, 1);
+    }
+}

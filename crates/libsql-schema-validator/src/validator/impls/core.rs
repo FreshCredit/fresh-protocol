@@ -169,10 +169,13 @@ impl SchemaValidator {
         }
 
         // If table exists in at least one database, compare columns
-        if let Some((_, reference_schema)) = all_schemas
-            .iter()
-            .find(|(_, s)| s.contains_key(&table_name))
-        {
+        // Use a deterministic reference: local > staging > cloud
+        let reference_schema = ["local", "staging", "cloud"].iter().find_map(|&name| {
+            all_schemas
+                .get(name)
+                .filter(|s| s.contains_key(&table_name))
+        });
+        if let Some(reference_schema) = reference_schema {
             if let Some(reference_table) = reference_schema.get(&table_name) {
                 for (db_name, schemas) in all_schemas {
                     if let Some(table) = schemas.get(&table_name) {
@@ -195,5 +198,182 @@ impl SchemaValidator {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::*;
+
+    fn test_validator() -> SchemaValidator {
+        SchemaValidator {
+            staging_connection: None,
+            local_connection: None,
+            cloud_connection: None,
+        }
+    }
+
+    fn test_column(name: &str, data_type: &str) -> ColumnInfo {
+        ColumnInfo {
+            name: name.to_string(),
+            data_type: data_type.to_string(),
+            not_null: false,
+            default_value: None,
+            primary_key: false,
+        }
+    }
+
+    fn test_table(name: &str, columns: Vec<ColumnInfo>, indexes: Vec<IndexInfo>) -> TableSchema {
+        TableSchema {
+            name: name.to_string(),
+            columns,
+            indexes,
+            foreign_keys: vec![],
+        }
+    }
+
+    #[test]
+    fn test_compare_schemas_missing_table() {
+        let validator = test_validator();
+        let mut schemas: HashMap<String, HashMap<String, TableSchema>> = HashMap::new();
+
+        let mut local = HashMap::new();
+        local.insert(
+            "users".to_string(),
+            test_table("users", vec![test_column("id", "INTEGER")], vec![]),
+        );
+        schemas.insert("local".to_string(), local);
+
+        let mut staging = HashMap::new();
+        staging.insert(
+            "accounts".to_string(),
+            test_table("accounts", vec![test_column("id", "INTEGER")], vec![]),
+        );
+        schemas.insert("staging".to_string(), staging);
+
+        let (issues, warnings) = validator.compare_schemas(&schemas).unwrap();
+        assert_eq!(issues.len(), 2); // users missing in staging, accounts missing in local
+        assert!(warnings.is_empty());
+        assert!(issues
+            .iter()
+            .any(|i| i.issue_type == IssueType::MissingTable));
+    }
+
+    #[test]
+    fn test_compare_schemas_equal() {
+        let validator = test_validator();
+        let mut schemas: HashMap<String, HashMap<String, TableSchema>> = HashMap::new();
+
+        let table = test_table("users", vec![test_column("id", "INTEGER")], vec![]);
+        let mut local = HashMap::new();
+        local.insert("users".to_string(), table.clone());
+        schemas.insert("local".to_string(), local);
+
+        let mut staging = HashMap::new();
+        staging.insert("users".to_string(), table);
+        schemas.insert("staging".to_string(), staging);
+
+        let (issues, warnings) = validator.compare_schemas(&schemas).unwrap();
+        assert!(issues.is_empty());
+        assert!(warnings.is_empty());
+    }
+
+    #[test]
+    fn test_compare_schemas_empty() {
+        let validator = test_validator();
+        let schemas: HashMap<String, HashMap<String, TableSchema>> = HashMap::new();
+        let (issues, warnings) = validator.compare_schemas(&schemas).unwrap();
+        assert!(issues.is_empty());
+        assert!(warnings.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_extract_schema_from_db() {
+        let db = libsql::Builder::new_local(":memory:")
+            .build()
+            .await
+            .expect("Failed to build in-memory database");
+        let connection = db.connect().expect("Failed to connect");
+
+        connection
+            .execute(
+                "CREATE TABLE users (id INTEGER PRIMARY KEY, email TEXT NOT NULL)",
+                (),
+            )
+            .await
+            .unwrap();
+
+        connection
+            .execute("CREATE INDEX idx_email ON users(email)", ())
+            .await
+            .unwrap();
+
+        let validator = test_validator();
+        let schema = validator.extract_schema(&connection, "test").await.unwrap();
+
+        assert_eq!(schema.len(), 1);
+        assert!(schema.contains_key("users"));
+        let table = schema.get("users").unwrap();
+        assert_eq!(table.columns.len(), 2);
+        assert_eq!(table.indexes.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_validate_with_single_db() {
+        let db = libsql::Builder::new_local(":memory:")
+            .build()
+            .await
+            .expect("Failed to build in-memory database");
+        let connection = db.connect().expect("Failed to connect");
+
+        connection
+            .execute("CREATE TABLE users (id INTEGER PRIMARY KEY)", ())
+            .await
+            .unwrap();
+
+        let validator = SchemaValidator::new().with_local(connection);
+        let result = validator.validate().await.unwrap();
+
+        assert!(result.is_valid);
+        assert_eq!(result.databases_checked, vec!["local"]);
+        assert!(result.issues.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_validate_detects_drift() {
+        let local_db = libsql::Builder::new_local(":memory:")
+            .build()
+            .await
+            .expect("Failed to build local database");
+        let local_conn = local_db.connect().expect("Failed to connect");
+        local_conn
+            .execute(
+                "CREATE TABLE users (id INTEGER PRIMARY KEY, email TEXT)",
+                (),
+            )
+            .await
+            .unwrap();
+
+        let staging_db = libsql::Builder::new_local(":memory:")
+            .build()
+            .await
+            .expect("Failed to build staging database");
+        let staging_conn = staging_db.connect().expect("Failed to connect");
+        staging_conn
+            .execute("CREATE TABLE users (id INTEGER PRIMARY KEY)", ())
+            .await
+            .unwrap();
+
+        let validator = SchemaValidator::new()
+            .with_local(local_conn)
+            .with_staging(staging_conn);
+
+        let result = validator.validate().await.unwrap();
+        assert!(!result.is_valid);
+        assert!(result
+            .issues
+            .iter()
+            .any(|i| i.issue_type == IssueType::MissingColumn));
     }
 }
