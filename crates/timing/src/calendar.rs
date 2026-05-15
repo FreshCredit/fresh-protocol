@@ -231,6 +231,7 @@ impl Default for BusinessDayCalendar {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::TimeZone;
 
     #[test]
     fn test_is_business_day() {
@@ -273,5 +274,148 @@ mod tests {
         let start = NaiveDate::from_ymd_opt(2025, 1, 6).unwrap();
         let end = NaiveDate::from_ymd_opt(2025, 1, 10).unwrap();
         assert_eq!(calendar.business_days_between(start, end), 4); // Excludes end date
+    }
+
+    #[test]
+    fn test_us_banking_alias() {
+        let calendar = BusinessDayCalendar::us_banking();
+        let monday = NaiveDate::from_ymd_opt(2025, 1, 6).unwrap();
+        assert!(calendar.is_business_day(monday));
+    }
+
+    #[test]
+    fn test_with_holidays() {
+        let mut calendar = BusinessDayCalendar::with_holidays(std::collections::HashSet::new());
+        let monday = NaiveDate::from_ymd_opt(2025, 1, 6).unwrap();
+        assert!(calendar.is_business_day(monday));
+
+        calendar.add_holidays(&[monday]);
+        assert!(!calendar.is_business_day(monday));
+    }
+
+    #[test]
+    fn test_next_business_day() {
+        let calendar = BusinessDayCalendar::new();
+        let friday = NaiveDate::from_ymd_opt(2025, 1, 3).unwrap();
+        let next = calendar.next_business_day(friday);
+        assert_eq!(next, NaiveDate::from_ymd_opt(2025, 1, 6).unwrap());
+    }
+
+    #[test]
+    fn test_previous_business_day() {
+        let calendar = BusinessDayCalendar::new();
+        let monday = NaiveDate::from_ymd_opt(2025, 1, 6).unwrap();
+        let prev = calendar.previous_business_day(monday);
+        assert_eq!(prev, NaiveDate::from_ymd_opt(2025, 1, 3).unwrap());
+    }
+
+    #[test]
+    fn test_add_business_days_negative() {
+        let calendar = BusinessDayCalendar::new();
+        let monday = NaiveDate::from_ymd_opt(2025, 1, 6).unwrap();
+        let prev = calendar.add_business_days(monday, -1);
+        assert_eq!(prev, NaiveDate::from_ymd_opt(2025, 1, 3).unwrap());
+    }
+
+    #[test]
+    fn test_default_calendar() {
+        let calendar: BusinessDayCalendar = Default::default();
+        let monday = NaiveDate::from_ymd_opt(2025, 1, 6).unwrap();
+        assert!(calendar.is_business_day(monday));
+    }
+
+    #[test]
+    fn test_add_business_days_datetime() {
+        let calendar = BusinessDayCalendar::new();
+        let start = chrono::Utc.with_ymd_and_hms(2025, 1, 6, 10, 30, 0).unwrap();
+        let result = calendar.add_business_days_datetime(start, 1);
+        // Should be Tuesday Jan 7
+        assert_eq!(
+            result.date_naive(),
+            NaiveDate::from_ymd_opt(2025, 1, 7).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_holiday_juneteenth() {
+        let calendar = BusinessDayCalendar::new();
+        let juneteenth = NaiveDate::from_ymd_opt(2025, 6, 19).unwrap();
+        assert!(!calendar.is_business_day(juneteenth));
+    }
+
+    #[test]
+    fn test_holiday_thanksgiving() {
+        let calendar = BusinessDayCalendar::new();
+        // Thanksgiving 2025: November 27
+        let thanksgiving = NaiveDate::from_ymd_opt(2025, 11, 27).unwrap();
+        assert!(!calendar.is_business_day(thanksgiving));
+    }
+
+    #[test]
+    fn test_holiday_memorial_day() {
+        let calendar = BusinessDayCalendar::new();
+        // Memorial Day 2025: May 26
+        let memorial_day = NaiveDate::from_ymd_opt(2025, 5, 26).unwrap();
+        assert!(!calendar.is_business_day(memorial_day));
+    }
+
+    #[test]
+    fn test_holiday_labor_day() {
+        let calendar = BusinessDayCalendar::new();
+        // Labor Day 2025: September 1
+        let labor_day = NaiveDate::from_ymd_opt(2025, 9, 1).unwrap();
+        assert!(!calendar.is_business_day(labor_day));
+    }
+
+    #[test]
+    fn test_holiday_mlk_day() {
+        let calendar = BusinessDayCalendar::new();
+        // MLK Day 2025: January 20
+        let mlk_day = NaiveDate::from_ymd_opt(2025, 1, 20).unwrap();
+        assert!(!calendar.is_business_day(mlk_day));
+    }
+
+    #[test]
+    fn test_holiday_presidents_day() {
+        let calendar = BusinessDayCalendar::new();
+        // Presidents Day 2025: February 17
+        let presidents_day = NaiveDate::from_ymd_opt(2025, 2, 17).unwrap();
+        assert!(!calendar.is_business_day(presidents_day));
+    }
+
+    #[test]
+    fn test_holiday_columbus_day() {
+        let calendar = BusinessDayCalendar::new();
+        // Columbus Day 2025: October 13
+        let columbus_day = NaiveDate::from_ymd_opt(2025, 10, 13).unwrap();
+        assert!(!calendar.is_business_day(columbus_day));
+    }
+
+    #[test]
+    fn test_holiday_veterans_day() {
+        let calendar = BusinessDayCalendar::new();
+        let veterans_day = NaiveDate::from_ymd_opt(2025, 11, 11).unwrap();
+        assert!(!calendar.is_business_day(veterans_day));
+    }
+
+    #[test]
+    fn test_holiday_christmas() {
+        let calendar = BusinessDayCalendar::new();
+        let christmas = NaiveDate::from_ymd_opt(2025, 12, 25).unwrap();
+        assert!(!calendar.is_business_day(christmas));
+    }
+
+    #[test]
+    fn test_holiday_independence_day() {
+        let calendar = BusinessDayCalendar::new();
+        let independence_day = NaiveDate::from_ymd_opt(2025, 7, 4).unwrap();
+        assert!(!calendar.is_business_day(independence_day));
+    }
+
+    #[test]
+    fn test_holiday_new_years() {
+        let calendar = BusinessDayCalendar::new();
+        let new_years = NaiveDate::from_ymd_opt(2025, 1, 1).unwrap();
+        assert!(!calendar.is_business_day(new_years));
     }
 }

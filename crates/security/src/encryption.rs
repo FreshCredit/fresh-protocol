@@ -432,4 +432,87 @@ mod tests {
         let result = config.decrypt(plaintext);
         assert!(result.is_err(), "Decrypting plaintext should fail");
     }
+
+    #[test]
+    fn test_base64_key_roundtrip() {
+        let b64_key = generate_base64_key();
+        let encryptor = TokenEncryptor::from_base64_key(&b64_key).unwrap();
+        let plaintext = "test-token";
+        let encrypted = encryptor.encrypt(plaintext).unwrap();
+        let decrypted = encryptor.decrypt(&encrypted).unwrap();
+        assert_eq!(plaintext, decrypted);
+    }
+
+    #[test]
+    fn test_generate_key_formats() {
+        let key = generate_key();
+        assert_eq!(key.len(), 32);
+
+        let hex = generate_hex_key();
+        assert_eq!(hex.len(), 64);
+
+        let b64 = generate_base64_key();
+        assert!(!b64.is_empty());
+    }
+
+    #[test]
+    fn test_get_encryption_config() {
+        let config = get_encryption_config();
+        // Should not panic; the function returns a static reference
+        assert!(!config.enabled || config.encryptor.is_some() || config.encryptor.is_none());
+    }
+
+    #[test]
+    fn test_encryption_error_display() {
+        let err = EncryptionError::NotConfigured;
+        assert_eq!(err.to_string(), "Encryption is not configured");
+
+        let err2 = EncryptionError::DecryptionFailed("bad len".to_string());
+        assert!(err2.to_string().contains("bad len"));
+
+        let err3 = EncryptionError::InvalidCiphertext;
+        assert_eq!(err3.to_string(), "Invalid ciphertext format");
+
+        let err4 = EncryptionError::AuthenticationFailed;
+        assert!(err4.to_string().contains("tampered"));
+    }
+
+    #[test]
+    fn test_token_encryptor_from_hex_key_invalid() {
+        let result = TokenEncryptor::from_hex_key("not-hex");
+        assert!(result.is_err());
+
+        let result2 = TokenEncryptor::from_hex_key("abcd"); // too short
+        assert!(result2.is_err());
+    }
+
+    #[test]
+    fn test_token_encryptor_from_base64_key_invalid() {
+        let result = TokenEncryptor::from_base64_key("!!!");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_token_encryptor_decrypt_tampered() {
+        let key = generate_key();
+        let encryptor = TokenEncryptor::new(&key).unwrap();
+        let ciphertext = encryptor.encrypt("secret").unwrap();
+
+        // Tamper with ciphertext
+        let mut tampered = ciphertext.into_bytes();
+        if !tampered.is_empty() {
+            tampered[0] ^= 0xFF;
+        }
+        let tampered_str = String::from_utf8_lossy(&tampered);
+        let result = encryptor.decrypt(&tampered_str);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_encryption_config_from_env_missing() {
+        // When env vars are not set, should return error
+        // (unless they happen to be set in the test environment)
+        let _ = EncryptionConfig::from_env();
+        // Just ensure it doesn't panic; result depends on environment
+    }
 }

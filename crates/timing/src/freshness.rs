@@ -149,6 +149,9 @@ impl FreshnessValidator {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     #[test]
     fn test_freshness_validation() {
@@ -174,6 +177,123 @@ mod tests {
         // 21 hours old (87.5% of 24-hour threshold)
         let approaching_stale_time = Utc::now() - Duration::hours(21);
         let status = validator.check_freshness(DataType::Reports, approaching_stale_time);
+        assert!(status.is_approaching_stale());
+        assert!(!status.is_critically_stale());
+    }
+
+    #[test]
+    fn test_freshness_validator_new() {
+        let thresholds = FreshnessThresholds::default();
+        let validator = FreshnessValidator::new(thresholds);
+        let status = validator.check_freshness(DataType::PlaidTransactions, Utc::now());
+        assert!(status.is_fresh);
+    }
+
+    #[test]
+    fn test_freshness_thresholds_from_env() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        unsafe {
+            std::env::set_var("PLAID_TRANSACTION_FRESHNESS_DAYS", "60");
+            std::env::set_var("PLAID_ACCOUNT_FRESHNESS_DAYS", "15");
+            std::env::set_var("LINKEDIN_FRESHNESS_DAYS", "3");
+            std::env::set_var("REPORT_FRESHNESS_HOURS", "12");
+        }
+
+        let thresholds = FreshnessThresholds::from_env();
+        assert_eq!(thresholds.plaid_transactions, Duration::days(60));
+        assert_eq!(thresholds.plaid_accounts, Duration::days(15));
+        assert_eq!(thresholds.linkedin_data, Duration::days(3));
+        assert_eq!(thresholds.reports, Duration::hours(12));
+
+        unsafe {
+            std::env::remove_var("PLAID_TRANSACTION_FRESHNESS_DAYS");
+            std::env::remove_var("PLAID_ACCOUNT_FRESHNESS_DAYS");
+            std::env::remove_var("LINKEDIN_FRESHNESS_DAYS");
+            std::env::remove_var("REPORT_FRESHNESS_HOURS");
+        }
+    }
+
+    #[test]
+    fn test_freshness_status_not_approaching() {
+        let status = FreshnessStatus {
+            is_fresh: true,
+            last_synced_at: Utc::now(),
+            age: Duration::hours(1),
+            threshold: Duration::hours(24),
+            staleness_percentage: 4.17,
+        };
+        assert!(!status.is_approaching_stale());
+        assert!(!status.is_critically_stale());
+    }
+
+    #[test]
+    fn test_freshness_all_data_types() {
+        let validator = FreshnessValidator::with_default_thresholds();
+
+        let now = Utc::now();
+        let status = validator.check_freshness(DataType::PlaidTransactions, now);
+        assert!(status.is_fresh);
+
+        let status = validator.check_freshness(DataType::PlaidAccounts, now);
+        assert!(status.is_fresh);
+
+        let status = validator.check_freshness(DataType::LinkedInData, now);
+        assert!(status.is_fresh);
+
+        let status = validator.check_freshness(DataType::Reports, now);
+        assert!(status.is_fresh);
+    }
+
+    #[test]
+    fn test_freshness_thresholds_from_env_defaults() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        std::env::remove_var("PLAID_TRANSACTION_FRESHNESS_DAYS");
+        std::env::remove_var("PLAID_ACCOUNT_FRESHNESS_DAYS");
+        std::env::remove_var("LINKEDIN_FRESHNESS_DAYS");
+        std::env::remove_var("REPORT_FRESHNESS_HOURS");
+
+        let thresholds = FreshnessThresholds::from_env();
+        assert_eq!(thresholds.plaid_transactions, Duration::days(90));
+        assert_eq!(thresholds.plaid_accounts, Duration::days(30));
+        assert_eq!(thresholds.linkedin_data, Duration::days(7));
+        assert_eq!(thresholds.reports, Duration::hours(24));
+    }
+
+    #[test]
+    fn test_freshness_validator_new_custom_thresholds() {
+        let thresholds = FreshnessThresholds {
+            plaid_transactions: Duration::days(30),
+            plaid_accounts: Duration::days(7),
+            linkedin_data: Duration::days(1),
+            reports: Duration::hours(12),
+        };
+        let validator = FreshnessValidator::new(thresholds.clone());
+        let status = validator.check_freshness(DataType::Reports, Utc::now() - Duration::hours(20));
+        assert!(!status.is_fresh);
+    }
+
+    #[test]
+    fn test_freshness_status_exactly_100_percent() {
+        let status = FreshnessStatus {
+            is_fresh: false,
+            last_synced_at: Utc::now(),
+            age: Duration::hours(24),
+            threshold: Duration::hours(24),
+            staleness_percentage: 100.0,
+        };
+        assert!(!status.is_critically_stale());
+        assert!(status.is_approaching_stale());
+    }
+
+    #[test]
+    fn test_freshness_status_approaching_at_81_percent() {
+        let status = FreshnessStatus {
+            is_fresh: true,
+            last_synced_at: Utc::now(),
+            age: Duration::hours(1),
+            threshold: Duration::hours(24),
+            staleness_percentage: 81.0,
+        };
         assert!(status.is_approaching_stale());
         assert!(!status.is_critically_stale());
     }

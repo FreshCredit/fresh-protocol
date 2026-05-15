@@ -192,6 +192,9 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     #[test]
     fn test_exponential_backoff() {
@@ -211,5 +214,143 @@ mod tests {
 
         // Fourth attempt: None (max attempts reached)
         assert!(strategy.next_delay(3).is_none());
+    }
+
+    #[test]
+    fn test_exponential_backoff_from_env() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        unsafe {
+            std::env::set_var("WORKFLOW_RETRY_INITIAL_DELAY_MS", "500");
+            std::env::set_var("WORKFLOW_RETRY_MAX_DELAY_MS", "30000");
+            std::env::set_var("WORKFLOW_RETRY_MAX_ATTEMPTS", "5");
+        }
+
+        let strategy = ExponentialBackoff::from_env();
+        assert_eq!(
+            strategy.initial_delay,
+            std::time::Duration::from_millis(500)
+        );
+        assert_eq!(strategy.max_delay, std::time::Duration::from_millis(30000));
+        assert_eq!(strategy.max_attempts, 5);
+
+        unsafe {
+            std::env::remove_var("WORKFLOW_RETRY_INITIAL_DELAY_MS");
+            std::env::remove_var("WORKFLOW_RETRY_MAX_DELAY_MS");
+            std::env::remove_var("WORKFLOW_RETRY_MAX_ATTEMPTS");
+        }
+    }
+
+    #[tokio::test]
+    async fn test_retry_executor_success() {
+        let strategy = ExponentialBackoff::new(
+            std::time::Duration::from_millis(10),
+            std::time::Duration::from_millis(100),
+            3,
+            0.0,
+        );
+        let executor = RetryExecutor::new(strategy);
+
+        let result = executor.execute(|| async { Ok::<_, String>(42) }).await;
+        assert_eq!(result.unwrap(), 42);
+    }
+
+    #[tokio::test]
+    async fn test_retry_executor_eventual_success() {
+        let strategy = ExponentialBackoff::new(
+            std::time::Duration::from_millis(10),
+            std::time::Duration::from_millis(100),
+            3,
+            0.0,
+        );
+        let executor = RetryExecutor::new(strategy);
+
+        let attempts = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let result = executor
+            .execute(|| {
+                let attempts = attempts.clone();
+                async move {
+                    let count = attempts.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
+                    if count < 3 {
+                        Err("not yet")
+                    } else {
+                        Ok(42)
+                    }
+                }
+            })
+            .await;
+
+        assert_eq!(result.unwrap(), 42);
+        assert_eq!(attempts.load(std::sync::atomic::Ordering::SeqCst), 3);
+    }
+
+    #[tokio::test]
+    async fn test_retry_executor_exhausted() {
+        let strategy = ExponentialBackoff::new(
+            std::time::Duration::from_millis(10),
+            std::time::Duration::from_millis(100),
+            2,
+            0.0,
+        );
+        let executor = RetryExecutor::new(strategy);
+
+        let result = executor
+            .execute(|| async { Err::<i32, _>("always fails") })
+            .await;
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), "always fails");
+    }
+
+    #[tokio::test]
+    async fn test_with_retry() {
+        let result = with_retry(|| async { Ok::<_, String>(42) }).await;
+        assert_eq!(result.unwrap(), 42);
+    }
+
+    #[tokio::test]
+    async fn test_with_retry_attempts() {
+        let result = with_retry_attempts(2, || async { Ok::<_, String>(42) }).await;
+        assert_eq!(result.unwrap(), 42);
+    }
+
+    #[tokio::test]
+    async fn test_with_retry_attempts_failure() {
+        let result = with_retry_attempts(1, || async { Err::<i32, _>("fails") }).await;
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_exponential_backoff_from_env_defaults() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        // Ensure env vars are not set so defaults are used
+        std::env::remove_var("WORKFLOW_RETRY_INITIAL_DELAY_MS");
+        std::env::remove_var("WORKFLOW_RETRY_MAX_DELAY_MS");
+        std::env::remove_var("WORKFLOW_RETRY_MAX_ATTEMPTS");
+
+        let strategy = ExponentialBackoff::from_env();
+        assert_eq!(
+            strategy.initial_delay,
+            std::time::Duration::from_millis(1000)
+        );
+        assert_eq!(strategy.max_delay, std::time::Duration::from_millis(60000));
+        assert_eq!(strategy.max_attempts, 3);
+        assert_eq!(strategy.jitter_percentage, 0.2);
+    }
+
+    #[test]
+    fn test_exponential_backoff_new() {
+        let strategy = ExponentialBackoff::new(
+            std::time::Duration::from_millis(500),
+            std::time::Duration::from_secs(30),
+            5,
+            0.1,
+        );
+        assert_eq!(
+            strategy.initial_delay,
+            std::time::Duration::from_millis(500)
+        );
+        assert_eq!(strategy.max_delay, std::time::Duration::from_secs(30));
+        assert_eq!(strategy.max_attempts, 5);
+        assert_eq!(strategy.jitter_percentage, 0.1);
     }
 }
