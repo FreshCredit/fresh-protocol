@@ -221,7 +221,11 @@ mod tests {
         ValidationSummary,
     };
 
-    fn make_result(valid: bool, issues: Vec<SchemaIssue>, warnings: Vec<freshcredit_libsql_schema_validator::SchemaWarning>) -> SchemaValidationResult {
+    fn make_result(
+        valid: bool,
+        issues: Vec<SchemaIssue>,
+        warnings: Vec<freshcredit_libsql_schema_validator::SchemaWarning>,
+    ) -> SchemaValidationResult {
         SchemaValidationResult {
             is_valid: valid,
             databases_checked: vec!["local".to_string()],
@@ -229,10 +233,22 @@ mod tests {
                 total_tables_checked: 5,
                 total_columns_checked: 20,
                 total_indexes_checked: 3,
-                critical_issues: issues.iter().filter(|i| i.severity == IssueSeverity::Critical).count(),
-                high_issues: issues.iter().filter(|i| i.severity == IssueSeverity::High).count(),
-                medium_issues: issues.iter().filter(|i| i.severity == IssueSeverity::Medium).count(),
-                low_issues: issues.iter().filter(|i| i.severity == IssueSeverity::Low).count(),
+                critical_issues: issues
+                    .iter()
+                    .filter(|i| i.severity == IssueSeverity::Critical)
+                    .count(),
+                high_issues: issues
+                    .iter()
+                    .filter(|i| i.severity == IssueSeverity::High)
+                    .count(),
+                medium_issues: issues
+                    .iter()
+                    .filter(|i| i.severity == IssueSeverity::Medium)
+                    .count(),
+                low_issues: issues
+                    .iter()
+                    .filter(|i| i.severity == IssueSeverity::Low)
+                    .count(),
                 warnings: warnings.len(),
             },
             issues,
