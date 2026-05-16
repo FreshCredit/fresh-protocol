@@ -357,7 +357,8 @@ mod tests {
 
     #[test]
     fn test_response_meta_with_cursor() {
-        let meta = ResponseMeta::with_cursor(10, Some("next-cursor".to_string()), "req-789".to_string());
+        let meta =
+            ResponseMeta::with_cursor(10, Some("next-cursor".to_string()), "req-789".to_string());
 
         assert_eq!(meta.returned_count, 10);
         assert_eq!(meta.next_cursor, Some("next-cursor".to_string()));
@@ -376,22 +377,38 @@ mod tests {
 
     #[test]
     fn test_pagination_query_offset() {
-        let query = PaginationQuery { page: 3, per_page: 25, cursor: None };
+        let query = PaginationQuery {
+            page: 3,
+            per_page: 25,
+            cursor: None,
+        };
         assert_eq!(query.offset(), 50);
     }
 
     #[test]
     fn test_pagination_query_limit() {
-        let query = PaginationQuery { page: 1, per_page: 50, cursor: None };
+        let query = PaginationQuery {
+            page: 1,
+            per_page: 50,
+            cursor: None,
+        };
         assert_eq!(query.limit(), 50);
     }
 
     #[test]
     fn test_pagination_query_is_cursor_based() {
-        let cursor_query = PaginationQuery { page: 1, per_page: 20, cursor: Some("abc".to_string()) };
+        let cursor_query = PaginationQuery {
+            page: 1,
+            per_page: 20,
+            cursor: Some("abc".to_string()),
+        };
         assert!(cursor_query.is_cursor_based());
 
-        let page_query = PaginationQuery { page: 1, per_page: 20, cursor: None };
+        let page_query = PaginationQuery {
+            page: 1,
+            per_page: 20,
+            cursor: None,
+        };
         assert!(!page_query.is_cursor_based());
     }
 }

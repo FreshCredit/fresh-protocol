@@ -163,9 +163,8 @@ impl AchSettlementType {
     #[must_use]
     pub const fn business_days(&self) -> i64 {
         match self {
-            Self::ThreeDaySettlement => 3, // T+3 for regular ACH
-            Self::SameDay => 1,            // T+1 for same-day
-            Self::NextDay => 1,            // T+1 for next-day
+            Self::ThreeDaySettlement => 3,      // T+3 for regular ACH
+            Self::SameDay | Self::NextDay => 1, // T+1 for same-day and next-day
         }
     }
 }

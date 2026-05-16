@@ -4,6 +4,11 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 
+repository.workspace = true
+description.workspace = true
+readme.workspace = true
+keywords.workspace = true
+categories.workspace = true
 [dependencies]
 blake2 = { workspace = true }
 hex = { workspace = true }
@@ -18,7 +23,7 @@ tracing.workspace = true
 clap = { workspace = true, optional = true }
 
 # Re-export clock from timing crate to avoid duplication
-freshcredit-core-timing = { path = "../timing" }
+freshcredit-core-timing = { path = "../timing", version = "0.1.0" }
 
 [features]
 default = []

@@ -133,6 +133,7 @@ impl FreshnessValidator {
 
         let age = Utc::now() - last_synced_at;
         let is_fresh = age <= threshold;
+        #[allow(clippy::cast_precision_loss)] // Acceptable for staleness percentage calculation
         let staleness_percentage =
             (age.num_seconds() as f64 / threshold.num_seconds() as f64) * 100.0;
 

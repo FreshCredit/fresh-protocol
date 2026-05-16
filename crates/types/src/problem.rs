@@ -181,13 +181,13 @@ impl From<FreshCreditError> for ProblemDetails {
     fn from(error: FreshCreditError) -> Self {
         match error {
             FreshCreditError::ValidationError(msg) => Self::validation_error(&msg),
-            FreshCreditError::DatabaseError(msg) => Self::internal_error(&msg),
-            FreshCreditError::ExternalApiError(msg) => Self::internal_error(&msg),
+            FreshCreditError::DatabaseError(msg)
+            | FreshCreditError::ExternalApiError(msg)
+            | FreshCreditError::InternalError(msg)
+            | FreshCreditError::EncryptionError(msg) => Self::internal_error(&msg),
             FreshCreditError::AuthenticationError(msg) => Self::unauthorized(&msg),
             FreshCreditError::AuthorizationError(msg) => Self::forbidden(&msg),
             FreshCreditError::NotFoundError(msg) => Self::not_found(&msg),
-            FreshCreditError::InternalError(msg) => Self::internal_error(&msg),
-            FreshCreditError::EncryptionError(msg) => Self::internal_error(&msg),
         }
     }
 }

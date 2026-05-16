@@ -52,23 +52,23 @@ impl BusinessDayCalendar {
     /// Check if a date is a business day
     #[must_use]
     pub fn is_business_day(&self, date: NaiveDate) -> bool {
-        !self.is_weekend(date) && !self.holidays.contains(&date)
+        !Self::is_weekend(date) && !self.holidays.contains(&date)
     }
 
     /// Check if a date is a weekend
-    fn is_weekend(&self, date: NaiveDate) -> bool {
+    fn is_weekend(date: NaiveDate) -> bool {
         matches!(date.weekday(), Weekday::Sat | Weekday::Sun)
     }
 
     /// Add business days to a date (`NaiveDate` version)
     #[must_use]
-    pub fn add_business_days(&self, start: NaiveDate, days: i32) -> NaiveDate {
+    pub fn add_business_days(&self, start: NaiveDate, days: i64) -> NaiveDate {
         let mut current = start;
         let mut remaining = days.abs();
         let direction = if days >= 0 { 1 } else { -1 };
 
         while remaining > 0 {
-            current += Duration::days(i64::from(direction));
+            current += Duration::days(direction);
             if self.is_business_day(current) {
                 remaining -= 1;
             }
@@ -88,7 +88,7 @@ impl BusinessDayCalendar {
         days: i64,
     ) -> chrono::DateTime<chrono::Utc> {
         let start_date = start.date_naive();
-        let result_date = self.add_business_days(start_date, days as i32);
+        let result_date = self.add_business_days(start_date, days);
 
         // Preserve the time component
         // Safe: 0,0,0 is always a valid time; Utc is unambiguous timezone
@@ -196,11 +196,9 @@ impl BusinessDayCalendar {
         let first_weekday = first_of_month.weekday();
 
         // Calculate days until the target weekday
-        let days_until = (weekday.num_days_from_monday() as i32
-            - first_weekday.num_days_from_monday() as i32
-            + 7)
-            % 7;
-        let day = 1 + days_until as u32 + (n - 1) * 7;
+        let days_until =
+            (weekday.num_days_from_monday() + 7 - first_weekday.num_days_from_monday()) % 7;
+        let day = 1 + days_until + (n - 1) * 7;
 
         NaiveDate::from_ymd_opt(year, month, day)
     }

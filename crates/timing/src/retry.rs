@@ -87,14 +87,25 @@ impl RetryStrategy for ExponentialBackoff {
         }
 
         // Calculate exponential delay: initial_delay * 2^attempt
-        let base_delay = self.initial_delay.as_millis() as u64 * 2u64.pow(attempt);
-        let capped_delay = base_delay.min(self.max_delay.as_millis() as u64);
+        let base_delay = u64::try_from(self.initial_delay.as_millis())
+            .expect("initial delay fits in u64")
+            .saturating_mul(2u64.pow(attempt));
+        let capped_delay = base_delay
+            .min(u64::try_from(self.max_delay.as_millis()).expect("max delay fits in u64"));
 
         // Add jitter to prevent thundering herd
+        #[allow(clippy::cast_precision_loss, clippy::cast_possible_truncation)]
+        // Safe for bounded jitter calculation
         let jitter_range = (capped_delay as f64 * self.jitter_percentage) as i64;
         let mut rng = rand::thread_rng();
         let jitter = rng.gen_range(-jitter_range..=jitter_range);
-        let final_delay = (capped_delay as i64 + jitter).max(0) as u64;
+        let final_delay = u64::try_from(
+            i64::try_from(capped_delay)
+                .expect("capped delay fits in i64")
+                .saturating_add(jitter)
+                .max(0),
+        )
+        .expect("jittered delay is non-negative");
 
         Some(Duration::from_millis(final_delay))
     }

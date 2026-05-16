@@ -54,7 +54,7 @@ impl TimeoutEnforcer {
                 std::env::var("WORKFLOW_MAX_TIMEOUT_MS")
                     .ok()
                     .and_then(|v| v.parse::<u64>().ok())
-                    .unwrap_or(300000),
+                    .unwrap_or(300_000),
             ),
         }
     }
@@ -221,7 +221,7 @@ mod tests {
 
         let enforcer = TimeoutEnforcer::from_env();
         assert_eq!(enforcer.default_timeout, Duration::from_millis(30000));
-        assert_eq!(enforcer.max_timeout, Duration::from_millis(300000));
+        assert_eq!(enforcer.max_timeout, Duration::from_millis(300_000));
     }
 
     #[test]
