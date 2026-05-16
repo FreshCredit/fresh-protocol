@@ -89,11 +89,10 @@ impl LocalClient {
         while let Some(row) = rows.next().await? {
             let account_type_str: String = row.get(2)?;
             let account_type = match account_type_str.as_str() {
-                "Checking" => freshcredit_types::AccountType::Checking,
                 "Savings" => freshcredit_types::AccountType::Savings,
                 "Credit" => freshcredit_types::AccountType::Credit,
                 "Investment" => freshcredit_types::AccountType::Investment,
-                _ => freshcredit_types::AccountType::Checking, // Default fallback
+                _ => freshcredit_types::AccountType::Checking,
             };
 
             let account = freshcredit_types::Account {

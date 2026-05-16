@@ -82,6 +82,7 @@ impl DatabaseConnection for RemoteConnection {
         Ok(())
     }
 
+    #[allow(clippy::cast_possible_truncation)]
     async fn health_check(&self) -> anyhow::Result<ConnectionHealth> {
         let start = Instant::now();
         let conn = self.db.connect()?;

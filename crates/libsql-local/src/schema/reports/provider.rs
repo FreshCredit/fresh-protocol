@@ -70,6 +70,7 @@ pub async fn initialize_provider_tables(conn: &Connection) -> Result<()> {
 /// Seed demo provider offers if table is empty
 /// COMPLIANCE: §4 - Template rules - these are example offers for demonstration
 /// NOTE: These are demo offers. Providers must define their own terms in production.
+#[allow(clippy::too_many_lines)]
 pub(crate) async fn seed_demo_provider_offers(conn: &Connection) -> Result<()> {
     // Check if offers already exist
     let mut rows = conn

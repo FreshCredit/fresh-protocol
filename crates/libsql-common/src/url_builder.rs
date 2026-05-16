@@ -77,7 +77,7 @@ impl TursoUrlBuilder {
     /// - Truncates to 28 characters
     #[must_use]
     pub fn user_database_name(&self, user_id: &str) -> String {
-        let sanitized = self.sanitize_user_id(user_id);
+        let sanitized = Self::sanitize_user_id(user_id);
         format!("user-{sanitized}")
     }
 
@@ -112,7 +112,7 @@ impl TursoUrlBuilder {
     /// - Replaces non-alphanumeric characters with hyphens
     /// - Converts to lowercase
     /// - Truncates to `MAX_USER_ID_LENGTH` (28) characters
-    fn sanitize_user_id(&self, user_id: &str) -> String {
+    fn sanitize_user_id(user_id: &str) -> String {
         let sanitized: String = user_id
             .chars()
             .map(|c| {

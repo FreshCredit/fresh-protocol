@@ -170,6 +170,7 @@ impl LocalClient {
                 role: row.get(2)?,
                 content: row.get(3)?,
                 file_attachment_id: row.get(4)?,
+                #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
                 tokens_used: row.get::<Option<i64>>(5)?.map(|t| t as u32),
                 model: row.get(6)?,
                 created_at: row.get(7)?,

@@ -5,6 +5,10 @@ edition.workspace = true
 license.workspace = true
 description = "Versioned database migration system for FreshCredit"
 
+repository.workspace = true
+readme.workspace = true
+keywords.workspace = true
+categories.workspace = true
 [[bin]]
 name = "run-migrations"
 path = "src/bin/run_migrations.rs"

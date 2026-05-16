@@ -41,7 +41,7 @@ impl CircuitBreakerConnection {
     /// # Errors
     ///
     /// Returns an error if the operation fails.
-    pub async fn from_env(inner: Arc<dyn DatabaseConnection>) -> anyhow::Result<Arc<Self>> {
+    pub fn from_env(inner: Arc<dyn DatabaseConnection>) -> anyhow::Result<Arc<Self>> {
         let config = CircuitBreakerConfig::from_env();
         Ok(Self::new(inner, config))
     }
@@ -92,6 +92,7 @@ impl CircuitBreakerConnection {
     }
 
     /// Check if we should allow a call based on circuit state
+    #[allow(clippy::significant_drop_tightening)]
     async fn check_state(&self) -> Result<(), CircuitBreakerError> {
         let mut inner = self.inner_state.write().await;
 
@@ -102,36 +103,36 @@ impl CircuitBreakerConnection {
             }
             CircuitBreakerState::Open => {
                 // Check if recovery timeout has passed
-                if let Some(opened_at) = inner.opened_at {
-                    let elapsed = opened_at.elapsed();
-                    let timeout = Duration::from_secs(self.config.recovery_timeout_secs);
+                inner.opened_at.map_or_else(
+                    || Err(CircuitBreakerError::CircuitOpen),
+                    |opened_at| {
+                        let elapsed = opened_at.elapsed();
+                        let timeout = Duration::from_secs(self.config.recovery_timeout_secs);
 
-                    if elapsed >= timeout {
-                        // Transition to half-open
-                        info!(
-                            "Circuit breaker transitioning from OPEN to HALF_OPEN after {}s",
-                            elapsed.as_secs()
-                        );
-                        inner.state = CircuitBreakerState::HalfOpen;
-                        inner.opened_at = None;
-                        inner.half_open_calls = 0;
-                        inner.consecutive_successes = 0;
-                        inner.stats.last_state_change = Some(Instant::now());
-                        Ok(())
-                    } else {
-                        // Still in timeout - reject
-                        let remaining = timeout - elapsed;
-                        debug!(
-                            "Circuit breaker OPEN - rejecting call ({}s until retry)",
-                            remaining.as_secs()
-                        );
-                        self.total_rejected.fetch_add(1, Ordering::Relaxed);
-                        Err(CircuitBreakerError::CircuitOpen)
-                    }
-                } else {
-                    // Should not happen, but treat as open
-                    Err(CircuitBreakerError::CircuitOpen)
-                }
+                        if elapsed >= timeout {
+                            // Transition to half-open
+                            info!(
+                                "Circuit breaker transitioning from OPEN to HALF_OPEN after {}s",
+                                elapsed.as_secs()
+                            );
+                            inner.state = CircuitBreakerState::HalfOpen;
+                            inner.opened_at = None;
+                            inner.half_open_calls = 0;
+                            inner.consecutive_successes = 0;
+                            inner.stats.last_state_change = Some(Instant::now());
+                            Ok(())
+                        } else {
+                            // Still in timeout - reject
+                            let remaining = timeout - elapsed;
+                            debug!(
+                                "Circuit breaker OPEN - rejecting call ({}s until retry)",
+                                remaining.as_secs()
+                            );
+                            self.total_rejected.fetch_add(1, Ordering::Relaxed);
+                            Err(CircuitBreakerError::CircuitOpen)
+                        }
+                    },
+                )
             }
             CircuitBreakerState::HalfOpen => {
                 // Allow limited test calls

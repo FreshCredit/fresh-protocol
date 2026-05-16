@@ -62,6 +62,12 @@ impl RetryConfig {
     }
 
     /// Calculate delay for a given attempt number
+    #[allow(
+        clippy::cast_possible_truncation,
+        clippy::cast_precision_loss,
+        clippy::cast_sign_loss,
+        clippy::cast_possible_wrap
+    )]
     fn delay_for_attempt(&self, attempt: u32) -> Option<Duration> {
         if attempt >= self.max_attempts {
             return None;

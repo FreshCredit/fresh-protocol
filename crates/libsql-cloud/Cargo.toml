@@ -4,6 +4,11 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 
+repository.workspace = true
+description.workspace = true
+readme.workspace = true
+keywords.workspace = true
+categories.workspace = true
 [dependencies]
 libsql = { workspace = true }
 anyhow = { workspace = true }
@@ -14,5 +19,5 @@ uuid = { workspace = true }
 chrono = { workspace = true }
 
 # Internal dependencies
-freshcredit-types = { path = "../../../core/types" }
-freshcredit-libsql-local = { path = "../local" }
+freshcredit-types = { path = "../../../core/types", version = "0.1.0" }
+freshcredit-libsql-local = { path = "../local", version = "0.1.0" }

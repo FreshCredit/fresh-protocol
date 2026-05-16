@@ -263,6 +263,7 @@ impl LocalClient {
             .await?;
 
         let mut counts = WebhookEventCounts::default();
+        #[allow(clippy::cast_sign_loss)]
         while let Some(row) = rows.next().await? {
             let status: String = row.get(0)?;
             let count: i64 = row.get(1)?;

@@ -139,10 +139,6 @@ pub trait DatabaseConnectionExt: DatabaseConnection {
         params: Vec<libsql::Value>,
     ) -> anyhow::Result<libsql::Row> {
         let mut rows = self.query(sql, params).await?;
-        if let Some(row) = rows.next().await? {
-            Ok(row)
-        } else {
-            Err(anyhow::anyhow!("Query returned no rows"))
-        }
+        (rows.next().await?).map_or_else(|| Err(anyhow::anyhow!("Query returned no rows")), Ok)
     }
 }

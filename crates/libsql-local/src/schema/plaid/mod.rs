@@ -41,7 +41,7 @@ pub async fn initialize_all_plaid_tables(conn: &Connection) -> Result<()> {
     tables::investments::initialize_plaid_investments_tables(conn).await?;
     tables::liabilities::initialize_plaid_liabilities_tables(conn).await?;
     tables::monitoring::initialize_plaid_monitoring_tables(conn).await?;
-    indexes::initialize_plaid_indexes(conn).await?;
+    indexes::initialize_plaid_indexes(conn)?;
     Ok(())
 }
 

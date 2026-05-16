@@ -104,8 +104,7 @@ impl ReplicaConnection {
 
                 match db.sync().await {
                     Ok(_) => {
-                        let mut sync = last_sync.write().await;
-                        *sync = Some(chrono::Utc::now());
+                        *last_sync.write().await = Some(chrono::Utc::now());
                         tracing::debug!("Background sync completed");
                     }
                     Err(e) => {
@@ -127,8 +126,7 @@ impl ReplicaConnection {
     /// Returns an error if the operation fails.
     pub async fn sync(&self) -> anyhow::Result<()> {
         self.db.sync().await?;
-        let mut sync = self.last_sync.write().await;
-        *sync = Some(chrono::Utc::now());
+        *self.last_sync.write().await = Some(chrono::Utc::now());
         Ok(())
     }
 
@@ -189,6 +187,7 @@ impl DatabaseConnection for ReplicaConnection {
         Ok(())
     }
 
+    #[allow(clippy::cast_possible_truncation)]
     async fn health_check(&self) -> anyhow::Result<ConnectionHealth> {
         let start = Instant::now();
         let conn = self.db.connect()?;

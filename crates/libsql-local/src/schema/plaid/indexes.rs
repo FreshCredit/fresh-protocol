@@ -10,6 +10,6 @@ use libsql::Connection;
 /// # Errors
 ///
 /// Returns an error if the operation fails.
-pub async fn initialize_plaid_indexes(_conn: &Connection) -> Result<()> {
+pub const fn initialize_plaid_indexes(_conn: &Connection) -> Result<()> {
     Ok(())
 }

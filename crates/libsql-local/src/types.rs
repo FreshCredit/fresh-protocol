@@ -67,11 +67,12 @@ use serde::{
 // ============================================================================
 
 /// User profile for database storage (unified schema)
-/// Combines Entra ID claims with extended profile and Verified ID fields
-/// P0p: Added `is_admin` for first provider user admin rule (§27.4)
-/// P0g: Added `provider_onboarding_complete` for nav visibility (§28.1)
+///
+/// Combines Entra ID claims with extended profile and Verified ID fields.
+/// P0p: Added `is_admin` for first provider user admin rule (§27.4).
+/// P0g: Added `provider_onboarding_complete` for nav visibility (§28.1).
 /// ARCH-P2-001: Added `phone_number`, `preferred_name`, `emergency_contact_name`,
-///              `emergency_contact_phone`, `employer_name` for web schema alignment
+///              `emergency_contact_phone`, `employer_name` for web schema alignment.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserProfile {
     pub id: String,

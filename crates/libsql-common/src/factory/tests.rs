@@ -61,7 +61,7 @@ async fn test_config_validation() {
 async fn test_validate_remote_empty_url() {
     let config = ConnectionConfig {
         mode: ConnectionMode::DirectRemote,
-        remote_url: "".to_string(),
+        remote_url: String::new(),
         ..Default::default()
     };
     let result = config.validate();
@@ -730,9 +730,7 @@ async fn test_circuit_breaker_from_env() {
     }
 
     let local = LocalConnection::in_memory().await.unwrap();
-    let cb = CircuitBreakerConnection::from_env(Arc::new(local))
-        .await
-        .unwrap();
+    let cb = CircuitBreakerConnection::from_env(Arc::new(local)).unwrap();
     assert_eq!(cb.state().await, CircuitBreakerState::Closed);
 
     unsafe {

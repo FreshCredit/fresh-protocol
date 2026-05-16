@@ -37,6 +37,7 @@ use tracing::{
 /// # Errors
 ///
 /// Returns an error if the operation fails.
+#[allow(clippy::too_many_lines)]
 pub async fn initialize_agent_tables(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing agent tables");
     // =========================================================================

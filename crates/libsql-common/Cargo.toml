@@ -5,6 +5,10 @@ edition.workspace = true
 license.workspace = true
 description = "Shared utilities for libSQL/Turso database connections with dual-path architecture"
 
+repository.workspace = true
+readme.workspace = true
+keywords.workspace = true
+categories.workspace = true
 [features]
 # Default: Direct remote + local-only (embedded replica is OPT-IN)
 default = ["remote", "local-only", "embedded-replica"]
