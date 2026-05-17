@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Schema validation and drift detection for `LibSQL` databases
 //!
 //! This module provides tools to detect schema drift between staging, local, and cloud databases.
