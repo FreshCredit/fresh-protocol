@@ -32,6 +32,7 @@
 
 // Submodules for incremental extraction
 #![allow(clippy::wildcard_imports)]
+#![allow(missing_docs)]
 
 pub mod helpers;
 pub mod impls;

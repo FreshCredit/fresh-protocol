@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 //! Versioned database migration system for `FreshCredit`
 //!
 //! This module provides a migration runner that:
