@@ -4,15 +4,8 @@
 //! such as sessions, CSRF tokens, rate limits, etc.
 
 use async_trait::async_trait;
-use chrono::{
-    DateTime,
-    Duration,
-    Utc,
-};
-use serde::{
-    Deserialize,
-    Serialize,
-};
+use chrono::{DateTime, Duration, Utc};
+use serde::{Deserialize, Serialize};
 
 /// TTL enforcement trait for ephemeral data
 #[async_trait]
@@ -35,19 +28,26 @@ pub trait TtlEnforcement: Send + Sync {
 #[derive(Debug, thiserror::Error)]
 pub enum TtlError {
     #[error("Database error: {0}")]
+    /// Databaseerror
     DatabaseError(String),
 
     #[error("Invalid TTL: {0}")]
+    /// Invalidttl
     InvalidTtl(String),
 }
 
 /// TTL configuration for different data types
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TtlConfig {
+    /// Sessions
     pub sessions: Duration,
+    /// Csrf Tokens
     pub csrf_tokens: Duration,
+    /// Rate Limits
     pub rate_limits: Duration,
+    /// Staged Payloads
     pub staged_payloads: Duration,
+    /// Idempotency Keys
     pub idempotency_keys: Duration,
 }
 
@@ -109,6 +109,7 @@ impl TtlConfig {
 
 #[cfg(test)]
 mod tests {
+    #![allow(unsafe_code)]
     use super::*;
     use std::sync::Mutex;
 

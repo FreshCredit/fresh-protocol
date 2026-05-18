@@ -2,15 +2,8 @@
 //!
 //! This module provides utilities for validating data freshness and detecting stale data.
 
-use chrono::{
-    DateTime,
-    Duration,
-    Utc,
-};
-use serde::{
-    Deserialize,
-    Serialize,
-};
+use chrono::{DateTime, Duration, Utc};
+use serde::{Deserialize, Serialize};
 
 /// Data freshness validator
 #[derive(Debug, Clone)]
@@ -21,9 +14,13 @@ pub struct FreshnessValidator {
 /// Freshness thresholds for different data types
 #[derive(Debug, Clone)]
 pub struct FreshnessThresholds {
+    /// Plaid Transactions
     pub plaid_transactions: Duration,
+    /// Plaid Accounts
     pub plaid_accounts: Duration,
+    /// Linkedin Data
     pub linkedin_data: Duration,
+    /// Reports
     pub reports: Duration,
 }
 
@@ -74,10 +71,15 @@ impl FreshnessThresholds {
 /// Freshness status for a piece of data
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FreshnessStatus {
+    /// Is Fresh
     pub is_fresh: bool,
+    /// Timestamp when the last synced was created/updated
     pub last_synced_at: DateTime<Utc>,
+    /// Age
     pub age: Duration,
+    /// Threshold
     pub threshold: Duration,
+    /// Staleness Percentage
     pub staleness_percentage: f64,
 }
 
@@ -98,9 +100,13 @@ impl FreshnessStatus {
 /// Data type for freshness checking
 #[derive(Debug, Clone, Copy)]
 pub enum DataType {
+    /// Plaidtransactions
     PlaidTransactions,
+    /// Plaidaccounts
     PlaidAccounts,
+    /// Linkedindata
     LinkedInData,
+    /// Reports
     Reports,
 }
 
@@ -149,6 +155,7 @@ impl FreshnessValidator {
 
 #[cfg(test)]
 mod tests {
+    #![allow(unsafe_code)]
     use super::*;
     use std::sync::Mutex;
 

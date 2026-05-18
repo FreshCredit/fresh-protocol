@@ -3,10 +3,7 @@
 //! This module provides a trait-based clock abstraction that allows for testable
 //! time operations throughout the `FreshCredit` codebase.
 
-use chrono::{
-    DateTime,
-    Utc,
-};
+use chrono::{DateTime, Utc};
 
 /// Clock abstraction for time operations
 ///

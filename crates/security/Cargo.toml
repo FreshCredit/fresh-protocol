@@ -24,6 +24,7 @@ clap = { workspace = true, optional = true }
 
 # Re-export clock from timing crate to avoid duplication
 freshcredit-core-timing = { path = "../timing", version = "0.1.0" }
+workspace-hack = { version = "0.1", path = "../../../workspace-hack" }
 
 [features]
 default = []
@@ -33,3 +34,6 @@ cli = ["clap"]
 name = "fc-security"
 path = "src/bin/fc_security.rs"
 required-features = ["cli"]
+
+[lints]
+workspace = true

@@ -21,9 +21,13 @@ pub trait RetryStrategy: Send + Sync {
 /// Exponential backoff retry strategy
 #[derive(Debug, Clone)]
 pub struct ExponentialBackoff {
+    /// Initial Delay
     pub initial_delay: Duration,
+    /// Max Delay
     pub max_delay: Duration,
+    /// Max Attempts
     pub max_attempts: u32,
+    /// Jitter Percentage
     pub jitter_percentage: f64,
 }
 
@@ -202,6 +206,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    #![allow(unsafe_code)]
     use super::*;
     use std::sync::Mutex;
 

@@ -1,13 +1,7 @@
 //! API response wrappers and error types
 
-use chrono::{
-    DateTime,
-    Utc,
-};
-use serde::{
-    Deserialize,
-    Serialize,
-};
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "typescript")]
 use ts_rs::TS;
@@ -17,13 +11,18 @@ use ts_rs::TS;
 #[cfg_attr(feature = "typescript", derive(TS))]
 #[cfg_attr(feature = "typescript", ts(export))]
 pub struct ApiResponse<T> {
+    /// Success
     pub success: bool,
+    /// Data
     pub data: Option<T>,
+    /// Error
     pub error: Option<String>,
+    /// Timestamp
     pub timestamp: DateTime<Utc>,
 }
 
 impl<T> ApiResponse<T> {
+    /// Success
     pub fn success(data: T) -> Self {
         Self {
             success: true,
@@ -34,6 +33,7 @@ impl<T> ApiResponse<T> {
     }
 
     #[must_use]
+    /// Error
     pub fn error(message: String) -> Self {
         Self {
             success: false,
@@ -51,20 +51,28 @@ pub type FreshCreditResult<T> = Result<T, FreshCreditError>;
 #[derive(Debug, Clone, Serialize, Deserialize, thiserror::Error)]
 pub enum FreshCreditError {
     #[error("Validation error: {0}")]
+    /// Validationerror
     ValidationError(String),
     #[error("Database error: {0}")]
+    /// Databaseerror
     DatabaseError(String),
     #[error("External API error: {0}")]
+    /// Externalapierror
     ExternalApiError(String),
     #[error("Authentication error: {0}")]
+    /// Authenticationerror
     AuthenticationError(String),
     #[error("Authorization error: {0}")]
+    /// Authorizationerror
     AuthorizationError(String),
     #[error("Not found: {0}")]
+    /// Notfounderror
     NotFoundError(String),
     #[error("Internal error: {0}")]
+    /// Internalerror
     InternalError(String),
     #[error("Encryption error: {0}")]
+    /// Encryptionerror
     EncryptionError(String),
 }
 
@@ -74,22 +82,30 @@ pub enum FreshCreditError {
 #[cfg_attr(feature = "typescript", ts(export))]
 pub struct ProblemDetails {
     #[serde(rename = "type")]
+    /// Problem Type
     pub problem_type: String,
+    /// Title
     pub title: String,
+    /// Status
     pub status: u16,
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// Detail
     pub detail: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// Instance
     pub instance: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "typescript", ts(skip))]
+    /// Context
     pub context: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// Request identifier
     pub request_id: Option<String>,
 }
 
 impl ProblemDetails {
     #[must_use]
+    /// Create a new instance
     pub fn new(problem_type: &str, title: &str, status: u16) -> Self {
         Self {
             problem_type: problem_type.to_string(),
@@ -103,6 +119,7 @@ impl ProblemDetails {
     }
 
     #[must_use]
+    /// Validation Error
     pub fn validation_error(detail: &str) -> Self {
         Self::new(
             "https://freshcredit.com/problems/validation-error",
@@ -113,6 +130,7 @@ impl ProblemDetails {
     }
 
     #[must_use]
+    /// Unauthorized
     pub fn unauthorized(detail: &str) -> Self {
         Self::new(
             "https://freshcredit.com/problems/unauthorized",
@@ -123,6 +141,7 @@ impl ProblemDetails {
     }
 
     #[must_use]
+    /// Forbidden
     pub fn forbidden(detail: &str) -> Self {
         Self::new(
             "https://freshcredit.com/problems/forbidden",
@@ -133,6 +152,7 @@ impl ProblemDetails {
     }
 
     #[must_use]
+    /// Not Found
     pub fn not_found(detail: &str) -> Self {
         Self::new(
             "https://freshcredit.com/problems/not-found",
@@ -143,6 +163,7 @@ impl ProblemDetails {
     }
 
     #[must_use]
+    /// Internal Error
     pub fn internal_error(detail: &str) -> Self {
         Self::new(
             "https://freshcredit.com/problems/internal-error",
@@ -153,24 +174,28 @@ impl ProblemDetails {
     }
 
     #[must_use]
+    /// Set the detail
     pub fn with_detail(mut self, detail: &str) -> Self {
         self.detail = Some(detail.to_string());
         self
     }
 
     #[must_use]
+    /// Set the instance
     pub fn with_instance(mut self, instance: &str) -> Self {
         self.instance = Some(instance.to_string());
         self
     }
 
     #[must_use]
+    /// Set the context
     pub fn with_context(mut self, context: serde_json::Value) -> Self {
         self.context = Some(context);
         self
     }
 
     #[must_use]
+    /// Set the request id
     pub fn with_request_id(mut self, request_id: &str) -> Self {
         self.request_id = Some(request_id.to_string());
         self

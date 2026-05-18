@@ -15,29 +15,23 @@
 //! - NEVER disable encryption in production!
 
 use aes_gcm::{
-    aead::{
-        Aead,
-        KeyInit,
-    },
-    Aes256Gcm,
-    Nonce,
+    aead::{Aead, KeyInit},
+    Aes256Gcm, Nonce,
 };
-use anyhow::{
-    anyhow,
-    Result,
-};
-use base64::{
-    engine::general_purpose::STANDARD as BASE64,
-    Engine,
-};
+use anyhow::{anyhow, Result};
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use rand::RngCore;
 use std::sync::OnceLock;
 /// P1-FIX: Encryption errors that can occur during encryption/decryption
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EncryptionError {
+    /// Encryption is not configured
     NotConfigured,
+    /// Decryption failed with the given error message
     DecryptionFailed(String),
+    /// The ciphertext is invalid
     InvalidCiphertext,
+    /// Authentication failed
     AuthenticationFailed,
 }
 

@@ -9,9 +9,11 @@ use tokio::time::timeout;
 #[derive(Debug, thiserror::Error)]
 pub enum TimeoutError<E> {
     #[error("Operation timed out after {0:?}")]
+    /// Timeout
     Timeout(Duration),
 
     #[error("Operation failed: {0}")]
+    /// Operationerror
     OperationError(E),
 }
 
@@ -98,6 +100,7 @@ impl TimeoutEnforcer {
 
 #[cfg(test)]
 mod tests {
+    #![allow(unsafe_code)]
     use super::*;
     use std::sync::Mutex;
     use tokio::time::sleep;

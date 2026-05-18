@@ -14,16 +14,9 @@
 //! fc-security validate-config
 //! ```
 
-use clap::{
-    Parser,
-    Subcommand,
-};
+use clap::{Parser, Subcommand};
 use freshcredit_security::{
-    decrypt_token,
-    encrypt_token,
-    generate_base64_key,
-    get_encryption_config,
-    TokenEncryptor,
+    decrypt_token, encrypt_token, generate_base64_key, get_encryption_config, TokenEncryptor,
     KEY_SIZE,
 };
 

@@ -1,13 +1,7 @@
 //! Core domain types for `FreshCredit`
 
-use chrono::{
-    DateTime,
-    Utc,
-};
-use serde::{
-    Deserialize,
-    Serialize,
-};
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 #[cfg(feature = "typescript")]
@@ -21,12 +15,19 @@ pub type UserId = String;
 #[cfg_attr(feature = "typescript", derive(TS))]
 #[cfg_attr(feature = "typescript", ts(export))]
 pub struct Account {
+    /// Unique identifier
     pub id: String,
+    /// User identifier
     pub user_id: UserId,
+    /// Account Type
     pub account_type: AccountType,
+    /// Balance
     pub balance: Option<f64>,
+    /// Currency
     pub currency: String,
+    /// Institution Name
     pub institution_name: String,
+    /// Timestamp when the created was created/updated
     pub created_at: DateTime<Utc>,
 }
 
@@ -35,10 +36,15 @@ pub struct Account {
 #[cfg_attr(feature = "typescript", derive(TS))]
 #[cfg_attr(feature = "typescript", ts(export))]
 pub enum AccountType {
+    /// Checking
     Checking,
+    /// Savings
     Savings,
+    /// Credit
     Credit,
+    /// Investment
     Investment,
+    /// Loan
     Loan,
 }
 
@@ -47,13 +53,21 @@ pub enum AccountType {
 #[cfg_attr(feature = "typescript", derive(TS))]
 #[cfg_attr(feature = "typescript", ts(export))]
 pub struct Transaction {
+    /// Unique identifier
     pub id: String,
+    /// Account identifier
     pub account_id: String,
+    /// Amount
     pub amount: f64,
+    /// Currency
     pub currency: String,
+    /// Description
     pub description: String,
+    /// Category
     pub category: Option<String>,
+    /// Date
     pub date: DateTime<Utc>,
+    /// Merchant Name
     pub merchant_name: Option<String>,
 }
 
@@ -62,34 +76,53 @@ pub struct Transaction {
 #[cfg_attr(feature = "typescript", derive(TS))]
 #[cfg_attr(feature = "typescript", ts(export))]
 pub struct FinancialReport {
+    /// Unique identifier
     pub id: Uuid,
+    /// User identifier
     pub user_id: UserId,
+    /// Bureau Score
     pub bureau_score: Option<u16>,
+    /// Accounts
     pub accounts: Vec<Account>,
+    /// Transactions
     pub transactions: Vec<Transaction>,
+    /// Timestamp when the generated was created/updated
     pub generated_at: DateTime<Utc>,
+    /// Blockchain Hash
     pub blockchain_hash: Option<String>,
 }
 
 /// Payment information
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Payment {
+    /// Unique identifier
     pub id: String,
+    /// User identifier
     pub user_id: UserId,
+    /// Amount Cents
     pub amount_cents: i64,
+    /// Currency
     pub currency: String,
+    /// Status
     pub status: PaymentStatus,
+    /// Timestamp when the created was created/updated
     pub created_at: DateTime<Utc>,
 }
 
 /// Payment status
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PaymentStatus {
+    /// Pending
     Pending,
+    /// Completed
     Completed,
+    /// Failed
     Failed,
+    /// Cancelled
     Cancelled,
+    /// Refunded
     Refunded,
+    /// Requiresverification
     RequiresVerification,
 }
 
@@ -97,8 +130,11 @@ pub enum PaymentStatus {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum PaymentMethodType {
+    /// Card
     Card,
+    /// Bankaccount
     BankAccount,
+    /// Cryptowallet
     CryptoWallet,
 }
 
@@ -106,8 +142,11 @@ pub enum PaymentMethodType {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum PaymentProcessor {
+    /// Stripe
     Stripe,
+    /// Circle
     Circle,
+    /// Plaid
     Plaid,
 }
 
@@ -115,102 +154,163 @@ pub enum PaymentProcessor {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum CardBrand {
+    /// Visa
     Visa,
+    /// Mastercard
     Mastercard,
+    /// Amex
     Amex,
+    /// Discover
     Discover,
     #[serde(rename = "diners_club")]
+    /// Dinersclub
     DinersClub,
+    /// Jcb
     Jcb,
+    /// Unionpay
     UnionPay,
+    /// Unknown
     Unknown,
 }
 
 /// Payment method information
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PaymentMethod {
+    /// Unique identifier
     pub id: String,
+    /// User identifier
     pub user_id: UserId,
+    /// Method Ref
     pub method_ref: String,
+    /// Processor
     pub processor: PaymentProcessor,
+    /// Method Type
     pub method_type: PaymentMethodType,
+    /// Hash Anchor
     pub hash_anchor: String,
+    /// Display Name
     pub display_name: Option<String>,
+    /// Last Four
     pub last_four: Option<String>,
+    /// Brand
     pub brand: Option<CardBrand>,
+    /// Expiry Month
     pub expiry_month: Option<u8>,
+    /// Expiry Year
     pub expiry_year: Option<u16>,
+    /// Is Default
     pub is_default: bool,
+    /// Is Active
     pub is_active: bool,
+    /// Billing Details
     pub billing_details: Option<BillingDetails>,
+    /// Timestamp when the created was created/updated
     pub created_at: DateTime<Utc>,
+    /// Timestamp when the updated was created/updated
     pub updated_at: DateTime<Utc>,
 }
 
 /// Billing details for payment methods
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BillingDetails {
+    /// Name
     pub name: Option<String>,
+    /// Email
     pub email: Option<String>,
+    /// Address
     pub address: Option<Address>,
 }
 
 /// Request to create a payment method
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreatePaymentMethodRequest {
+    /// Processor
     pub processor: PaymentProcessor,
+    /// Method Type
     pub method_type: PaymentMethodType,
+    /// Token
     pub token: String,
+    /// Set Default
     pub set_default: bool,
+    /// Billing Details
     pub billing_details: Option<BillingDetails>,
 }
 
 /// Response after creating a payment method
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PaymentMethodResponse {
+    /// Unique identifier
     pub id: String,
+    /// Method Ref
     pub method_ref: String,
+    /// Processor
     pub processor: PaymentProcessor,
+    /// Method Type
     pub method_type: PaymentMethodType,
+    /// Display Name
     pub display_name: String,
+    /// Last Four
     pub last_four: Option<String>,
+    /// Brand
     pub brand: Option<CardBrand>,
+    /// Expiry Month
     pub expiry_month: Option<u8>,
+    /// Expiry Year
     pub expiry_year: Option<u16>,
+    /// Is Default
     pub is_default: bool,
+    /// Timestamp when the created was created/updated
     pub created_at: DateTime<Utc>,
 }
 
 /// Financial institution information
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Institution {
+    /// Unique identifier
     pub id: String,
+    /// Name
     pub name: String,
+    /// Country Codes
     pub country_codes: Vec<String>,
+    /// Products
     pub products: Vec<String>,
+    /// Routing Numbers
     pub routing_numbers: Vec<String>,
 }
 
 /// User profile information
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserProfile {
+    /// User identifier
     pub user_id: UserId,
+    /// Email
     pub email: String,
+    /// First Name
     pub first_name: String,
+    /// Last Name
     pub last_name: String,
+    /// Phone
     pub phone: Option<String>,
+    /// Address
     pub address: Option<Address>,
+    /// Timestamp when the created was created/updated
     pub created_at: DateTime<Utc>,
+    /// Timestamp when the updated was created/updated
     pub updated_at: DateTime<Utc>,
 }
 
 /// Address information
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Address {
+    /// Street
     pub street: String,
+    /// City
     pub city: String,
+    /// State
     pub state: String,
+    /// Postal Code
     pub postal_code: String,
+    /// Country
     pub country: String,
 }
 
