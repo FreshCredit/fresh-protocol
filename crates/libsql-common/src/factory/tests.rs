@@ -1,13 +1,9 @@
+#![allow(unsafe_code)]
+
 use super::*;
 use crate::{
-    CircuitBreakerConfig,
-    CircuitBreakerConnection,
-    CircuitBreakerState,
-    ConnectionConfig,
-    ConnectionHealth,
-    ConnectionMode,
-    DatabaseConnection,
-    RetryConfig,
+    CircuitBreakerConfig, CircuitBreakerConnection, CircuitBreakerState, ConnectionConfig,
+    ConnectionHealth, ConnectionMode, DatabaseConnection, RetryConfig,
 };
 
 static CRYPTO_PROVIDER_INIT: std::sync::Once = std::sync::Once::new();

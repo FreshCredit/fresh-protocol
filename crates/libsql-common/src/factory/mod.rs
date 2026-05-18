@@ -38,15 +38,8 @@ pub mod replica;
 
 use std::sync::Arc;
 
-use crate::circuit_breaker::{
-    CircuitBreakerConfig,
-    CircuitBreakerConnection,
-};
-use crate::connection::{
-    ConnectionConfig,
-    ConnectionMode,
-    DatabaseConnection,
-};
+use crate::circuit_breaker::{CircuitBreakerConfig, CircuitBreakerConnection};
+use crate::connection::{ConnectionConfig, ConnectionMode, DatabaseConnection};
 
 /// Factory for creating database connections
 pub struct ConnectionFactory;

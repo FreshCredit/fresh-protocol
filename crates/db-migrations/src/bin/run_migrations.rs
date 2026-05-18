@@ -179,6 +179,25 @@ async fn connect_database(
     std::process::exit(1);
 }
 
+fn print_help() {
+    println!(
+        "FreshCredit Database Migration Runner
+
+USAGE:
+    run-migrations [OPTIONS]
+
+OPTIONS:
+    --local <path>       Path to local SQLite/LibSQL database
+    --cloud <url>        Turso cloud database URL
+    --token <token>      Auth token for cloud database (or set TURSO_AUTH_TOKEN)
+    --migrations <dir>   Custom migrations directory (default: migrations/)
+    --rollback <ver>     Rollback a specific migration version
+    --check              Only check for pending migrations, don't apply
+    --help, -h           Show this help
+"
+    );
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -272,23 +291,4 @@ mod tests {
         ];
         assert!(parse_args_from(&args).is_err());
     }
-}
-
-fn print_help() {
-    println!(
-        "FreshCredit Database Migration Runner
-
-USAGE:
-    run-migrations [OPTIONS]
-
-OPTIONS:
-    --local <path>       Path to local SQLite/LibSQL database
-    --cloud <url>        Turso cloud database URL
-    --token <token>      Auth token for cloud database (or set TURSO_AUTH_TOKEN)
-    --migrations <dir>   Custom migrations directory (default: migrations/)
-    --rollback <ver>     Rollback a specific migration version
-    --check              Only check for pending migrations, don't apply
-    --help, -h           Show this help
-"
-    );
 }

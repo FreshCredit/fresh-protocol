@@ -1,9 +1,6 @@
 use std::sync::Arc;
 
-use crate::connection::{
-    ConnectionConfig,
-    DatabaseConnection,
-};
+use crate::connection::{ConnectionConfig, DatabaseConnection};
 use crate::connections::LocalConnection;
 
 impl super::ConnectionFactory {

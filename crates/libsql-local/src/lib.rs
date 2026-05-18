@@ -46,17 +46,8 @@ mod tests;
 // Re-export types for backward compatibility
 // All type definitions are in types.rs module
 pub use types::{
-    AiConversation,
-    AiMessage,
-    SaveUploadedFileParams,
-    SchemaValidationResult,
-    ScoringModelRecord,
-    UploadedFile,
-    UserPreferences,
-    UserProfile,
-    WebhookEvent,
-    WebhookEventCounts,
-    WorkflowRecord,
+    AiConversation, AiMessage, SaveUploadedFileParams, SchemaValidationResult, ScoringModelRecord,
+    UploadedFile, UserPreferences, UserProfile, WebhookEvent, WebhookEventCounts, WorkflowRecord,
 };
 
 // Re-export the main client

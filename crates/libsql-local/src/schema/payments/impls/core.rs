@@ -2,10 +2,7 @@ use anyhow::Result;
 use libsql::Connection;
 
 use super::helpers::{
-    create_arc_tables,
-    create_bridge_tables,
-    create_crypto_tables,
-    create_fiat_tables,
+    create_arc_tables, create_bridge_tables, create_crypto_tables, create_fiat_tables,
     create_gateway_tables,
 };
 use tracing::info;

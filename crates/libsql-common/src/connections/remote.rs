@@ -5,11 +5,7 @@ use libsql::Database;
 use std::sync::Arc;
 use std::time::Instant;
 
-use crate::connection::{
-    ConnectionHealth,
-    ConnectionMode,
-    DatabaseConnection,
-};
+use crate::connection::{ConnectionHealth, ConnectionMode, DatabaseConnection};
 
 /// Direct remote connection to Turso
 ///

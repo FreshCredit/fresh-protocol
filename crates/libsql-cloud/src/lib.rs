@@ -8,13 +8,7 @@
 #![allow(missing_docs)]
 
 use anyhow::Result;
-use freshcredit_types::{
-    Account,
-    FinancialReport,
-    FreshCreditResult,
-    Transaction,
-    UserId,
-};
+use freshcredit_types::{Account, FinancialReport, FreshCreditResult, Transaction, UserId};
 use tracing::info;
 
 /// Unified schema SQL embedded at compile time
@@ -424,6 +418,11 @@ impl CloudClient {
 mod rest;
 
 #[cfg(test)]
+#[allow(
+    clippy::too_many_arguments,
+    clippy::useless_vec,
+    clippy::const_is_empty
+)]
 mod tests {
     use super::*;
     use chrono::Utc;

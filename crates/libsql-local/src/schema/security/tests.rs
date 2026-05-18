@@ -1,8 +1,4 @@
-use libsql::{
-    Builder,
-    Connection,
-    Value,
-};
+use libsql::{Builder, Connection, Value};
 
 use super::initialize_security_tables;
 

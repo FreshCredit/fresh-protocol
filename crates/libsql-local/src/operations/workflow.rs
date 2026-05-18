@@ -10,11 +10,7 @@
 use anyhow::Result;
 use tracing::info;
 
-use crate::{
-    LocalClient,
-    ScoringModelRecord,
-    WorkflowRecord,
-};
+use crate::{LocalClient, ScoringModelRecord, WorkflowRecord};
 
 impl LocalClient {
     // ========================================================================

@@ -98,27 +98,15 @@ pub mod agent;
 pub mod governance;
 
 // Re-exports for convenience
-pub use agent::{
-    check_agent_bindings_schema,
-    initialize_agent_tables,
-};
+pub use agent::{check_agent_bindings_schema, initialize_agent_tables};
 pub use ai::initialize_ai_tables;
 pub use apple_music::initialize_apple_music_tables;
 pub use compliance::initialize_compliance_tables;
-pub use core::{
-    initialize_core_indexes,
-    initialize_core_tables,
-};
+pub use core::{initialize_core_indexes, initialize_core_tables};
 pub use correlation::initialize_correlation_tables;
-pub use customers::{
-    initialize_customer_indexes,
-    initialize_customer_tables,
-};
+pub use customers::{initialize_customer_indexes, initialize_customer_tables};
 pub use financial::initialize_financial_tables;
-pub use governance::{
-    initialize_governance_indexes,
-    initialize_governance_tables,
-};
+pub use governance::{initialize_governance_indexes, initialize_governance_tables};
 pub use healthkit::initialize_healthkit_tables;
 pub use identity::initialize_identity_tables;
 pub use indexes::initialize_all_indexes;
@@ -131,10 +119,7 @@ pub use platform::initialize_platform_tables;
 pub use publications::initialize_publication_tables;
 pub use reports::initialize_all_reports_tables;
 pub use security::initialize_security_tables;
-pub use teams::{
-    initialize_teams_indexes,
-    initialize_teams_tables,
-};
+pub use teams::{initialize_teams_indexes, initialize_teams_tables};
 pub use ticketing::initialize_ticketing_tables;
 pub use ucp::initialize_ucp_tables;
 pub use webhook::initialize_webhook_tables;
@@ -150,10 +135,7 @@ mod helpers;
 pub use helpers::try_create_index;
 
 mod impls;
-pub use impls::{
-    initialize_all_schema_tables,
-    initialize_extracted_tables,
-};
+pub use impls::{initialize_all_schema_tables, initialize_extracted_tables};
 
 #[cfg(test)]
 mod tests;

@@ -11,22 +11,10 @@
 //! - `{version}_{name}.up.sql` - Forward migration
 //! - `{version}_{name}.down.sql` - Rollback migration (optional)
 
-use anyhow::{
-    Context,
-    Result,
-};
-use chrono::{
-    DateTime,
-    Utc,
-};
-use serde::{
-    Deserialize,
-    Serialize,
-};
-use sha2::{
-    Digest,
-    Sha256,
-};
+use anyhow::{Context, Result};
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::path::Path;
 use tokio::fs;
@@ -74,7 +62,10 @@ impl MigrationRunner {
     /// Returns an error if the operation fails.
     pub async fn load_migrations_from_dir(&mut self, dir: &Path) -> Result<()> {
         if !fs::try_exists(dir).await? {
-            return Err(anyhow::anyhow!("Migration directory not found: {dir:?}"));
+            return Err(anyhow::anyhow!(
+                "Migration directory not found: {}",
+                dir.display()
+            ));
         }
 
         let mut entries = fs::read_dir(dir).await?;
@@ -86,7 +77,7 @@ impl MigrationRunner {
             if path.extension().is_some_and(|e| e == "sql") {
                 let filename = path
                     .file_stem()
-                    .ok_or_else(|| anyhow::anyhow!("Invalid filename: {path:?}"))?
+                    .ok_or_else(|| anyhow::anyhow!("Invalid filename: {}", path.display()))?
                     .to_string_lossy();
                 if filename.ends_with(".up") {
                     let (version, name) = parse_migration_filename(&filename.replace(".up", ""))?;
@@ -291,6 +282,7 @@ impl MigrationRunner {
 }
 
 /// Parse migration filename to extract version and name
+#[allow(clippy::literal_string_with_formatting_args)] // double braces are intentional literal output
 fn parse_migration_filename(filename: &str) -> Result<(i64, String)> {
     let parts: Vec<&str> = filename.splitn(2, '_').collect();
     if parts.len() != 2 {
