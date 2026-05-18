@@ -1,16 +1,9 @@
 use anyhow::Result;
-use std::collections::{
-    HashMap,
-    HashSet,
-};
+use std::collections::{HashMap, HashSet};
 use tracing::info;
 
 use crate::types::{
-    SchemaIssue,
-    SchemaValidationResult,
-    SchemaValidator,
-    SchemaWarning,
-    TableSchema,
+    SchemaIssue, SchemaValidationResult, SchemaValidator, SchemaWarning, TableSchema,
 };
 
 impl SchemaValidator {
@@ -150,10 +143,7 @@ impl SchemaValidator {
         issues: &mut Vec<SchemaIssue>,
         warnings: &mut Vec<SchemaWarning>,
     ) {
-        use crate::types::{
-            IssueSeverity,
-            IssueType,
-        };
+        use crate::types::{IssueSeverity, IssueType};
 
         // Check if table exists in all databases
         for (db_name, schemas) in all_schemas {

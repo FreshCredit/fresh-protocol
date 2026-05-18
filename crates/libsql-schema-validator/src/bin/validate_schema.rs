@@ -10,10 +10,7 @@
 //!   --verbose           Show detailed output
 
 use anyhow::Result;
-use freshcredit_libsql_schema_validator::{
-    IssueSeverity,
-    SchemaValidator,
-};
+use freshcredit_libsql_schema_validator::{IssueSeverity, SchemaValidator};
 use std::env;
 
 #[tokio::main]
@@ -214,11 +211,7 @@ fn print_human_readable(
 mod tests {
     use super::*;
     use freshcredit_libsql_schema_validator::{
-        IssueSeverity,
-        IssueType,
-        SchemaIssue,
-        SchemaValidationResult,
-        ValidationSummary,
+        IssueSeverity, IssueType, SchemaIssue, SchemaValidationResult, ValidationSummary,
     };
 
     fn make_result(

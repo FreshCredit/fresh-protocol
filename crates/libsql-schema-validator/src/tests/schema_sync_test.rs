@@ -9,10 +9,7 @@
 //! 3. If Turso tables have different columns than Rust expects, index creation fails
 
 use anyhow::Result;
-use std::collections::{
-    HashMap,
-    HashSet,
-};
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
 

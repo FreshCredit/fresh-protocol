@@ -3,15 +3,8 @@ use freshcredit_libsql_common::security::validate_identifier;
 use std::collections::HashSet;
 
 use crate::types::{
-    ColumnInfo,
-    ForeignKeyInfo,
-    IndexInfo,
-    IssueSeverity,
-    IssueType,
-    SchemaIssue,
-    SchemaValidator,
-    SchemaWarning,
-    ValidationSummary,
+    ColumnInfo, ForeignKeyInfo, IndexInfo, IssueSeverity, IssueType, SchemaIssue, SchemaValidator,
+    SchemaWarning, ValidationSummary,
 };
 
 impl SchemaValidator {
