@@ -346,6 +346,7 @@ async fn test_with_retry_exhausted() {
 }
 
 #[test]
+#[serial_test::serial]
 fn test_retry_config_from_env() {
     // Set env vars
     unsafe {
@@ -368,6 +369,7 @@ fn test_retry_config_from_env() {
 }
 
 #[test]
+#[serial_test::serial]
 fn test_circuit_breaker_config_from_env() {
     unsafe {
         std::env::set_var("DB_CB_FAILURE_THRESHOLD", "10");
@@ -391,6 +393,7 @@ fn test_circuit_breaker_config_from_env() {
 }
 
 #[test]
+#[serial_test::serial]
 fn test_connection_config_from_env() {
     unsafe {
         std::env::set_var("LIBSQL_MODE", "local");
@@ -469,6 +472,7 @@ async fn test_create_remote_with_url_query_fails() {
 }
 
 #[tokio::test]
+#[serial_test::serial]
 async fn test_from_env_local() {
     unsafe {
         std::env::set_var("LIBSQL_MODE", "local");
@@ -485,6 +489,7 @@ async fn test_from_env_local() {
 }
 
 #[tokio::test]
+#[serial_test::serial]
 async fn test_create_with_circuit_breaker_from_env() {
     unsafe {
         std::env::set_var("LIBSQL_MODE", "local");
@@ -717,6 +722,7 @@ async fn test_create_with_cb_and_fallback_both_fail() {
 }
 
 #[tokio::test]
+#[serial_test::serial]
 async fn test_circuit_breaker_from_env() {
     use crate::connections::LocalConnection;
 

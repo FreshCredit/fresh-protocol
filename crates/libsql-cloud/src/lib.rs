@@ -417,6 +417,5 @@ impl CloudClient {
 
 mod rest;
 
-
 #[cfg(test)]
 mod tests;

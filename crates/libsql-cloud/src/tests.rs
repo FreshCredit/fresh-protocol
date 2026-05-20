@@ -2,8 +2,6 @@ use super::*;
 use chrono::Utc;
 use uuid::Uuid;
 
-
-
 impl CloudClient {
     async fn new_test() -> Self {
         let path = format!("/tmp/freshcredit_cloud_test_{}.db", uuid::Uuid::new_v4());
@@ -238,6 +236,7 @@ async fn insert_user_profile_raw(
         .expect("Failed to insert user profile");
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn insert_account_raw(
     client: &CloudClient,
     id: &str,
@@ -270,6 +269,7 @@ async fn insert_account_raw(
         .expect("Failed to insert account");
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn insert_transaction_raw(
     client: &CloudClient,
     id: &str,
@@ -310,7 +310,7 @@ async fn test_cloud_client_can_be_created() {
 
 #[test]
 fn test_unified_schema_sql_not_empty() {
-    assert!(!UNIFIED_SCHEMA_SQL.is_empty());
+    assert_ne!(UNIFIED_SCHEMA_SQL.len(), 0);
     assert!(UNIFIED_SCHEMA_SQL.contains("CREATE TABLE"));
     assert!(UNIFIED_SCHEMA_SQL.contains("user_profile"));
     assert!(UNIFIED_SCHEMA_SQL.contains("accounts"));
@@ -484,7 +484,7 @@ async fn test_account_type_parsing() {
     client.initialize_schema().await.unwrap();
 
     let user_id = test_user_id();
-    let types = vec![
+    let types = [
         (freshcredit_types::AccountType::Checking, "checking"),
         (freshcredit_types::AccountType::Savings, "savings"),
         (freshcredit_types::AccountType::Credit, "credit"),
