@@ -20,6 +20,14 @@ impl LocalClient {
     /// # Errors
     ///
     /// Returns an error if the operation fails.
+    fn get_bool_pref(row: &libsql::Row, idx: i32) -> Result<Option<bool>> {
+        Ok(Some(row.get::<i64>(idx)? != 0))
+    }
+
+    fn get_string_pref(row: &libsql::Row, idx: i32) -> Result<Option<String>> {
+        Ok(Some(row.get::<String>(idx)?))
+    }
+
     pub async fn get_user_preferences(&self, user_id: &str) -> Result<Option<UserPreferences>> {
         info!("Getting preferences for user: {user_id}");
 
@@ -38,20 +46,20 @@ impl LocalClient {
 
         if let Some(row) = rows.next().await? {
             Ok(Some(UserPreferences {
-                ai_agent_enabled: Some(row.get::<i64>(0)? != 0),
-                ai_feedback_enabled: Some(row.get::<i64>(1)? != 0),
-                ai_offers_enabled: Some(row.get::<i64>(2)? != 0),
-                ai_lenders_enabled: Some(row.get::<i64>(3)? != 0),
-                cloud_sync_enabled: Some(row.get::<i64>(4)? != 0),
-                blockchain_enabled: Some(row.get::<i64>(5)? != 0),
-                email_notifications_enabled: Some(row.get::<i64>(6)? != 0),
-                kilt_did_enabled: Some(row.get::<i64>(7)? != 0),
-                ai_mode: Some(row.get::<String>(8)?),
-                mock_data_enabled: Some(row.get::<i64>(9)? != 0),
-                onboarding_completed: Some(row.get::<i64>(10)? != 0),
-                onboarding_permanently_dismissed: Some(row.get::<i64>(11)? != 0),
+                ai_agent_enabled: Self::get_bool_pref(&row, 0)?,
+                ai_feedback_enabled: Self::get_bool_pref(&row, 1)?,
+                ai_offers_enabled: Self::get_bool_pref(&row, 2)?,
+                ai_lenders_enabled: Self::get_bool_pref(&row, 3)?,
+                cloud_sync_enabled: Self::get_bool_pref(&row, 4)?,
+                blockchain_enabled: Self::get_bool_pref(&row, 5)?,
+                email_notifications_enabled: Self::get_bool_pref(&row, 6)?,
+                kilt_did_enabled: Self::get_bool_pref(&row, 7)?,
+                ai_mode: Self::get_string_pref(&row, 8)?,
+                mock_data_enabled: Self::get_bool_pref(&row, 9)?,
+                onboarding_completed: Self::get_bool_pref(&row, 10)?,
+                onboarding_permanently_dismissed: Self::get_bool_pref(&row, 11)?,
                 onboarding_reminder_dismissed_until: row.get::<Option<String>>(12).unwrap_or(None),
-                plaid_connection_skipped: Some(row.get::<i64>(13)? != 0),
+                plaid_connection_skipped: Self::get_bool_pref(&row, 13)?,
                 plaid_reminder_dismissed_until: row.get::<Option<String>>(14).unwrap_or(None),
             }))
         } else {
