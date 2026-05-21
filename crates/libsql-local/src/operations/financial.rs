@@ -117,6 +117,16 @@ impl LocalClient {
     /// # Errors
     ///
     /// Returns an error if the operation fails.
+    fn empty_to_none(s: String) -> Option<String> {
+        if s.is_empty() { None } else { Some(s) }
+    }
+
+    fn parse_transaction_date(s: &str) -> Result<chrono::DateTime<chrono::Utc>> {
+        Ok(chrono::DateTime::parse_from_rfc3339(s)
+            .map_err(|e| anyhow::anyhow!("Failed to parse date: {e}"))?
+            .with_timezone(&chrono::Utc))
+    }
+
     pub async fn get_user_transactions(
         &self,
         user_id: &str,
@@ -136,28 +146,15 @@ impl LocalClient {
 
         let mut transactions = Vec::new();
         while let Some(row) = rows.next().await? {
-            let category = row.get::<String>(5)?;
-            let merchant_name = row.get::<String>(7)?;
-
             let transaction = freshcredit_types::Transaction {
                 id: row.get(0)?,
                 account_id: row.get(1)?,
                 amount: row.get(2)?,
                 currency: row.get(3)?,
                 description: row.get(4)?,
-                category: if category.is_empty() {
-                    None
-                } else {
-                    Some(category)
-                },
-                date: chrono::DateTime::parse_from_rfc3339(&row.get::<String>(6)?)
-                    .map_err(|e| anyhow::anyhow!("Failed to parse date: {e}"))?
-                    .with_timezone(&chrono::Utc),
-                merchant_name: if merchant_name.is_empty() {
-                    None
-                } else {
-                    Some(merchant_name)
-                },
+                category: Self::empty_to_none(row.get::<String>(5)?),
+                date: Self::parse_transaction_date(&row.get::<String>(6)?)?,
+                merchant_name: Self::empty_to_none(row.get::<String>(7)?),
             };
             transactions.push(transaction);
         }
