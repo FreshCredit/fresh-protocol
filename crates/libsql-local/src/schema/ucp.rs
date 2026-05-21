@@ -16,15 +16,11 @@ use libsql::Connection;
 use super::try_create_index;
 use tracing::info;
 
-/// Initialize all UCP tables
-/// # Errors
-///
-/// Returns an error if the operation fails.
-#[allow(clippy::too_many_lines)]
-pub async fn initialize_ucp_tables(conn: &Connection) -> Result<()> {
-    info!("[ARCH-007] Initializing ucp tables");
-    // UCP Checkout Sessions
-    // Stores checkout session lifecycle per UCP v2026-01-11
+// ────────────────────────────────────────────────────────────
+// Table definitions
+// ────────────────────────────────────────────────────────────
+
+async fn create_ucp_checkout_sessions_table(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS ucp_checkout_sessions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -51,9 +47,10 @@ pub async fn initialize_ucp_tables(conn: &Connection) -> Result<()> {
         (),
     )
     .await?;
+    Ok(())
+}
 
-    // UCP Orders
-    // Created from completed checkout sessions
+async fn create_ucp_orders_table(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS ucp_orders (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -80,9 +77,10 @@ pub async fn initialize_ucp_tables(conn: &Connection) -> Result<()> {
         (),
     )
     .await?;
+    Ok(())
+}
 
-    // UCP Identity Links
-    // OAuth 2.0 identity linking per UCP v2026-01-11
+async fn create_ucp_identity_links_table(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS ucp_identity_links (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -105,60 +103,10 @@ pub async fn initialize_ucp_tables(conn: &Connection) -> Result<()> {
         (),
     )
     .await?;
+    Ok(())
+}
 
-    // Create indexes for efficient queries
-    // AGENT-004: All queries filter by user_id
-    try_create_index(
-        conn,
-        "CREATE INDEX IF NOT EXISTS idx_ucp_sessions_user_id ON ucp_checkout_sessions (user_id)",
-    )
-    .await?;
-
-    try_create_index(
-        conn,
-        "CREATE INDEX IF NOT EXISTS idx_ucp_sessions_status ON ucp_checkout_sessions (status)",
-    )
-    .await?;
-
-    try_create_index(
-        conn,
-        "CREATE INDEX IF NOT EXISTS idx_ucp_sessions_buyer ON ucp_checkout_sessions (buyer_email)",
-    )
-    .await?;
-
-    try_create_index(
-        conn,
-        "CREATE INDEX IF NOT EXISTS idx_ucp_orders_user_id ON ucp_orders (user_id)",
-    )
-    .await?;
-
-    try_create_index(
-        conn,
-        "CREATE INDEX IF NOT EXISTS idx_ucp_orders_provider ON ucp_orders (provider_id)",
-    )
-    .await?;
-
-    try_create_index(
-        conn,
-        "CREATE INDEX IF NOT EXISTS idx_ucp_orders_status ON ucp_orders (status)",
-    )
-    .await?;
-
-    try_create_index(
-        conn,
-        "CREATE INDEX IF NOT EXISTS idx_ucp_links_user_id ON ucp_identity_links (user_id)",
-    )
-    .await?;
-
-    try_create_index(
-        conn,
-        "CREATE INDEX IF NOT EXISTS idx_ucp_links_client ON ucp_identity_links (client_id)",
-    )
-    .await?;
-
-    // User Offer Engagements
-    // Tracks the complete user journey: offer view → checkout → payment → tradeline
-    // This enables analytics and provides a unified view of user engagement
+async fn create_user_offer_engagements_table(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS user_offer_engagements (
             id TEXT PRIMARY KEY,
@@ -195,34 +143,10 @@ pub async fn initialize_ucp_tables(conn: &Connection) -> Result<()> {
         (),
     )
     .await?;
+    Ok(())
+}
 
-    // Indexes for user_offer_engagements
-    try_create_index(
-        conn,
-        "CREATE INDEX IF NOT EXISTS idx_engagements_user_id ON user_offer_engagements (user_id)",
-    )
-    .await?;
-
-    try_create_index(
-        conn,
-        "CREATE INDEX IF NOT EXISTS idx_engagements_offer_id ON user_offer_engagements (offer_id)",
-    )
-    .await?;
-
-    try_create_index(
-        conn,
-        "CREATE INDEX IF NOT EXISTS idx_engagements_status ON user_offer_engagements (status)",
-    )
-    .await?;
-
-    try_create_index(
-        conn,
-        "CREATE INDEX IF NOT EXISTS idx_engagements_user_offer ON user_offer_engagements (user_id, offer_id)",
-    )
-    .await?;
-
-    // UCP Merchants
-    // Verified merchant directory for UCP discovery protocol
+async fn create_ucp_merchants_table(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS ucp_merchants (
             id TEXT PRIMARY KEY,
@@ -237,18 +161,61 @@ pub async fn initialize_ucp_tables(conn: &Connection) -> Result<()> {
         (),
     )
     .await?;
+    Ok(())
+}
 
-    try_create_index(
-        conn,
-        "CREATE INDEX IF NOT EXISTS idx_ucp_merchants_domain ON ucp_merchants(domain)",
-    )
-    .await?;
+// ────────────────────────────────────────────────────────────
+// Index definitions
+// ────────────────────────────────────────────────────────────
 
-    try_create_index(
-        conn,
-        "CREATE INDEX IF NOT EXISTS idx_ucp_merchants_verified ON ucp_merchants(is_verified)",
-    )
-    .await?;
+const UCP_INDEXES: &[&str] = &[
+    "CREATE INDEX IF NOT EXISTS idx_ucp_sessions_user_id ON ucp_checkout_sessions (user_id)",
+    "CREATE INDEX IF NOT EXISTS idx_ucp_sessions_status ON ucp_checkout_sessions (status)",
+    "CREATE INDEX IF NOT EXISTS idx_ucp_sessions_buyer ON ucp_checkout_sessions (buyer_email)",
+    "CREATE INDEX IF NOT EXISTS idx_ucp_orders_user_id ON ucp_orders (user_id)",
+    "CREATE INDEX IF NOT EXISTS idx_ucp_orders_provider ON ucp_orders (provider_id)",
+    "CREATE INDEX IF NOT EXISTS idx_ucp_orders_status ON ucp_orders (status)",
+    "CREATE INDEX IF NOT EXISTS idx_ucp_links_user_id ON ucp_identity_links (user_id)",
+    "CREATE INDEX IF NOT EXISTS idx_ucp_links_client ON ucp_identity_links (client_id)",
+    "CREATE INDEX IF NOT EXISTS idx_engagements_user_id ON user_offer_engagements (user_id)",
+    "CREATE INDEX IF NOT EXISTS idx_engagements_offer_id ON user_offer_engagements (offer_id)",
+    "CREATE INDEX IF NOT EXISTS idx_engagements_status ON user_offer_engagements (status)",
+    "CREATE INDEX IF NOT EXISTS idx_engagements_user_offer ON user_offer_engagements (user_id, offer_id)",
+    "CREATE INDEX IF NOT EXISTS idx_ucp_merchants_domain ON ucp_merchants(domain)",
+    "CREATE INDEX IF NOT EXISTS idx_ucp_merchants_verified ON ucp_merchants(is_verified)",
+];
+
+// ────────────────────────────────────────────────────────────
+// Public API
+// ────────────────────────────────────────────────────────────
+
+/// Initialize all UCP tables
+/// # Errors
+///
+/// Returns an error if the operation fails.
+pub async fn initialize_ucp_tables(conn: &Connection) -> Result<()> {
+    info!("[ARCH-007] Initializing ucp tables");
+
+    // Create tables
+    create_ucp_checkout_sessions_table(conn).await?;
+    create_ucp_orders_table(conn).await?;
+    create_ucp_identity_links_table(conn).await?;
+    create_user_offer_engagements_table(conn).await?;
+    create_ucp_merchants_table(conn).await?;
+
+    // Create indexes for efficient queries
+    // AGENT-004: All queries filter by user_id
+    for sql in UCP_INDEXES {
+        try_create_index(conn, sql).await?;
+    }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_ucp_module_compiles() {
+        let _ = 1 + 1; // Compile-time verification
+    }
 }
