@@ -18,61 +18,24 @@ async fn main() -> Result<()> {
     // Initialize tracing
     tracing_subscriber::fmt::init();
 
-    let args: Vec<String> = env::args().collect();
-
-    let mut staging_path: Option<String> = None;
-    let mut local_path: Option<String> = None;
-    let mut cloud_url: Option<String> = None;
-    let mut json_output = false;
-    let mut verbose = false;
-
-    // Parse arguments
-    let mut i = 1;
-    while i < args.len() {
-        match args[i].as_str() {
-            "--staging" => {
-                i += 1;
-                if i < args.len() {
-                    staging_path = Some(args[i].clone());
-                }
-            }
-            "--local" => {
-                i += 1;
-                if i < args.len() {
-                    local_path = Some(args[i].clone());
-                }
-            }
-            "--cloud" => {
-                i += 1;
-                if i < args.len() {
-                    cloud_url = Some(args[i].clone());
-                }
-            }
-            "--json" => json_output = true,
-            "--verbose" => verbose = true,
-            _ => {}
-        }
-        i += 1;
-    }
-
-    // Build validator
+    let cli = parse_cli_args();
     let mut validator = SchemaValidator::new();
 
-    if let Some(path) = staging_path {
+    if let Some(path) = cli.staging_path {
         println!("📦 Connecting to staging database: {path}");
         let db = libsql::Builder::new_local(&path).build().await?;
         let conn = db.connect()?;
         validator = validator.with_staging(conn);
     }
 
-    if let Some(path) = local_path {
+    if let Some(path) = cli.local_path {
         println!("📦 Connecting to local database: {path}");
         let db = libsql::Builder::new_local(&path).build().await?;
         let conn = db.connect()?;
         validator = validator.with_local(conn);
     }
 
-    if let Some(url) = cloud_url {
+    if let Some(url) = cli.cloud_url {
         println!("📦 Connecting to cloud database: {url}");
         let auth_token = env::var("TURSO_AUTH_TOKEN").unwrap_or_else(|_| {
             eprintln!("⚠️  TURSO_AUTH_TOKEN not set, using empty token");
@@ -88,10 +51,10 @@ async fn main() -> Result<()> {
     let result = validator.validate().await?;
 
     // Output results
-    if json_output {
+    if cli.json_output {
         println!("{}", serde_json::to_string_pretty(&result)?);
     } else {
-        print_human_readable(&result, verbose);
+        print_human_readable(&result, cli.verbose);
     }
 
     // Exit with appropriate code
@@ -100,6 +63,54 @@ async fn main() -> Result<()> {
     } else {
         std::process::exit(1);
     }
+}
+
+struct CliArgs {
+    staging_path: Option<String>,
+    local_path: Option<String>,
+    cloud_url: Option<String>,
+    json_output: bool,
+    verbose: bool,
+}
+
+fn parse_cli_args() -> CliArgs {
+    let args: Vec<String> = env::args().collect();
+    let mut cli = CliArgs {
+        staging_path: None,
+        local_path: None,
+        cloud_url: None,
+        json_output: false,
+        verbose: false,
+    };
+
+    let mut i = 1;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--staging" => {
+                i += 1;
+                if i < args.len() {
+                    cli.staging_path = Some(args[i].clone());
+                }
+            }
+            "--local" => {
+                i += 1;
+                if i < args.len() {
+                    cli.local_path = Some(args[i].clone());
+                }
+            }
+            "--cloud" => {
+                i += 1;
+                if i < args.len() {
+                    cli.cloud_url = Some(args[i].clone());
+                }
+            }
+            "--json" => cli.json_output = true,
+            "--verbose" => cli.verbose = true,
+            _ => {}
+        }
+        i += 1;
+    }
+    cli
 }
 
 fn print_human_readable(
