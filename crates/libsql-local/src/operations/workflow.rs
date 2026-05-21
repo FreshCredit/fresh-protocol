@@ -12,6 +12,38 @@ use tracing::info;
 
 use crate::{LocalClient, ScoringModelRecord, WorkflowRecord};
 
+macro_rules! workflow_sql {
+    ($where:literal) => {
+        concat!(
+            "SELECT id, user_id, workflow_type, workflow_name, workflow_description,",
+            " workflow_status, workflow_data, trigger_type, trigger_config,",
+            " is_active, last_run_at, next_run_at, run_count, created_at, updated_at",
+            " FROM workflows ",
+            $where
+        )
+    };
+}
+
+fn map_workflow_row(row: libsql::Row) -> Result<WorkflowRecord> {
+    Ok(WorkflowRecord {
+        id: row.get(0)?,
+        user_id: row.get(1)?,
+        workflow_type: row.get(2)?,
+        workflow_name: row.get(3)?,
+        workflow_description: row.get(4)?,
+        workflow_status: row.get(5)?,
+        workflow_data: row.get(6)?,
+        trigger_type: row.get(7)?,
+        trigger_config: row.get(8)?,
+        is_active: row.get::<i64>(9)? != 0,
+        last_run_at: row.get(10)?,
+        next_run_at: row.get(11)?,
+        run_count: row.get(12)?,
+        created_at: row.get(13)?,
+        updated_at: row.get(14)?,
+    })
+}
+
 impl LocalClient {
     // ========================================================================
     // Scoring Model Operations (BlockScore)
@@ -201,33 +233,14 @@ impl LocalClient {
         let mut rows = self
             .connection
             .query(
-                "SELECT id, user_id, workflow_type, workflow_name, workflow_description,
-                    workflow_status, workflow_data, trigger_type, trigger_config,
-                    is_active, last_run_at, next_run_at, run_count, created_at, updated_at
-             FROM workflows WHERE user_id = ? ORDER BY updated_at DESC",
+                workflow_sql!("WHERE user_id = ? ORDER BY updated_at DESC"),
                 libsql::params![user_id],
             )
             .await?;
 
         let mut workflows = Vec::new();
         while let Some(row) = rows.next().await? {
-            workflows.push(WorkflowRecord {
-                id: row.get(0)?,
-                user_id: row.get(1)?,
-                workflow_type: row.get(2)?,
-                workflow_name: row.get(3)?,
-                workflow_description: row.get(4)?,
-                workflow_status: row.get(5)?,
-                workflow_data: row.get(6)?,
-                trigger_type: row.get(7)?,
-                trigger_config: row.get(8)?,
-                is_active: row.get::<i64>(9)? != 0,
-                last_run_at: row.get(10)?,
-                next_run_at: row.get(11)?,
-                run_count: row.get(12)?,
-                created_at: row.get(13)?,
-                updated_at: row.get(14)?,
-            });
+            workflows.push(map_workflow_row(row)?);
         }
 
         Ok(workflows)
@@ -242,33 +255,11 @@ impl LocalClient {
 
         let mut rows = self
             .connection
-            .query(
-                "SELECT id, user_id, workflow_type, workflow_name, workflow_description,
-                    workflow_status, workflow_data, trigger_type, trigger_config,
-                    is_active, last_run_at, next_run_at, run_count, created_at, updated_at
-             FROM workflows WHERE id = ?",
-                libsql::params![workflow_id],
-            )
+            .query(workflow_sql!("WHERE id = ?"), libsql::params![workflow_id])
             .await?;
 
         if let Some(row) = rows.next().await? {
-            Ok(Some(WorkflowRecord {
-                id: row.get(0)?,
-                user_id: row.get(1)?,
-                workflow_type: row.get(2)?,
-                workflow_name: row.get(3)?,
-                workflow_description: row.get(4)?,
-                workflow_status: row.get(5)?,
-                workflow_data: row.get(6)?,
-                trigger_type: row.get(7)?,
-                trigger_config: row.get(8)?,
-                is_active: row.get::<i64>(9)? != 0,
-                last_run_at: row.get(10)?,
-                next_run_at: row.get(11)?,
-                run_count: row.get(12)?,
-                created_at: row.get(13)?,
-                updated_at: row.get(14)?,
-            }))
+            Ok(Some(map_workflow_row(row)?))
         } else {
             Ok(None)
         }
