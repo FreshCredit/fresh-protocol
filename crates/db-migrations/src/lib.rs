@@ -60,6 +60,30 @@ impl MigrationRunner {
     /// # Errors
     ///
     /// Returns an error if the operation fails.
+    /// Load a single migration file and return its parsed metadata and SQL.
+    async fn load_single_migration_file(
+        path: &std::path::Path,
+    ) -> Result<Option<(i64, String, String, bool)>> {
+        if !path.extension().is_some_and(|e| e == "sql") {
+            return Ok(None);
+        }
+        let filename = path
+            .file_stem()
+            .ok_or_else(|| anyhow::anyhow!("Invalid filename: {}", path.display()))?
+            .to_string_lossy();
+        let sql = fs::read_to_string(path).await?;
+
+        if filename.ends_with(".up") {
+            let (version, name) = parse_migration_filename(&filename.replace(".up", ""))?;
+            Ok(Some((version, name, sql, true)))
+        } else if filename.ends_with(".down") {
+            let (version, name) = parse_migration_filename(&filename.replace(".down", ""))?;
+            Ok(Some((version, name, sql, false)))
+        } else {
+            Ok(None)
+        }
+    }
+
     pub async fn load_migrations_from_dir(&mut self, dir: &Path) -> Result<()> {
         if !fs::try_exists(dir).await? {
             return Err(anyhow::anyhow!(
@@ -73,19 +97,12 @@ impl MigrationRunner {
         let mut down_migrations: BTreeMap<i64, String> = BTreeMap::new();
 
         while let Some(entry) = entries.next_entry().await? {
-            let path = entry.path();
-            if path.extension().is_some_and(|e| e == "sql") {
-                let filename = path
-                    .file_stem()
-                    .ok_or_else(|| anyhow::anyhow!("Invalid filename: {}", path.display()))?
-                    .to_string_lossy();
-                if filename.ends_with(".up") {
-                    let (version, name) = parse_migration_filename(&filename.replace(".up", ""))?;
-                    let sql = fs::read_to_string(&path).await?;
+            if let Some((version, name, sql, is_up)) =
+                Self::load_single_migration_file(&entry.path()).await?
+            {
+                if is_up {
                     up_migrations.insert(version, (name, sql));
-                } else if filename.ends_with(".down") {
-                    let (version, _) = parse_migration_filename(&filename.replace(".down", ""))?;
-                    let sql = fs::read_to_string(&path).await?;
+                } else {
                     down_migrations.insert(version, sql);
                 }
             }
