@@ -118,7 +118,11 @@ impl LocalClient {
     ///
     /// Returns an error if the operation fails.
     fn empty_to_none(s: String) -> Option<String> {
-        if s.is_empty() { None } else { Some(s) }
+        if s.is_empty() {
+            None
+        } else {
+            Some(s)
+        }
     }
 
     fn parse_transaction_date(s: &str) -> Result<chrono::DateTime<chrono::Utc>> {
