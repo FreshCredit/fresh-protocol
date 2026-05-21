@@ -48,7 +48,13 @@ impl LocalClient {
         _issues: &mut Vec<String>,
         warnings: &mut Vec<String>,
     ) -> Result<()> {
-        // Check for invalid currency codes
+        self.check_invalid_currencies(warnings).await?;
+        self.check_invalid_amounts(warnings).await?;
+        self.check_future_transactions(warnings).await?;
+        Ok(())
+    }
+
+    async fn check_invalid_currencies(&self, warnings: &mut Vec<String>) -> Result<()> {
         let mut rows = self.connection.query(
             "SELECT DISTINCT currency FROM accounts WHERE currency NOT IN ('USD', 'EUR', 'GBP', 'CAD', 'JPY')",
             (),
@@ -65,8 +71,10 @@ impl LocalClient {
                 "Found accounts with non-standard currencies: {invalid_currencies:?}"
             ));
         }
+        Ok(())
+    }
 
-        // Check for transactions with invalid amounts
+    async fn check_invalid_amounts(&self, warnings: &mut Vec<String>) -> Result<()> {
         let mut rows = self
             .connection
             .query(
@@ -83,8 +91,10 @@ impl LocalClient {
                 ));
             }
         }
+        Ok(())
+    }
 
-        // Check for future-dated transactions
+    async fn check_future_transactions(&self, warnings: &mut Vec<String>) -> Result<()> {
         let mut rows = self
             .connection
             .query(
@@ -101,7 +111,6 @@ impl LocalClient {
                 ));
             }
         }
-
         Ok(())
     }
 
