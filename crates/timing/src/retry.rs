@@ -120,6 +120,7 @@ impl RetryStrategy for ExponentialBackoff {
 }
 
 /// Retry executor
+#[derive(Debug)]
 pub struct RetryExecutor<S: RetryStrategy> {
     strategy: S,
 }
