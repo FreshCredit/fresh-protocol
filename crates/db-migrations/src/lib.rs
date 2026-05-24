@@ -40,6 +40,7 @@ pub struct AppliedMigration {
 }
 
 /// Migration runner for `LibSQL` databases
+#[derive(Debug)]
 pub struct MigrationRunner {
     connection: libsql::Connection,
     migrations: BTreeMap<i64, Migration>,

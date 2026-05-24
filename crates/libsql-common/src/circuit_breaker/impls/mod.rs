@@ -97,6 +97,7 @@ pub struct CircuitBreakerStats {
 }
 
 /// Internal state management for circuit breaker
+#[derive(Debug)]
 struct CircuitBreakerInner {
     /// Current state
     state: CircuitBreakerState,
