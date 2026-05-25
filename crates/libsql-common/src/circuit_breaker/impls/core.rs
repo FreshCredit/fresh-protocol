@@ -26,7 +26,7 @@ impl fmt::Debug for CircuitBreakerConnection {
             .field("total_successes", &self.total_successes)
             .field("total_failures", &self.total_failures)
             .field("total_rejected", &self.total_rejected)
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 
