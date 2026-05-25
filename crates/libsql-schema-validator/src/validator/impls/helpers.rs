@@ -251,7 +251,6 @@ impl SchemaValidator {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::types::*;
 
     fn test_validator() -> SchemaValidator {
@@ -275,7 +274,7 @@ mod tests {
     fn test_index(name: &str, columns: &[&str]) -> IndexInfo {
         IndexInfo {
             name: name.to_string(),
-            columns: columns.iter().map(|s| s.to_string()).collect(),
+            columns: columns.iter().map(|s| (*s).to_string()).collect(),
             unique: false,
         }
     }

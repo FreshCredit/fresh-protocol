@@ -102,6 +102,7 @@ pub struct ForeignKeyInfo {
 }
 
 /// Schema validator
+#[derive(Debug)]
 pub struct SchemaValidator {
     pub(crate) staging_connection: Option<libsql::Connection>,
     pub(crate) local_connection: Option<libsql::Connection>,
