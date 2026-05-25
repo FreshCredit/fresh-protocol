@@ -1,9 +1,9 @@
-//! FreshCredit E2E Critical Path Tests
+//! `FreshCredit` E2E Critical Path Tests
 //!
-//! This test file exercises the complete critical paths of the FreshCredit application:
+//! This test file exercises the complete critical paths of the `FreshCredit` application:
 //! - Authentication (Microsoft Entra ID OAuth 2.0)
 //! - Plaid Integration (Link tokens, account connections, data retrieval)
-//! - Database Operations (LibSQL local + Turso cloud sync)
+//! - Database Operations (`LibSQL` local + Turso cloud sync)
 //! - Blockchain Integration (Substrate hash anchoring and verification)
 //! - Payment Flows (Stripe Connect marketplace payments)
 //! - Core User Workflows (onboarding, report generation, matching)
@@ -128,10 +128,10 @@ async fn test_plaid_config() -> Result<()> {
     let client_id = std::env::var("FRESHCREDIT_PLAID__CLIENT_ID").unwrap_or("not_set".into());
     let env = std::env::var("FRESHCREDIT_PLAID__ENVIRONMENT").unwrap_or("sandbox".into());
 
-    if client_id != "not_set" {
-        println!("  ✅ Plaid client ID configured");
-    } else {
+    if client_id == "not_set" {
         println!("  ⏭️  Plaid client ID not configured (skipping API tests)");
+    } else {
+        println!("  ✅ Plaid client ID configured");
     }
 
     if env == "sandbox" {
@@ -280,7 +280,7 @@ async fn test_database_user_profile() -> Result<()> {
 // Blockchain Tests
 // ============================================================================
 
-/// Test user ID to AccountId32 mapping
+/// Test user ID to `AccountId32` mapping
 #[tokio::test]
 async fn test_blockchain_user_id_mapping() -> Result<()> {
     println!("\n🧪 Test: User ID to AccountId32 Mapping");
@@ -304,7 +304,7 @@ async fn test_blockchain_user_id_mapping() -> Result<()> {
 
     // Different users = different AccountIds
     let mut hasher3 = Sha256::new();
-    hasher3.update("freshcredit-user:different_user".as_bytes());
+    hasher3.update(b"freshcredit-user:different_user");
     let result3 = hasher3.finalize();
     assert_ne!(result, result3);
     println!("  ✅ Different users produce different AccountIds");
@@ -359,7 +359,7 @@ async fn test_blockchain_hash_verification() -> Result<()> {
     println!("  ✅ Verification passes for unchanged data");
 
     let mut h3 = Sha256::new();
-    h3.update("tampered_content".as_bytes());
+    h3.update(b"tampered_content");
     let tampered_hash = hex::encode(h3.finalize());
     assert_ne!(original_hash, tampered_hash);
     println!("  ✅ Verification fails for modified data");
@@ -412,11 +412,11 @@ async fn test_payments_platform_fee() -> Result<()> {
     ];
 
     for (amount, expected_fee) in test_cases {
-        let fee = ((amount as f64) * (PLATFORM_FEE_PERCENT / 100.0)).round() as i64;
+        let fee = (f64::from(amount) * (PLATFORM_FEE_PERCENT / 100.0)).round() as i64;
         assert_eq!(fee, expected_fee);
         println!(
             "  ✅ ${:.2} → ${:.2} fee",
-            amount as f64 / 100.0,
+            f64::from(amount) / 100.0,
             fee as f64 / 100.0
         );
     }

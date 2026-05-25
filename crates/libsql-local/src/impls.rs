@@ -2,6 +2,7 @@ use anyhow::Result;
 use tracing::info;
 
 /// Local `LibSQL` database client
+#[derive(Debug)]
 pub struct LocalClient {
     pub(crate) connection: libsql::Connection,
 }

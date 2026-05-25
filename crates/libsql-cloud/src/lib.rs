@@ -17,6 +17,7 @@ use tracing::info;
 const UNIFIED_SCHEMA_SQL: &str = include_str!("../../../../../migrations/unified_schema.sql");
 
 /// Cloud `LibSQL` database client for Turso
+#[derive(Debug)]
 pub struct CloudClient {
     connection: libsql::Connection,
 }

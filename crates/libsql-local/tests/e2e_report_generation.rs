@@ -1,4 +1,4 @@
-//! E2E Tests for BlockID Report Generation
+//! E2E Tests for `BlockID` Report Generation
 //!
 //! Tests the complete report generation flow including:
 //! - Report creation and storage
@@ -56,7 +56,7 @@ async fn setup_test_user_with_account(client: &LocalClient) -> Result<TestReport
     // Create some transactions for the account
     for i in 1..=5 {
         let tx_id = uuid::Uuid::new_v4().to_string();
-        let amount = (i as f64) * 100.0;
+        let amount = f64::from(i) * 100.0;
         client.execute(
             "INSERT INTO transactions (id, user_id, account_id, amount, iso_currency_code, transaction_type, name, date, raw_transaction_data, created_at)
              VALUES (?, ?, ?, ?, 'USD', 'debit', 'Test transaction', date('now'), '{}', CURRENT_TIMESTAMP)",
@@ -173,7 +173,7 @@ async fn test_blockchain_anchoring() -> Result<()> {
     println!("✅ Report created without blockchain hash");
 
     // Simulate blockchain anchoring - update with hash and tx_id
-    let blockchain_hash = format!("0x{}", uuid::Uuid::new_v4().to_string().replace("-", ""));
+    let blockchain_hash = format!("0x{}", uuid::Uuid::new_v4().to_string().replace('-', ""));
     let blockchain_tx_id = format!("tx_{}", uuid::Uuid::new_v4());
     client.execute(
         "UPDATE reports SET blockchain_hash = ?, blockchain_tx_id = ?, report_status = 'anchored' WHERE id = ?",
@@ -220,7 +220,7 @@ async fn test_hash_verification() -> Result<()> {
     let computed_hash = format!(
         "hash_{:016x}_{}",
         report_json.len(),
-        uuid::Uuid::new_v4().to_string().replace("-", "")
+        uuid::Uuid::new_v4().to_string().replace('-', "")
     );
     println!("✅ Computed hash: {computed_hash}");
 

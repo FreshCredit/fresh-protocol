@@ -1,11 +1,11 @@
 use super::*;
 
 /// Test that the schema contains exactly 117 tables as documented
-/// HARDCODED_SCHEMA: 117 unique tables in modular schema (verified 2026-01-15)
-/// Added: provider_teams, team_members, team_invites (Teams)
-/// Added: customer_activities, customer_segments, customer_segment_memberships, customer_communications (Customers)
-/// Added: offer_analytics, offer_ab_test_results, offer_events (Offer Analytics)
-/// Added: bridge_transfers, gateway_sessions, gateway_transactions (Circle Arc Phase 2)
+/// `HARDCODED_SCHEMA`: 117 unique tables in modular schema (verified 2026-01-15)
+/// Added: `provider_teams`, `team_members`, `team_invites` (Teams)
+/// Added: `customer_activities`, `customer_segments`, `customer_segment_memberships`, `customer_communications` (Customers)
+/// Added: `offer_analytics`, `offer_ab_test_results`, `offer_events` (Offer Analytics)
+/// Added: `bridge_transfers`, `gateway_sessions`, `gateway_transactions` (Circle Arc Phase 2)
 #[tokio::test]
 async fn test_schema_table_count() {
     let client = LocalClient::new_in_memory().await.unwrap();
