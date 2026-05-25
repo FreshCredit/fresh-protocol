@@ -275,7 +275,7 @@ mod tests {
             linkedin_data: Duration::days(1),
             reports: Duration::hours(12),
         };
-        let validator = FreshnessValidator::new(thresholds.clone());
+        let validator = FreshnessValidator::new(thresholds);
         let status = validator.check_freshness(DataType::Reports, Utc::now() - Duration::hours(20));
         assert!(!status.is_fresh);
     }

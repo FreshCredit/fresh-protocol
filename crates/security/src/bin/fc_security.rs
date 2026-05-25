@@ -1,6 +1,6 @@
-//! FreshCredit Security CLI Tool
+//! `FreshCredit` Security CLI Tool
 //!
-//! Provides key management and encryption utilities for FreshCredit.
+//! Provides key management and encryption utilities for `FreshCredit`.
 //!
 //! # Usage
 //! ```bash
@@ -68,18 +68,15 @@ enum Commands {
 }
 
 fn handle_generate_key(format: &str) {
-    match format {
-        "base64" => {
-            let b64 = generate_base64_key();
-            println!("Generated AES-256 key (base64):");
-            println!("{b64}");
-        }
-        _ => {
-            let key = freshcredit_security::encryption::generate_key();
-            let hex = hex::encode(key);
-            println!("Generated AES-256 key (hex):");
-            println!("{hex}");
-        }
+    if format == "base64" {
+        let b64 = generate_base64_key();
+        println!("Generated AES-256 key (base64):");
+        println!("{b64}");
+    } else {
+        let key = freshcredit_security::encryption::generate_key();
+        let hex = hex::encode(key);
+        println!("Generated AES-256 key (hex):");
+        println!("{hex}");
     }
     println!("\nSet this as FRESHCREDIT_TOKEN_ENCRYPTION_KEY environment variable.");
 }
@@ -132,11 +129,11 @@ fn handle_validate_config() {
 
         let test = "test-token-12345";
         let encrypted = encrypt_token(test).unwrap_or_else(|e| {
-            eprintln!("❌ Encryption failed: {}", e);
+            eprintln!("❌ Encryption failed: {e}");
             std::process::exit(1);
         });
         let decrypted = decrypt_token(&encrypted).unwrap_or_else(|e| {
-            eprintln!("❌ Encryption roundtrip test failed: {}", e);
+            eprintln!("❌ Encryption roundtrip test failed: {e}");
             std::process::exit(1);
         });
 
@@ -159,7 +156,7 @@ fn handle_encrypt(plaintext: &str) {
     match encrypt_token(plaintext) {
         Ok(encrypted) => println!("{encrypted}"),
         Err(e) => {
-            eprintln!("❌ Encryption failed: {}", e);
+            eprintln!("❌ Encryption failed: {e}");
             std::process::exit(1);
         }
     }
@@ -169,7 +166,7 @@ fn handle_decrypt(ciphertext: &str) {
     match decrypt_token(ciphertext) {
         Ok(decrypted) => println!("{decrypted}"),
         Err(e) => {
-            eprintln!("❌ Decryption failed: {}", e);
+            eprintln!("❌ Decryption failed: {e}");
             std::process::exit(1);
         }
     }
