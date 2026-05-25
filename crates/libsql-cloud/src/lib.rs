@@ -54,10 +54,8 @@ impl CloudClient {
             let mut rows = self
                 .connection
                 .query(
-                    &format!(
-                        "SELECT name FROM sqlite_master WHERE type='table' AND name='{table}'"
-                    ),
-                    (),
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name = ?",
+                    libsql::params![table],
                 )
                 .await?;
 
