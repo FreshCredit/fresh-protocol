@@ -10,6 +10,7 @@ use tracing::{info, warn};
 use crate::calendar::BusinessDayCalendar;
 
 /// ACH settlement timing calculator
+#[derive(Debug)]
 pub struct SettlementCalculator {
     calendar: BusinessDayCalendar,
 }

@@ -18,6 +18,7 @@ pub enum TimeoutError<E> {
 }
 
 /// Timeout enforcer
+#[derive(Debug)]
 pub struct TimeoutEnforcer {
     default_timeout: Duration,
     max_timeout: Duration,
