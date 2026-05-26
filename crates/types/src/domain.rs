@@ -412,13 +412,14 @@ mod tests {
     fn test_typescript_export() {
         use ts_rs::TS;
 
-        let account_ts = Account::name();
+        let cfg = ts_rs::Config::default();
+        let account_ts = Account::name(&cfg);
         assert_eq!(account_ts, "Account");
 
-        let transaction_ts = Transaction::name();
+        let transaction_ts = Transaction::name(&cfg);
         assert_eq!(transaction_ts, "Transaction");
 
-        let report_ts = FinancialReport::name();
+        let report_ts = FinancialReport::name(&cfg);
         assert_eq!(report_ts, "FinancialReport");
     }
 }
