@@ -174,14 +174,14 @@ mod tests {
 
     #[test]
     fn test_parse_simple_create_table() {
-        let sql = r#"
+        let sql = r"
             CREATE TABLE IF NOT EXISTS users (
                 id TEXT PRIMARY KEY,
                 email TEXT NOT NULL,
                 name TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             );
-        "#;
+        ";
 
         let tables = parse_sql_schema(sql);
         assert_eq!(tables.len(), 1);
@@ -197,7 +197,7 @@ mod tests {
 
     #[test]
     fn test_parse_table_with_foreign_key() {
-        let sql = r#"
+        let sql = r"
             CREATE TABLE accounts (
                 id TEXT PRIMARY KEY,
                 user_id TEXT NOT NULL,
@@ -205,7 +205,7 @@ mod tests {
                 balance REAL DEFAULT 0.0,
                 FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
             );
-        "#;
+        ";
 
         let tables = parse_sql_schema(sql);
         let accounts = tables.get("accounts").unwrap();
@@ -297,7 +297,7 @@ mod tests {
             .unwrap()
             .ancestors()
             .find(|p| p.join("migrations/unified_schema.sql").exists())
-            .map(|p| p.to_path_buf());
+            .map(std::path::Path::to_path_buf);
 
         if let Some(root) = project_root {
             let result = load_migration_schema(&root);
