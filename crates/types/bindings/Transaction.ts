@@ -3,4 +3,36 @@
 /**
  * Financial transaction
  */
-export type Transaction = { id: string, account_id: string, amount: number, currency: string, description: string, category: string | null, date: string, merchant_name: string | null, };
+export type Transaction = { 
+/**
+ * Unique identifier
+ */
+id: string, 
+/**
+ * Account identifier
+ */
+account_id: string, 
+/**
+ * Amount
+ */
+amount: number, 
+/**
+ * Currency
+ */
+currency: string, 
+/**
+ * Description
+ */
+description: string, 
+/**
+ * Category
+ */
+category: string | null, 
+/**
+ * Date
+ */
+date: string, 
+/**
+ * Merchant Name
+ */
+merchant_name: string | null, };

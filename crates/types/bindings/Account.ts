@@ -4,4 +4,32 @@ import type { AccountType } from "./AccountType";
 /**
  * Financial account information
  */
-export type Account = { id: string, user_id: string, account_type: AccountType, balance: number | null, currency: string, institution_name: string, created_at: string, };
+export type Account = { 
+/**
+ * Unique identifier
+ */
+id: string, 
+/**
+ * User identifier
+ */
+user_id: string, 
+/**
+ * Account Type
+ */
+account_type: AccountType, 
+/**
+ * Balance
+ */
+balance: number | null, 
+/**
+ * Currency
+ */
+currency: string, 
+/**
+ * Institution Name
+ */
+institution_name: string, 
+/**
+ * Timestamp when the created was created/updated
+ */
+created_at: string, };
