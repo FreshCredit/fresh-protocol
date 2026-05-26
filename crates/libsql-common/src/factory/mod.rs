@@ -42,6 +42,7 @@ use crate::circuit_breaker::{CircuitBreakerConfig, CircuitBreakerConnection};
 use crate::connection::{ConnectionConfig, ConnectionMode, DatabaseConnection};
 
 /// Factory for creating database connections
+#[derive(Debug)]
 pub struct ConnectionFactory;
 
 impl ConnectionFactory {

@@ -24,7 +24,7 @@ macro_rules! workflow_sql {
     };
 }
 
-fn map_workflow_row(row: libsql::Row) -> Result<WorkflowRecord> {
+fn map_workflow_row(row: &libsql::Row) -> Result<WorkflowRecord> {
     Ok(WorkflowRecord {
         id: row.get(0)?,
         user_id: row.get(1)?,
@@ -240,7 +240,7 @@ impl LocalClient {
 
         let mut workflows = Vec::new();
         while let Some(row) = rows.next().await? {
-            workflows.push(map_workflow_row(row)?);
+            workflows.push(map_workflow_row(&row)?);
         }
 
         Ok(workflows)
@@ -259,7 +259,7 @@ impl LocalClient {
             .await?;
 
         if let Some(row) = rows.next().await? {
-            Ok(Some(map_workflow_row(row)?))
+            Ok(Some(map_workflow_row(&row)?))
         } else {
             Ok(None)
         }

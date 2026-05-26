@@ -131,6 +131,11 @@ impl LocalClient {
             .with_timezone(&chrono::Utc))
     }
 
+    /// Retrieves a user's transactions from the database.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database query fails.
     pub async fn get_user_transactions(
         &self,
         user_id: &str,

@@ -493,7 +493,7 @@ async fn test_account_type_parsing() {
     ];
 
     for (i, (acc_type, _)) in types.iter().enumerate() {
-        let acc = test_account(&user_id, &format!("acc-{}", i), acc_type.clone());
+        let acc = test_account(&user_id, &format!("acc-{i}"), acc_type.clone());
         client.sync_account(&acc).await.unwrap();
     }
 

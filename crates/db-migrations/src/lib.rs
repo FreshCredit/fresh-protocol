@@ -40,6 +40,7 @@ pub struct AppliedMigration {
 }
 
 /// Migration runner for `LibSQL` databases
+#[derive(Debug)]
 pub struct MigrationRunner {
     connection: libsql::Connection,
     migrations: BTreeMap<i64, Migration>,
@@ -84,6 +85,11 @@ impl MigrationRunner {
         }
     }
 
+    /// Loads migrations from a directory.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the directory cannot be read or migration files are invalid.
     pub async fn load_migrations_from_dir(&mut self, dir: &Path) -> Result<()> {
         if !fs::try_exists(dir).await? {
             return Err(anyhow::anyhow!(

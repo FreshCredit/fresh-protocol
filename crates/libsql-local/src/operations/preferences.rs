@@ -28,6 +28,11 @@ impl LocalClient {
         Ok(Some(row.get::<String>(idx)?))
     }
 
+    /// Retrieves user preferences from the database.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database query fails.
     pub async fn get_user_preferences(&self, user_id: &str) -> Result<Option<UserPreferences>> {
         info!("Getting preferences for user: {user_id}");
 

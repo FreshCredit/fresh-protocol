@@ -1,5 +1,6 @@
 use super::helpers::map_cb_result;
 use super::*;
+use std::fmt;
 
 /// A database connection wrapper that implements the circuit breaker pattern
 pub struct CircuitBreakerConnection {
@@ -15,6 +16,18 @@ pub struct CircuitBreakerConnection {
     total_failures: AtomicU64,
     /// Total rejected count (for stats)
     total_rejected: AtomicU64,
+}
+
+impl fmt::Debug for CircuitBreakerConnection {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("CircuitBreakerConnection")
+            .field("config", &self.config)
+            .field("inner_state", &self.inner_state)
+            .field("total_successes", &self.total_successes)
+            .field("total_failures", &self.total_failures)
+            .field("total_rejected", &self.total_rejected)
+            .finish_non_exhaustive()
+    }
 }
 
 impl CircuitBreakerConnection {
