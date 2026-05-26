@@ -236,6 +236,7 @@ mod tests {
     #[test]
     fn test_exponential_backoff_from_env() {
         let _guard = ENV_LOCK.lock().unwrap();
+        // SAFETY: Test-only env manipulation. Guarded by ENV_LOCK mutex.
         unsafe {
             std::env::set_var("WORKFLOW_RETRY_INITIAL_DELAY_MS", "500");
             std::env::set_var("WORKFLOW_RETRY_MAX_DELAY_MS", "30000");
@@ -250,6 +251,7 @@ mod tests {
         assert_eq!(strategy.max_delay, std::time::Duration::from_millis(30000));
         assert_eq!(strategy.max_attempts, 5);
 
+        // SAFETY: Test-only env cleanup. Removes vars set above in same test.
         unsafe {
             std::env::remove_var("WORKFLOW_RETRY_INITIAL_DELAY_MS");
             std::env::remove_var("WORKFLOW_RETRY_MAX_DELAY_MS");

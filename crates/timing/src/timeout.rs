@@ -165,6 +165,7 @@ mod tests {
     #[test]
     fn test_timeout_enforcer_from_env() {
         let _guard = ENV_LOCK.lock().unwrap();
+        // SAFETY: Test-only env manipulation. Guarded by ENV_LOCK mutex.
         unsafe {
             std::env::set_var("WORKFLOW_DEFAULT_TIMEOUT_MS", "15000");
             std::env::set_var("WORKFLOW_MAX_TIMEOUT_MS", "600000");
@@ -174,6 +175,7 @@ mod tests {
         assert_eq!(enforcer.default_timeout, Duration::from_millis(15000));
         assert_eq!(enforcer.max_timeout, Duration::from_millis(600000));
 
+        // SAFETY: Test-only env cleanup. Removes vars set above in same test.
         unsafe {
             std::env::remove_var("WORKFLOW_DEFAULT_TIMEOUT_MS");
             std::env::remove_var("WORKFLOW_MAX_TIMEOUT_MS");

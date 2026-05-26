@@ -200,6 +200,7 @@ mod tests {
     #[test]
     fn test_freshness_thresholds_from_env() {
         let _guard = ENV_LOCK.lock().unwrap();
+        // SAFETY: Test-only env manipulation. Guarded by ENV_LOCK mutex.
         unsafe {
             std::env::set_var("PLAID_TRANSACTION_FRESHNESS_DAYS", "60");
             std::env::set_var("PLAID_ACCOUNT_FRESHNESS_DAYS", "15");
@@ -213,6 +214,7 @@ mod tests {
         assert_eq!(thresholds.linkedin_data, Duration::days(3));
         assert_eq!(thresholds.reports, Duration::hours(12));
 
+        // SAFETY: Test-only env cleanup. Removes vars set above in same test.
         unsafe {
             std::env::remove_var("PLAID_TRANSACTION_FRESHNESS_DAYS");
             std::env::remove_var("PLAID_ACCOUNT_FRESHNESS_DAYS");

@@ -185,6 +185,7 @@ mod tests {
     #[test]
     fn test_ttl_config_from_env() {
         let _guard = ENV_LOCK.lock().unwrap();
+        // SAFETY: Test-only env manipulation. Guarded by ENV_LOCK mutex.
         unsafe {
             std::env::set_var("TTL_SESSION_HOURS", "12");
             std::env::set_var("TTL_CSRF_MINUTES", "15");
@@ -200,6 +201,7 @@ mod tests {
         assert_eq!(config.staged_payloads, Duration::hours(24));
         assert_eq!(config.idempotency_keys, Duration::hours(12));
 
+        // SAFETY: Test-only env cleanup. Removes vars set above in same test.
         unsafe {
             std::env::remove_var("TTL_SESSION_HOURS");
             std::env::remove_var("TTL_CSRF_MINUTES");
