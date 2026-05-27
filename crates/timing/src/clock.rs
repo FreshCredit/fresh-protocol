@@ -105,7 +105,7 @@ mod tests {
             .with_timezone(&Utc);
         let clock = MockClock::new(time);
 
-        assert_eq!(clock.timestamp(), 1735689600);
-        assert_eq!(clock.timestamp_millis(), 1735689600000);
+        assert_eq!(clock.timestamp(), 1_735_689_600);
+        assert_eq!(clock.timestamp_millis(), 1_735_689_600_000);
     }
 }

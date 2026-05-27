@@ -173,7 +173,7 @@ mod tests {
 
         let enforcer = TimeoutEnforcer::from_env();
         assert_eq!(enforcer.default_timeout, Duration::from_millis(15000));
-        assert_eq!(enforcer.max_timeout, Duration::from_millis(600000));
+        assert_eq!(enforcer.max_timeout, Duration::from_millis(600_000));
 
         // SAFETY: Test-only env cleanup. Removes vars set above in same test.
         unsafe {
