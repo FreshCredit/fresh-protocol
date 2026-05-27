@@ -83,7 +83,7 @@ fn test_user_profile_simple() -> freshcredit_libsql_local::UserProfile {
         date_of_birth: Some("1990-01-01".to_string()),
         ssn_last_four: Some("1234".to_string()),
         employment_status: Some("Employed".to_string()),
-        annual_income: Some(100000),
+        annual_income: Some(100_000),
         phone_number: Some("555-5678".to_string()),
         preferred_name: Some("Tester".to_string()),
         emergency_contact_name: Some("Emergency Contact".to_string()),
