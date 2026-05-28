@@ -16,15 +16,20 @@ use std::path::Path;
 /// Represents a column extracted from schema definitions
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SchemaColumn {
+    /// Column name
     pub name: String,
+    /// SQL data type
     pub data_type: String,
+    /// Whether the column has a NOT NULL constraint
     pub not_null: bool,
 }
 
 /// Represents a table schema
 #[derive(Debug, Clone)]
 pub struct TableDef {
+    /// Table name
     pub name: String,
+    /// Columns defined in the table
     pub columns: Vec<SchemaColumn>,
 }
 
