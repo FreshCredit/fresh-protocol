@@ -25,6 +25,7 @@
 //! }
 //! ```
 
+/// Connection types and configuration
 pub mod types;
 
 mod helpers;

@@ -116,10 +116,13 @@ struct CircuitBreakerInner {
 /// Circuit breaker error types
 #[derive(Debug, thiserror::Error)]
 pub enum CircuitBreakerError {
+    /// Circuit is open and rejecting requests
     #[error("Circuit breaker is OPEN - database unavailable")]
     CircuitOpen,
+    /// Too many test calls while circuit is half-open
     #[error("Circuit breaker is HALF_OPEN - too many test calls")]
     CircuitHalfOpenLimit,
+    /// Underlying database operation failed
     #[error("Database operation failed: {0}")]
     DatabaseError(#[from] anyhow::Error),
 }

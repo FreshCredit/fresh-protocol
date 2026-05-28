@@ -71,5 +71,6 @@ pub enum CircuitBreakerState {
     HalfOpen,
 }
 
+/// Circuit breaker implementations
 pub mod impls;
 pub use impls::*;

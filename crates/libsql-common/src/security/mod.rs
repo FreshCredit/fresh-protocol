@@ -48,10 +48,14 @@ pub fn safe_column_name(name: &str) -> Result<String, SqlSecurityError> {
     Ok(name.to_string())
 }
 
+/// Errors that can occur during SQL security validation
 #[derive(Debug, Clone)]
 pub enum SqlSecurityError {
+    /// Identifier string is empty
     EmptyIdentifier,
+    /// Identifier contains invalid characters
     InvalidCharacters(String),
+    /// Identifier is a reserved SQL keyword
     ReservedKeyword(String),
 }
 

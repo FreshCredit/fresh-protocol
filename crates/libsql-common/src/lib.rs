@@ -148,7 +148,6 @@
 
 // Core modules
 #![allow(clippy::wildcard_imports)]
-#![allow(missing_docs)]
 
 pub mod circuit_breaker;
 pub mod connection;

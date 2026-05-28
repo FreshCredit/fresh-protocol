@@ -1,4 +1,3 @@
-#![allow(missing_docs)]
 //! Versioned database migration system for `FreshCredit`
 //!
 //! This module provides a migration runner that:
@@ -23,19 +22,28 @@ use tracing::info;
 /// Represents a migration to be applied
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Migration {
+    /// Migration version number
     pub version: i64,
+    /// Human-readable migration name
     pub name: String,
+    /// Forward migration SQL
     pub up_sql: String,
+    /// Rollback migration SQL (optional)
     pub down_sql: Option<String>,
+    /// SHA-256 checksum of `up_sql`
     pub checksum: String,
 }
 
 /// Represents an applied migration record
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppliedMigration {
+    /// Migration version number
     pub version: i64,
+    /// Human-readable migration name
     pub name: String,
+    /// SHA-256 checksum of the applied migration SQL
     pub checksum: String,
+    /// Timestamp when the migration was applied
     pub applied_at: DateTime<Utc>,
 }
 

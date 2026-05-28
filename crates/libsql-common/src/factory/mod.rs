@@ -32,8 +32,11 @@
 //! }
 //! ```
 
+/// Local-only connection factory
 pub mod local;
+/// Remote connection factory
 pub mod remote;
+/// Embedded replica connection factory
 pub mod replica;
 
 use std::sync::Arc;
