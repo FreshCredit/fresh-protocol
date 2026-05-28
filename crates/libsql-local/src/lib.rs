@@ -32,12 +32,16 @@
 
 // Submodules for incremental extraction
 #![allow(clippy::wildcard_imports)]
-#![allow(missing_docs)]
 
+/// Helper utilities for local `LibSQL` operations
 pub mod helpers;
+/// `LocalClient` struct and core implementation
 pub mod impls;
+/// Database CRUD operations organized by domain
 pub mod operations;
+/// Database schema definitions organized by domain
 pub mod schema;
+/// Type definitions for database records
 pub mod types;
 
 #[cfg(test)]

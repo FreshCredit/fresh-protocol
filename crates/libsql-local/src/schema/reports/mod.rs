@@ -17,9 +17,13 @@ use anyhow::Result;
 use libsql::Connection;
 use tracing::info;
 
+/// Offer analytics tables
 pub mod offer_analytics;
+/// Offer index tables
 pub mod offer_indexes;
+/// Provider tables
 pub mod provider;
+/// Verification tables
 pub mod verification;
 
 use offer_indexes::initialize_blockchain_proofs_table;
