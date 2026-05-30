@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Schema validation result
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SchemaValidationResult {
@@ -17,6 +18,7 @@ pub struct SchemaValidationResult {
     pub summary: ValidationSummary,
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Schema validation issue
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SchemaIssue {
@@ -42,6 +44,7 @@ pub enum IssueSeverity {
     /// Missing indexes
     Medium,
     /// Minor differences
+    // TAG: surface=database owner=platform-team rule=GENERAL-001
     Low,
 }
 
@@ -68,6 +71,7 @@ pub enum IssueType {
     ExtraForeignKey,
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Schema warning (non-critical)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SchemaWarning {
@@ -100,6 +104,7 @@ pub struct ValidationSummary {
     pub warnings: usize,
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Table schema information
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TableSchema {
@@ -128,6 +133,7 @@ pub struct ColumnInfo {
     pub primary_key: bool,
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Index information
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct IndexInfo {
@@ -154,6 +160,7 @@ pub struct ForeignKeyInfo {
 
 /// Schema validator
 #[derive(Debug)]
+// TAG: surface=database owner=platform-team rule=GENERAL-001
 pub struct SchemaValidator {
     pub(crate) staging_connection: Option<libsql::Connection>,
     pub(crate) local_connection: Option<libsql::Connection>,
@@ -183,6 +190,7 @@ mod tests {
         assert_eq!(col1, col2);
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     #[test]
     fn test_index_info_equality() {
         let idx1 = IndexInfo {
@@ -219,6 +227,7 @@ mod tests {
     fn test_issue_serder() {
         let issue = SchemaIssue {
             severity: IssueSeverity::Critical,
+            // TAG: surface=database owner=platform-team rule=DB-001
             database: "staging".to_string(),
             issue_type: IssueType::MissingTable,
             description: "Table 'users' is missing".to_string(),
@@ -264,6 +273,7 @@ mod tests {
         assert_eq!(table.columns.len(), 1);
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     #[test]
     fn test_schema_validation_result_serialization() {
         let result = SchemaValidationResult {

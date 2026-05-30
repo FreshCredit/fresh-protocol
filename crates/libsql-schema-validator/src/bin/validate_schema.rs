@@ -9,6 +9,7 @@
 //!   --json              Output results as JSON
 //!   --verbose           Show detailed output
 
+// TAG: surface=database owner=platform-team rule=DB-001
 use anyhow::Result;
 use freshcredit_libsql_schema_validator::{IssueSeverity, SchemaValidator};
 use std::env;
@@ -46,6 +47,7 @@ async fn main() -> Result<()> {
         validator = validator.with_cloud(conn);
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     // Run validation
     println!("\n🔍 Running schema validation...\n");
     let result = validator.validate().await?;
@@ -83,6 +85,7 @@ fn parse_cli_args() -> CliArgs {
         verbose: false,
     };
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     let mut i = 1;
     while i < args.len() {
         match args[i].as_str() {
@@ -113,6 +116,7 @@ fn parse_cli_args() -> CliArgs {
     cli
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 fn print_human_readable(
     result: &freshcredit_libsql_schema_validator::SchemaValidationResult,
     verbose: bool,
@@ -151,6 +155,7 @@ fn print_human_readable(
     println!("   Warnings: {}", result.summary.warnings);
     println!();
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     if result.is_valid {
         println!("✅ Schema validation PASSED");
         println!("   All databases have consistent schemas!");
@@ -178,6 +183,7 @@ fn print_human_readable(
                 .issues
                 .iter()
                 .filter(|i| i.severity == severity)
+// TAG: surface=database owner=platform-team rule=DB-001
                 .collect();
             if !issues.is_empty() {
                 let icon = match severity {
@@ -214,6 +220,7 @@ fn print_human_readable(
         println!();
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     println!("🕐 Checked at: {}", result.checked_at);
     println!();
 }
@@ -248,6 +255,7 @@ mod tests {
                 medium_issues: issues
                     .iter()
                     .filter(|i| i.severity == IssueSeverity::Medium)
+// TAG: surface=database owner=platform-team rule=DB-001
                     .count(),
                 low_issues: issues
                     .iter()
@@ -283,6 +291,7 @@ mod tests {
                 issue_type: IssueType::MissingColumn,
                 description: "Missing email column".to_string(),
                 affected_object: "users.email".to_string(),
+                // TAG: surface=database owner=platform-team rule=DB-001
             },
             SchemaIssue {
                 database: "local".to_string(),

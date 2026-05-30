@@ -7,6 +7,7 @@ use crate::types::{
     SchemaWarning, ValidationSummary,
 };
 
+// TAG: surface=database owner=platform-team rule=DB-001
 impl SchemaValidator {
     /// Extract column information for a table
     /// P0-SECURITY: Added identifier validation to prevent SQL injection
@@ -52,6 +53,7 @@ impl SchemaValidator {
         // P0-SECURITY: Validate table name to prevent SQL injection
         validate_identifier(table_name)?;
 
+        // TAG: surface=database owner=platform-team rule=DB-001
         let mut indexes = Vec::new();
         let query = format!("PRAGMA index_list({table_name})");
 
@@ -84,6 +86,7 @@ impl SchemaValidator {
         Ok(indexes)
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Extract foreign key information for a table
     /// P0-SECURITY: Added identifier validation to prevent SQL injection
     pub(crate) async fn extract_foreign_keys(
@@ -128,6 +131,7 @@ impl SchemaValidator {
         let ref_col_names: HashSet<_> = reference_columns.iter().map(|c| &c.name).collect();
         let actual_col_names: HashSet<_> = actual_columns.iter().map(|c| &c.name).collect();
 
+        // TAG: surface=database owner=platform-team rule=DB-001
         // Check for missing columns
         for col in reference_columns {
             if !actual_col_names.contains(&col.name) {
@@ -161,6 +165,7 @@ impl SchemaValidator {
         }
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Compare indexes between tables
     ///
     /// Note: `_warnings` parameter kept for API consistency with other compare methods
@@ -198,6 +203,7 @@ impl SchemaValidator {
     pub(crate) fn calculate_summary(
         &self,
         all_schemas: &std::collections::HashMap<
+            // TAG: surface=database owner=platform-team rule=DB-001
             String,
             std::collections::HashMap<String, crate::types::TableSchema>,
         >,
@@ -237,6 +243,7 @@ impl SchemaValidator {
             .count();
 
         ValidationSummary {
+            // TAG: surface=database owner=platform-team rule=DB-001
             total_tables_checked,
             total_columns_checked,
             total_indexes_checked,
@@ -279,6 +286,7 @@ mod tests {
         }
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     #[test]
     fn test_compare_columns_missing() {
         let validator = test_validator();
@@ -318,6 +326,7 @@ mod tests {
         assert!(issues.is_empty());
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     #[test]
     fn test_compare_indexes_missing() {
         let validator = test_validator();
@@ -354,6 +363,7 @@ mod tests {
     fn test_calculate_summary_with_issues() {
         let validator = test_validator();
         let mut schemas = std::collections::HashMap::new();
+        // TAG: surface=database owner=platform-team rule=DB-001
         let mut tables = std::collections::HashMap::new();
         tables.insert(
             "users".to_string(),

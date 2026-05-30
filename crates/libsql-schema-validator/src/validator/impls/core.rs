@@ -6,6 +6,7 @@ use crate::types::{
     SchemaIssue, SchemaValidationResult, SchemaValidator, SchemaWarning, TableSchema,
 };
 
+// TAG: surface=database owner=platform-team rule=DB-001
 impl SchemaValidator {
     /// Validate schema across all configured databases
     /// # Errors
@@ -43,6 +44,7 @@ impl SchemaValidator {
             return Err(anyhow::anyhow!("No databases configured for validation"));
         }
 
+        // TAG: surface=database owner=platform-team rule=DB-001
         // Compare schemas and detect drift
         let (issues, warnings) = self.compare_schemas(&all_schemas)?;
 
@@ -82,6 +84,7 @@ impl SchemaValidator {
             )
             .await?;
 
+        // TAG: surface=database owner=platform-team rule=DB-001
         while let Some(row) = rows.next().await? {
             let table_name: String = row.get(0)?;
 
@@ -113,6 +116,7 @@ impl SchemaValidator {
         Ok(schemas)
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Compare schemas and detect drift
     fn compare_schemas(
         &self,
@@ -147,6 +151,7 @@ impl SchemaValidator {
 
         // Check if table exists in all databases
         for (db_name, schemas) in all_schemas {
+            // TAG: surface=database owner=platform-team rule=DB-001
             if !schemas.contains_key(&table_name) {
                 issues.push(SchemaIssue {
                     severity: IssueSeverity::High,
@@ -191,6 +196,7 @@ impl SchemaValidator {
     }
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -223,6 +229,7 @@ mod tests {
         }
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     #[test]
     fn test_compare_schemas_missing_table() {
         let validator = test_validator();
@@ -260,6 +267,7 @@ mod tests {
         local.insert("users".to_string(), table.clone());
         schemas.insert("local".to_string(), local);
 
+        // TAG: surface=database owner=platform-team rule=DB-001
         let mut staging = HashMap::new();
         staging.insert("users".to_string(), table);
         schemas.insert("staging".to_string(), staging);
@@ -294,6 +302,7 @@ mod tests {
             .await
             .unwrap();
 
+        // TAG: surface=database owner=platform-team rule=DB-001
         connection
             .execute("CREATE INDEX idx_email ON users(email)", ())
             .await
@@ -330,6 +339,7 @@ mod tests {
         assert!(result.issues.is_empty());
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     #[tokio::test]
     async fn test_validate_detects_drift() {
         let local_db = libsql::Builder::new_local(":memory:")

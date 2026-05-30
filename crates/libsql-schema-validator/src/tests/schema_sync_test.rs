@@ -1,3 +1,4 @@
+// TAG: surface=database owner=data-team rule=DB-001
 //! Schema synchronization tests
 //!
 //! These tests verify that Rust schema definitions, Turso cloud schema,
@@ -43,6 +44,7 @@ pub fn parse_sql_schema(sql: &str) -> HashMap<String, TableDef> {
 
     // Find all CREATE TABLE statements
     let create_table_re =
+            // TAG: surface=database owner=data-team rule=DB-001
         regex::Regex::new(r"(?is)CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(\w+)\s*\(([^;]+)\)")
             .unwrap();
 
@@ -91,6 +93,7 @@ fn parse_columns(columns_str: &str) -> Vec<SchemaColumn> {
         }
     }
     if !current_col.trim().is_empty() {
+        // TAG: surface=database owner=data-team rule=DB-001
         col_strs.push(current_col.trim().to_string());
     }
 
@@ -138,6 +141,7 @@ pub fn load_migration_schema(project_root: &Path) -> Result<HashMap<String, Tabl
 
 /// Compare two schemas and return differences
 #[must_use]
+// TAG: surface=database owner=data-team rule=DB-001
 pub fn compare_schemas(
     source_name: &str,
     source: &HashMap<String, TableDef>,
@@ -185,6 +189,7 @@ mod tests {
                 email TEXT NOT NULL,
                 name TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            // TAG: surface=database owner=data-team rule=DB-001
             );
         ";
 
@@ -233,6 +238,7 @@ mod tests {
         );
         source.insert(
             "accounts".to_string(),
+            // TAG: surface=database owner=data-team rule=DB-001
             TableDef {
                 name: "accounts".to_string(),
                 columns: vec![],
@@ -281,6 +287,7 @@ mod tests {
             "users".to_string(),
             TableDef {
                 name: "users".to_string(),
+                // TAG: surface=database owner=data-team rule=DB-001
                 columns: vec![SchemaColumn {
                     name: "id".to_string(),
                     data_type: "TEXT".to_string(),
