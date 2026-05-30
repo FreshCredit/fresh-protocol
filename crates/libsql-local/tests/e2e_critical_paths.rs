@@ -1,3 +1,4 @@
+// TAG: surface=database owner=data-team rule=DB-001
 //! `FreshCredit` E2E Critical Path Tests
 //!
 //! This test file exercises the complete critical paths of the `FreshCredit` application:
@@ -41,6 +42,7 @@ fn test_db_path(prefix: &str) -> String {
     let tid = std::thread::current().id();
     format!("/tmp/freshcredit_{prefix}_{ts}_{tid:?}.db")
 }
+// TAG: surface=database owner=data-team rule=DB-001
 
 /// Generate unique test user ID
 fn test_user_id() -> String {
@@ -86,6 +88,7 @@ async fn test_auth_oauth_url_generation() -> Result<()> {
     assert!(auth_url.contains("login.microsoftonline.com"));
     println!("  ✅ Authorization URL contains Microsoft domain");
 
+    // TAG: surface=database owner=data-team rule=DB-001
     assert!(auth_url.contains("oauth2/v2.0/authorize"));
     println!("  ✅ Uses v2.0 endpoint");
 
@@ -131,6 +134,7 @@ async fn test_plaid_config() -> Result<()> {
     if client_id == "not_set" {
         println!("  ⏭️  Plaid client ID not configured (skipping API tests)");
     } else {
+        // TAG: surface=database owner=data-team rule=DB-001
         println!("  ✅ Plaid client ID configured");
     }
 
@@ -176,6 +180,7 @@ async fn test_plaid_products_support() -> Result<()> {
 // ============================================================================
 
 /// Test local database creation and basic operations
+// TAG: surface=database owner=data-team rule=DB-001
 #[tokio::test]
 async fn test_database_creation_and_crud() -> Result<()> {
     println!("\n🧪 Test: Database Creation and CRUD");
@@ -221,6 +226,7 @@ async fn test_database_creation_and_crud() -> Result<()> {
 
     Ok(())
 }
+// TAG: surface=database owner=data-team rule=DB-001
 
 /// Test user profile operations
 #[tokio::test]
@@ -266,6 +272,7 @@ async fn test_database_user_profile() -> Result<()> {
             (),
         )
         .await?;
+    // TAG: surface=database owner=data-team rule=DB-001
     let row = rows.next().await?.expect("User should exist");
     let email: String = row.get(0)?;
     let role: String = row.get(1)?;
@@ -311,6 +318,7 @@ async fn test_blockchain_user_id_mapping() -> Result<()> {
 
     Ok(())
 }
+// TAG: surface=database owner=data-team rule=DB-001
 
 /// Test report hash generation
 #[tokio::test]
@@ -356,6 +364,7 @@ async fn test_blockchain_hash_verification() -> Result<()> {
     h2.update(original.as_bytes());
     let verify_hash = hex::encode(h2.finalize());
     assert_eq!(original_hash, verify_hash);
+    // TAG: surface=database owner=data-team rule=DB-001
     println!("  ✅ Verification passes for unchanged data");
 
     let mut h3 = Sha256::new();
@@ -401,6 +410,7 @@ async fn test_payments_stripe_config() -> Result<()> {
 /// Test platform fee calculation
 #[tokio::test]
 async fn test_payments_platform_fee() -> Result<()> {
+    // TAG: surface=database owner=data-team rule=DB-001
     println!("\n🧪 Test: Platform Fee Calculation");
 
     const PLATFORM_FEE_PERCENT: f64 = 5.0;
@@ -446,6 +456,7 @@ async fn test_workflow_user_onboarding() -> Result<()> {
         (),
     )
     .await?;
+    // TAG: surface=database owner=data-team rule=DB-001
 
     let user_id = test_user_id();
     let entra_id = format!("entra_{user_id}");
@@ -491,6 +502,7 @@ async fn test_workflow_report_generation() -> Result<()> {
     let db = libsql::Builder::new_local(&path).build().await?;
     let conn = db.connect()?;
 
+    // TAG: surface=database owner=data-team rule=DB-001
     conn.execute(
         "CREATE TABLE reports (
             id TEXT PRIMARY KEY, user_id TEXT, report_type TEXT,
@@ -536,6 +548,7 @@ async fn test_workflow_report_generation() -> Result<()> {
     let row = rows.next().await?.expect("Report exists");
     let status: String = row.get(0)?;
     let stored_hash: String = row.get(1)?;
+    // TAG: surface=database owner=data-team rule=DB-001
     assert_eq!(status, "anchored");
     assert_eq!(stored_hash, hash);
     println!("  ✅ Report anchored and verified");
@@ -581,6 +594,7 @@ async fn test_workflow_provider_matching() -> Result<()> {
 
     // Provider requirements (provider-defined, not FreshCredit)
     conn.execute(
+        // TAG: surface=database owner=data-team rule=DB-001
         "INSERT INTO provider_requirements VALUES ('req_1', 'provider_1', 'income', 30000, 1.0)",
         (),
     )

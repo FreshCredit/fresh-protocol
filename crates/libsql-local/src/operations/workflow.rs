@@ -7,6 +7,7 @@
 //! COMPLIANCE: §3 - Scoring logic is owned and defined by the provider, not `FreshCredit`
 //! COMPLIANCE: §4 workflow templates require provider customization
 
+// TAG: surface=database owner=platform-team rule=DB-001
 use anyhow::Result;
 use tracing::info;
 
@@ -44,6 +45,7 @@ fn map_workflow_row(row: &libsql::Row) -> Result<WorkflowRecord> {
     })
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 impl LocalClient {
     // ========================================================================
     // Scoring Model Operations (BlockScore)
@@ -87,6 +89,7 @@ impl LocalClient {
         Ok(())
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Get scoring models for a provider
     /// P0-PERF: Limited to 1000 models to prevent memory exhaustion
     /// # Errors
@@ -126,6 +129,7 @@ impl LocalClient {
         Ok(models)
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Get a specific scoring model by ID
     /// # Errors
     ///
@@ -163,6 +167,7 @@ impl LocalClient {
         }
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Delete a scoring model
     /// # Errors
     ///
@@ -182,6 +187,7 @@ impl LocalClient {
     // WORKFLOW OPERATIONS (BlockID)
     // ========================================================================
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Save a workflow (flow builder)
     /// # Errors
     ///
@@ -223,6 +229,7 @@ impl LocalClient {
         Ok(())
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Get all workflows for a user
     /// # Errors
     ///
@@ -246,6 +253,7 @@ impl LocalClient {
         Ok(workflows)
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Get a specific workflow by ID
     /// # Errors
     ///
@@ -272,6 +280,7 @@ impl LocalClient {
     pub async fn delete_workflow(&self, workflow_id: &str) -> Result<bool> {
         info!("Deleting workflow: {}", workflow_id);
 
+        // TAG: surface=database owner=platform-team rule=GENERAL-001
         let affected = self
             .connection
             .execute(

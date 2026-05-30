@@ -12,12 +12,14 @@
 //!
 //! COMPLIANCE: §10 Unified Database Schema Architecture
 
+// TAG: surface=database owner=platform-team rule=DB-001
 use anyhow::Result;
 
 use super::try_create_index;
 use libsql::Connection;
 use tracing::info;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize AI-related tables
 ///
 /// Creates 7 tables: `ai_conversations`, `ai_messages`, `uploaded_files`,
@@ -51,6 +53,7 @@ async fn create_uploaded_files_table(conn: &Connection) -> Result<()> {
             file_hash TEXT,
             file_data BLOB,
             text_content TEXT,
+            // TAG: surface=database owner=data-team rule=DB-001
             ai_analysis TEXT,
             is_encrypted BOOLEAN DEFAULT FALSE,
             encryption_key_id TEXT,
@@ -85,6 +88,7 @@ async fn create_ai_conversations_table(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 async fn create_ai_messages_table(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS ai_messages (
@@ -129,6 +133,7 @@ async fn create_ai_usage_metrics_table(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 async fn create_ai_request_logs_table(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS ai_request_logs (
@@ -164,6 +169,7 @@ async fn create_ai_feedback_table(conn: &Connection) -> Result<()> {
             feedback_reason TEXT,
             original_response TEXT,
             corrected_response TEXT,
+            // TAG: surface=database owner=data-team rule=DB-001
             metadata TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
@@ -201,6 +207,7 @@ async fn create_ai_model_configs_table(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 const AI_INDEXES: &[&str] = &[
     "CREATE INDEX IF NOT EXISTS idx_uploaded_files_user_id ON uploaded_files(user_id)",
     "CREATE INDEX IF NOT EXISTS idx_uploaded_files_conversation ON uploaded_files(conversation_id)",

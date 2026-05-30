@@ -1,6 +1,7 @@
 use anyhow::Result;
 use libsql::Connection;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize Plaid enrich and income tables
 /// # Errors
 ///
@@ -51,6 +52,7 @@ pub async fn initialize_plaid_income_tables(conn: &Connection) -> Result<()> {
     )
     .await?;
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     conn.execute(
         "CREATE TABLE IF NOT EXISTS income_verification (
             id TEXT PRIMARY KEY,

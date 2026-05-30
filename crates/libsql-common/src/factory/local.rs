@@ -3,7 +3,9 @@ use std::sync::Arc;
 use crate::connection::{ConnectionConfig, DatabaseConnection};
 use crate::connections::LocalConnection;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 impl super::ConnectionFactory {
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Create a local-only connection
     ///
     /// # Example
@@ -33,6 +35,7 @@ impl super::ConnectionFactory {
 
     /// Create a local-only connection with explicit path
     /// # Errors
+    // TAG: surface=database owner=platform-team rule=GENERAL-001
     ///
     /// Returns an error if the operation fails.
     pub async fn create_local_with_path(

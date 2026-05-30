@@ -1,3 +1,4 @@
+// TAG: surface=database owner=platform-team rule=DB-001 test-coverage=unit
 //! Unified database connection interface for libSQL
 //!
 //! This module provides a trait-based abstraction over different libSQL connection modes:

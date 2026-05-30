@@ -2,6 +2,7 @@ use super::helpers::map_cb_result;
 use super::*;
 use std::fmt;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// A database connection wrapper that implements the circuit breaker pattern
 pub struct CircuitBreakerConnection {
     /// Inner database connection
@@ -18,6 +19,7 @@ pub struct CircuitBreakerConnection {
     total_rejected: AtomicU64,
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 impl fmt::Debug for CircuitBreakerConnection {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("CircuitBreakerConnection")
@@ -50,6 +52,7 @@ impl CircuitBreakerConnection {
         })
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Create from environment configuration
     /// # Errors
     ///
@@ -92,6 +95,7 @@ impl CircuitBreakerConnection {
         }
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Reset the circuit breaker (for testing or recovery)
     pub async fn reset(&self) {
         let mut inner = self.inner_state.write().await;
@@ -117,6 +121,7 @@ impl CircuitBreakerConnection {
             CircuitBreakerState::Open => {
                 // Check if recovery timeout has passed
                 inner.opened_at.map_or_else(
+                    // TAG: surface=database owner=platform-team rule=GENERAL-001
                     || Err(CircuitBreakerError::CircuitOpen),
                     |opened_at| {
                         let elapsed = opened_at.elapsed();
@@ -143,6 +148,7 @@ impl CircuitBreakerConnection {
                             );
                             self.total_rejected.fetch_add(1, Ordering::Relaxed);
                             Err(CircuitBreakerError::CircuitOpen)
+                            // TAG: surface=database owner=platform-team rule=DB-001
                         }
                     },
                 )
@@ -178,6 +184,7 @@ impl CircuitBreakerConnection {
                 // Check if we should close the circuit
                 if inner.consecutive_successes >= self.config.success_threshold {
                     info!(
+                        // TAG: surface=database owner=platform-team rule=DB-001
                         "Circuit breaker transitioning from HALF_OPEN to CLOSED after {} successes",
                         inner.consecutive_successes
                     );
@@ -213,6 +220,7 @@ impl CircuitBreakerConnection {
                     inner.opened_at = Some(Instant::now());
                     inner.stats.last_state_change = Some(Instant::now());
                 }
+                // TAG: surface=database owner=platform-team rule=DB-001
             }
             CircuitBreakerState::HalfOpen => {
                 // Any failure in half-open goes back to open
@@ -252,6 +260,7 @@ impl CircuitBreakerConnection {
     }
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 #[async_trait]
 impl DatabaseConnection for CircuitBreakerConnection {
     async fn query(&self, sql: &str, params: Vec<libsql::Value>) -> anyhow::Result<libsql::Rows> {

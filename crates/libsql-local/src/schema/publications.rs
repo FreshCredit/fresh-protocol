@@ -3,6 +3,7 @@
 //! Contains publication-related tables for academic/research publications:
 //! - `publication_records`: Canonical publication snapshots from public registries (ORCID, `OpenAlex`)
 //! - `publication_claims`: User-asserted claims binding records to their identity
+// TAG: surface=database owner=platform-team rule=DB-001
 //! - `publication_evidence`: Supporting evidence for verification level upgrades
 //! - `publication_events`: Audit log for all claim state transitions
 //! - `publication_disputes`: User disputes for false matches or corrections
@@ -22,6 +23,7 @@ use libsql::Connection;
 use super::try_create_index;
 use tracing::info;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize publication records table (canonical snapshots from public registries)
 /// # Errors
 ///
@@ -47,6 +49,7 @@ pub async fn initialize_publication_records_table(conn: &Connection) -> Result<(
             -- Classification
             concepts TEXT,
             open_access_status TEXT CHECK(open_access_status IN ('gold', 'green', 'hybrid', 'bronze', 'closed', NULL)),
+            // TAG: surface=database owner=data-team rule=DB-001
             is_open_access BOOLEAN DEFAULT FALSE,
             cited_by_count INTEGER DEFAULT 0,
             -- Enrichment tracking
@@ -74,6 +77,7 @@ pub async fn initialize_publication_records_table(conn: &Connection) -> Result<(
     Ok(())
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize publication claims table (user-asserted bindings)
 /// # Errors
 ///
@@ -120,6 +124,7 @@ pub async fn initialize_publication_claims_table(conn: &Connection) -> Result<()
     Ok(())
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize ORCID connections table (identity anchoring)
 /// # Errors
 ///
@@ -162,6 +167,7 @@ pub async fn initialize_orcid_connections_table(conn: &Connection) -> Result<()>
     Ok(())
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize publication evidence table (supporting documents for verification)
 /// # Errors
 ///
@@ -191,6 +197,7 @@ pub async fn initialize_publication_evidence_table(conn: &Connection) -> Result<
     Ok(())
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize publication events table (audit log)
 /// # Errors
 ///
@@ -218,6 +225,7 @@ pub async fn initialize_publication_events_table(conn: &Connection) -> Result<()
     Ok(())
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize publication disputes table
 /// # Errors
 ///
@@ -250,6 +258,7 @@ pub async fn initialize_publication_disputes_table(conn: &Connection) -> Result<
 /// Returns an error if the operation fails.
 pub async fn initialize_publication_shares_table(conn: &Connection) -> Result<()> {
     conn.execute(
+// TAG: surface=database owner=platform-team rule=GENERAL-001
         "CREATE TABLE IF NOT EXISTS publication_shares (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -284,6 +293,7 @@ pub async fn initialize_publication_shares_table(conn: &Connection) -> Result<()
     )
     .await?;
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     Ok(())
 }
 

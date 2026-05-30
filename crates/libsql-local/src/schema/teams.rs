@@ -12,6 +12,7 @@ use anyhow::Result;
 use libsql::Connection;
 use tracing::info;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize teams tables
 /// # Errors
 ///
@@ -47,6 +48,7 @@ pub async fn initialize_teams_tables(conn: &Connection) -> Result<()> {
             joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             status TEXT NOT NULL DEFAULT 'active',
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            // TAG: surface=database owner=data-team rule=DB-001
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (team_id) REFERENCES provider_teams (id) ON DELETE CASCADE,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
@@ -83,6 +85,7 @@ pub async fn initialize_teams_tables(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize teams indexes
 /// # Errors
 ///
@@ -114,6 +117,7 @@ pub async fn initialize_teams_indexes(conn: &Connection) -> Result<()> {
     )
     .await?;
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     // Team invites indexes
     try_create_index(
         conn,

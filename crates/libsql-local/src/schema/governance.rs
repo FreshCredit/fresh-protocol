@@ -15,6 +15,7 @@ use anyhow::Result;
 use libsql::Connection;
 use tracing::info;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize governance system tables
 /// # Errors
 ///
@@ -50,6 +51,7 @@ pub async fn initialize_governance_tables(conn: &Connection) -> Result<()> {
 
     // Governance votes table
     conn.execute(
+        // TAG: surface=database owner=platform-team rule=GENERAL-001
         "CREATE TABLE IF NOT EXISTS governance_votes (
             id TEXT PRIMARY KEY,
             proposal_id TEXT NOT NULL,
@@ -85,6 +87,7 @@ pub async fn initialize_governance_tables(conn: &Connection) -> Result<()> {
     )
     .await?;
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     // Governance treasury table
     conn.execute(
         "CREATE TABLE IF NOT EXISTS governance_treasury (
@@ -123,6 +126,7 @@ pub async fn initialize_governance_tables(conn: &Connection) -> Result<()> {
     )
     .await?;
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     // Governance stewards table
     conn.execute(
         "CREATE TABLE IF NOT EXISTS governance_stewards (
@@ -145,6 +149,7 @@ pub async fn initialize_governance_tables(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize governance indexes
 /// # Errors
 ///

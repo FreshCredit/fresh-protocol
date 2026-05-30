@@ -3,6 +3,7 @@
 //! SCHEMA SOURCE OF TRUTH:
 //! - Rust code: crates/db/libsql/local/src/lib.rs (`initialize_schema` function)
 //! - SQL file: `migrations/unified_schema.sql`
+// TAG: surface=database owner=platform-team rule=DB-001
 //! - Cloud database: freshcredit-unified-schema-v1 (Turso)
 //!
 //! Module structure:
@@ -38,6 +39,7 @@
 //! - ✅ workflow.rs: Extracted (workflows)
 //! - ✅ webhook.rs: Extracted (`webhook_events`, notifications)
 //! - ✅ plaid.rs: Extracted (Plaid product tables)
+// TAG: surface=database owner=platform-team rule=DB-001
 //! - ✅ payments.rs: Extracted (payment tables)
 //! - ✅ reports.rs: Extracted (reports, scores, offers)
 //! - ✅ ticketing.rs: Extracted (ticketing system)
@@ -75,6 +77,7 @@ pub mod reports;
 pub mod teams;
 pub mod ticketing;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 // Data source modules
 pub mod apple_music;
 pub mod correlation;
@@ -108,6 +111,7 @@ pub use customers::{initialize_customer_indexes, initialize_customer_tables};
 pub use financial::initialize_financial_tables;
 pub use governance::{initialize_governance_indexes, initialize_governance_tables};
 pub use healthkit::initialize_healthkit_tables;
+// TAG: surface=database owner=platform-team rule=DB-001
 pub use identity::initialize_identity_tables;
 pub use indexes::initialize_all_indexes;
 pub use ip::initialize_ip_tables;

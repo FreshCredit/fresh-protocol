@@ -15,6 +15,7 @@ use anyhow::Result;
 use libsql::Connection;
 use tracing::info;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize compliance monitoring tables
 /// # Errors
 ///
@@ -45,6 +46,7 @@ pub async fn initialize_compliance_tables(conn: &Connection) -> Result<()> {
             title TEXT NOT NULL,
             description TEXT NOT NULL,
             severity TEXT NOT NULL,
+            // TAG: surface=database owner=data-team rule=DB-001
             detection_pattern TEXT,
             remediation_template TEXT,
             is_active INTEGER NOT NULL DEFAULT 1,
@@ -76,6 +78,7 @@ pub async fn initialize_compliance_tables(conn: &Connection) -> Result<()> {
     )
     .await?;
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     conn.execute(
         "CREATE TABLE IF NOT EXISTS compliance_evidence (
             id TEXT PRIMARY KEY,
@@ -111,6 +114,7 @@ pub async fn initialize_compliance_tables(conn: &Connection) -> Result<()> {
             -- Request metadata
             request_path TEXT,
             request_method TEXT,
+            // TAG: surface=database owner=data-team rule=DB-001
             response_status INTEGER,
             ip_address TEXT,
             user_agent TEXT,
@@ -147,6 +151,7 @@ pub async fn initialize_compliance_tables(conn: &Connection) -> Result<()> {
     )
     .await?;
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_audit_events_created_at ON audit_events(created_at)",
         (),

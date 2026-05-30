@@ -10,6 +10,7 @@ use tracing::info;
 
 use crate::{LocalClient, WebhookEvent, WebhookEventCounts};
 
+// TAG: surface=database owner=platform-team rule=DB-001
 impl LocalClient {
     /// Store a webhook event for later processing (outbox pattern)
     /// # Errors
@@ -44,6 +45,7 @@ impl LocalClient {
         Ok(affected > 0)
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Get pending webhook events for processing
     /// # Errors
     ///
@@ -82,6 +84,7 @@ impl LocalClient {
         Ok(events)
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Update webhook event status after processing
     /// # Errors
     ///
@@ -118,6 +121,7 @@ impl LocalClient {
         Ok(affected > 0)
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Get webhook events that need retry (failed with `retry_count` < `max_retries`)
     /// # Errors
     ///
@@ -162,6 +166,7 @@ impl LocalClient {
         Ok(events)
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Move webhook to dead letter queue (max retries exceeded)
     /// # Errors
     ///
@@ -178,6 +183,7 @@ impl LocalClient {
         Ok(affected > 0)
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Get webhook event by `event_id`
     /// # Errors
     ///
@@ -211,6 +217,7 @@ impl LocalClient {
     }
 
     /// Get recent webhook events for admin dashboard
+    // TAG: surface=database owner=platform-team rule=GENERAL-001
     /// # Errors
     ///
     /// Returns an error if the operation fails.
@@ -245,6 +252,7 @@ impl LocalClient {
         Ok(events)
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Get webhook event counts by status for admin dashboard
     /// # Errors
     ///

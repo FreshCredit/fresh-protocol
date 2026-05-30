@@ -3,6 +3,7 @@
 //! Contains IP-related tables for patent, trademark, and copyright claims:
 //! - `ip_records`: Canonical IP record snapshots from public registries
 //! - `ip_claims`: User-asserted claims binding records to their identity
+// TAG: surface=database owner=platform-team rule=DB-001
 //! - `ip_evidence`: Supporting evidence for verification level upgrades
 //! - `ip_events`: Audit log for all claim state transitions
 //! - `ip_disputes`: User disputes for false matches or corrections
@@ -21,6 +22,7 @@ use libsql::Connection;
 use super::try_create_index;
 use tracing::info;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize IP records table (canonical snapshots from public registries)
 /// # Errors
 ///
@@ -61,6 +63,7 @@ pub async fn initialize_ip_records_table(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize IP claims table (user-asserted bindings)
 /// # Errors
 ///
@@ -102,6 +105,7 @@ pub async fn initialize_ip_claims_table(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize IP evidence table (supporting documents for verification)
 /// # Errors
 ///
@@ -132,6 +136,7 @@ pub async fn initialize_ip_evidence_table(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize IP events table (audit log)
 /// # Errors
 ///
@@ -165,6 +170,7 @@ pub async fn initialize_ip_events_table(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize IP disputes table
 /// # Errors
 ///

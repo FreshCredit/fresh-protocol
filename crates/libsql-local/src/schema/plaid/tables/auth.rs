@@ -2,6 +2,7 @@ use anyhow::Result;
 use libsql::Connection;
 use tracing::info;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// # Errors
 ///
 /// Returns an error if the operation fails.
@@ -34,6 +35,7 @@ pub async fn initialize_plaid_auth_tables(conn: &Connection) -> Result<()> {
             account_id TEXT NOT NULL,
             user_id TEXT NOT NULL,
             account_holder_names TEXT,
+            // TAG: surface=database owner=data-team rule=DB-001
             account_holder_emails TEXT,
             account_holder_phones TEXT,
             account_holder_addresses TEXT,

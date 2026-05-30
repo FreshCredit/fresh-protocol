@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use super::types::*;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 #[test]
 fn test_connection_mode_from_str() {
     assert_eq!(
@@ -50,6 +51,7 @@ fn test_connection_mode_display() {
     assert_eq!(ConnectionMode::Adaptive.to_string(), "adaptive");
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 #[test]
 fn test_read_consistency_from_str_error() {
     assert!("unknown".parse::<ReadConsistency>().is_err());
@@ -81,6 +83,7 @@ fn test_config_validate() {
     };
     assert!(config.validate().is_err());
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     // Replica mode missing remote_url
     let config = ConnectionConfig {
         mode: ConnectionMode::EmbeddedReplica,

@@ -7,6 +7,7 @@ async fn create_test_connection() -> Connection {
     db.connect().unwrap()
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Create base tables that security tables have foreign key constraints on
 async fn create_base_tables(conn: &Connection) {
     // user_profile table (referenced by user_devices, step_up_auth_requests)
@@ -45,6 +46,7 @@ async fn create_test_user(conn: &Connection, user_id: &str) {
     .unwrap();
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 #[tokio::test]
 async fn test_initialize_security_tables_creates_all_tables() {
     let conn = create_test_connection().await;
@@ -83,6 +85,7 @@ async fn test_initialize_security_tables_creates_all_tables() {
     let row = result.next().await.unwrap();
     assert!(row.is_some(), "step_up_auth_requests table should exist");
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     // Verify user_devices table exists
     let mut result = conn
         .query(
@@ -125,6 +128,7 @@ async fn test_ip_blocks_crud_operations() {
     .await
     .unwrap();
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     // Read the IP block
     let mut result = conn
         .query(
@@ -164,6 +168,7 @@ async fn test_ip_blocks_crud_operations() {
     .await
     .unwrap();
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     let mut result = conn
         .query(
             "SELECT COUNT(*) FROM ip_blocks WHERE id = ?1",
@@ -207,6 +212,7 @@ async fn test_rate_limit_events_crud_operations() {
     assert_eq!(row.get::<i64>(2).unwrap(), 1);
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 #[tokio::test]
 async fn test_user_devices_unique_constraint() {
     let conn = create_test_connection().await;
@@ -244,6 +250,7 @@ async fn test_user_devices_unique_constraint() {
         )
         .await;
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     assert!(
         result.is_err(),
         "Should not allow duplicate user_id + device_fingerprint"
@@ -285,6 +292,7 @@ async fn test_compliance_digests_crud_operations() {
     assert_eq!(row.get::<i64>(2).unwrap(), 10);
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 #[tokio::test]
 async fn test_indexes_are_created() {
     let conn = create_test_connection().await;
@@ -315,6 +323,7 @@ async fn test_indexes_are_created() {
         "idx_ip_blocks_expires_at should exist"
     );
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     // Check for user_devices index
     let mut result = conn
         .query(
@@ -356,6 +365,7 @@ async fn test_step_up_auth_status_constraint() {
         assert!(result.is_ok(), "Status '{status}' should be valid");
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     // Invalid status should fail
     let result = conn
         .execute(

@@ -1,3 +1,4 @@
+// TAG: surface=database owner=platform-team rule=DB-001 test-coverage=unit
 //! Concrete implementations of database connections
 //!
 //! # Feature Gates

@@ -1,3 +1,4 @@
+// TAG: surface=database owner=data-team rule=DB-001
 //! End-to-end tests for user onboarding flow
 //!
 //! Tests the complete onboarding journey:
@@ -43,6 +44,7 @@ fn create_test_profile(azure_id: &str, email: &str, display_name: &str) -> UserP
         mfa_enabled: false,
         mfa_verified_at: None,
         tenant_id: "freshcredit".to_string(),
+        // TAG: surface=database owner=data-team rule=DB-001
         object_id: azure_id.to_string(),
         verified_id_credential_id: None,
         verified_id_status: "pending".to_string(),
@@ -91,6 +93,7 @@ async fn test_onboarding_profile_creation() -> Result<()> {
     Ok(())
 }
 
+// TAG: surface=database owner=data-team rule=DB-001
 /// Test onboarding role selection (consumer vs provider)
 #[tokio::test]
 async fn test_onboarding_role_selection() -> Result<()> {
@@ -139,6 +142,7 @@ async fn test_onboarding_role_selection() -> Result<()> {
         created_at: chrono::Utc::now().to_rfc3339(),
         updated_at: chrono::Utc::now().to_rfc3339(),
     };
+    // TAG: surface=database owner=data-team rule=DB-001
 
     client.store_user_profile(&profile).await?;
     println!("✅ Initial consumer profile created");
@@ -187,6 +191,7 @@ async fn test_onboarding_verified_id_transitions() -> Result<()> {
     profile.updated_at = chrono::Utc::now().to_rfc3339();
     client.store_user_profile(&profile).await?;
 
+    // TAG: surface=database owner=data-team rule=DB-001
     let retrieved = client
         .get_user_profile_by_azure_id(azure_id)
         .await?
@@ -235,6 +240,7 @@ async fn test_complete_onboarding_flow() -> Result<()> {
     client.initialize_schema().await?;
 
     // Step 1: Simulate post-auth profile creation
+    // TAG: surface=database owner=data-team rule=DB-001
     let azure_id = "azure-complete-flow-789";
     let email = "complete@example.com";
 

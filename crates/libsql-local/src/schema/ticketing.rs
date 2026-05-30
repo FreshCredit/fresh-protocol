@@ -13,6 +13,7 @@ use anyhow::Result;
 use libsql::Connection;
 use tracing::info;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize ticketing system tables
 /// # Errors
 ///
@@ -42,6 +43,7 @@ pub async fn initialize_ticketing_tables(conn: &Connection) -> Result<()> {
     .await?;
 
     conn.execute(
+        // TAG: surface=database owner=platform-team rule=GENERAL-001
         "CREATE TABLE IF NOT EXISTS ticket_comments (
             id TEXT PRIMARY KEY,
             ticket_id TEXT NOT NULL,
@@ -72,6 +74,7 @@ pub async fn initialize_ticketing_tables(conn: &Connection) -> Result<()> {
     )
     .await?;
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     conn.execute(
         "CREATE TABLE IF NOT EXISTS ticket_sla_events (
             id TEXT PRIMARY KEY,

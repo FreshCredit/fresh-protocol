@@ -4,7 +4,9 @@ use crate::connection::ConnectionConfig;
 use crate::connection::DatabaseConnection;
 use crate::connections::ReplicaConnection;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 impl super::ConnectionFactory {
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Create an embedded replica connection
     ///
     /// # Example
@@ -38,6 +40,7 @@ impl super::ConnectionFactory {
             .as_ref()
             .ok_or_else(|| anyhow::anyhow!("Local path required for replica mode"))?;
 
+        // TAG: surface=database owner=platform-team rule=GENERAL-001
         let conn = ReplicaConnection::connect(
             local_path,
             &config.remote_url,

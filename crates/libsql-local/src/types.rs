@@ -3,6 +3,7 @@
 //! This module contains struct definitions used for database operations.
 //! Extracted from lib.rs as part of modular refactoring.
 //!
+// TAG: surface=database owner=platform-team rule=DB-001
 //! Type categories:
 //! - Core types: `UserProfile`, `UserPreferences`, `SchemaValidationResult`
 //! - File types: `UploadedFile`, `SaveUploadedFileParams`
@@ -40,6 +41,7 @@
 //!     phone_number: None,
 //!     preferred_name: None,
 //!     emergency_contact_name: None,
+// TAG: surface=database owner=platform-team rule=DB-001
 //!     emergency_contact_phone: None,
 //!     employer_name: None,
 //!     role: "consumer".to_string(),
@@ -63,6 +65,7 @@ use serde::{Deserialize, Serialize};
 // Core User Types
 // ============================================================================
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// User profile for database storage (unified schema)
 ///
 /// Combines Entra ID claims with extended profile and Verified ID fields.
@@ -113,6 +116,7 @@ pub struct UserProfile {
     // ARCH-P2-001: Extended profile fields for web schema alignment
     /// Alternative phone number (separate from `mobile_phone`)
     pub phone_number: Option<String>,
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// User's preferred display name (nickname)
     pub preferred_name: Option<String>,
     /// Emergency contact full name
@@ -150,6 +154,7 @@ pub struct UserProfile {
     pub updated_at: String,
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Schema validation result
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SchemaValidationResult {
@@ -185,6 +190,7 @@ pub struct UserPreferences {
     pub kilt_did_enabled: Option<bool>,
     /// AI mode preference: "auto" (default), "cloud", or "local"
     pub ai_mode: Option<String>,
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Mock data mode for internal users testing flows
     /// When enabled, pages display prefilled mock data without database persistence
     /// Only available for @freshcredit.com internal team members
@@ -210,6 +216,7 @@ pub struct UserPreferences {
 // File Upload Types
 // ============================================================================
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Uploaded file for AI multimodal input
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UploadedFile {
@@ -242,6 +249,7 @@ pub struct UploadedFile {
     pub expires_at: Option<String>,
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Parameters for saving an uploaded file
 ///
 /// Consolidates function arguments to avoid `clippy::too_many_arguments`
@@ -284,6 +292,7 @@ pub struct AiConversation {
     pub updated_at: String,
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// AI Message record
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AiMessage {
@@ -313,6 +322,7 @@ pub struct AiMessage {
 /// Provider-defined scoring model record
 /// COMPLIANCE: §3 - Scoring logic is owned and defined by the provider, not `FreshCredit`
 #[derive(Debug, Clone, Serialize, Deserialize)]
+// TAG: surface=database owner=platform-team rule=GENERAL-001
 pub struct ScoringModelRecord {
     /// Unique record identifier
     pub id: String,
@@ -342,6 +352,7 @@ pub struct ScoringModelRecord {
 // Workflow Types (Flow Builders)
 // ============================================================================
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Workflow record for flow builders
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkflowRecord {
@@ -381,6 +392,7 @@ pub struct WorkflowRecord {
 // Webhook Event Types (Outbox Pattern)
 // ============================================================================
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Webhook event record for outbox pattern
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WebhookEvent {
@@ -406,6 +418,7 @@ pub struct WebhookEvent {
     pub created_at: String,
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 impl WebhookEvent {
     /// Create a new pending webhook event
     #[must_use]

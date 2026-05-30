@@ -3,6 +3,7 @@ use libsql::Connection;
 
 use crate::schema::try_create_index;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize Arc receipts table with indexes.
 pub async fn create_arc_tables(conn: &Connection) -> Result<()> {
     // Arc receipts - L1 settlement receipts on Circle Arc
@@ -39,6 +40,7 @@ pub async fn create_arc_tables(conn: &Connection) -> Result<()> {
             retry_count INTEGER DEFAULT 0,
             -- Next retry time (for exponential backoff)
             next_retry_at DATETIME,
+            // TAG: surface=database owner=data-team rule=DB-001
             -- Optional metadata (JSON)
             metadata TEXT,
             -- Timestamps
@@ -76,6 +78,7 @@ pub async fn create_arc_tables(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize bridge transfers table with indexes.
 pub async fn create_bridge_tables(conn: &Connection) -> Result<()> {
     // Bridge transfers - Circle Bridge Kit cross-chain USDC transfers (Phase 2A)
@@ -109,6 +112,7 @@ pub async fn create_bridge_tables(conn: &Connection) -> Result<()> {
             -- Actual completion time
             completed_at DATETIME,
             -- Fee charged for the bridge
+            // TAG: surface=database owner=data-team rule=DB-001
             fee TEXT,
             -- Error message if failed
             error_message TEXT,
@@ -143,6 +147,7 @@ pub async fn create_bridge_tables(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize gateway tables: `gateway_sessions` and `gateway_transactions`.
 pub async fn create_gateway_tables(conn: &Connection) -> Result<()> {
     // Gateway sessions - Circle Gateway fiat on/off ramp sessions (Phase 2B)
@@ -183,6 +188,7 @@ pub async fn create_gateway_tables(conn: &Connection) -> Result<()> {
     try_create_index(
         conn,
         "CREATE INDEX IF NOT EXISTS idx_gateway_sessions_user_id ON gateway_sessions(user_id)",
+        // TAG: surface=database owner=platform-team rule=DB-001
     )
     .await?;
     try_create_index(
@@ -218,6 +224,7 @@ pub async fn create_gateway_tables(conn: &Connection) -> Result<()> {
             -- Fee charged
             fee TEXT,
             -- On-chain transaction hash (for USDC transfer)
+            // TAG: surface=database owner=data-team rule=DB-001
             tx_hash TEXT,
             -- Bank reference (for fiat transfer)
             bank_reference TEXT,

@@ -1,3 +1,4 @@
+// TAG: surface=database owner=platform-team rule=DB-001 test-coverage=unit
 //! Plaid product tables
 
 /// Plaid Assets product tables

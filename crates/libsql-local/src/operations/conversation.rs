@@ -8,6 +8,7 @@ use anyhow::Result;
 
 use crate::{AiConversation, AiMessage, LocalClient};
 
+// TAG: surface=database owner=platform-team rule=DB-001
 impl LocalClient {
     /// Create a new conversation
     /// # Errors
@@ -33,6 +34,7 @@ impl LocalClient {
         Ok(id)
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Get conversation by ID
     /// # Errors
     ///
@@ -61,6 +63,7 @@ impl LocalClient {
         }
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Get recent conversations for a user
     /// # Errors
     ///
@@ -94,6 +97,7 @@ impl LocalClient {
         Ok(conversations)
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Add a message to a conversation
     /// # Errors
     ///
@@ -136,6 +140,7 @@ impl LocalClient {
         Ok(id)
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Get messages for a conversation
     /// # Errors
     ///
@@ -175,6 +180,7 @@ impl LocalClient {
         Ok(messages)
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Delete a conversation and all its messages
     /// # Errors
     ///

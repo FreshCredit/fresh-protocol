@@ -5,6 +5,7 @@
 
 use std::fmt;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Validates that an identifier (table/column name) contains only safe characters
 /// # Errors
 ///
@@ -30,6 +31,7 @@ pub fn validate_identifier(ident: &str) -> Result<(), SqlSecurityError> {
     Ok(())
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Safely formats a table name for use in SQL
 /// # Errors
 ///
@@ -59,6 +61,7 @@ pub enum SqlSecurityError {
     ReservedKeyword(String),
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 impl fmt::Display for SqlSecurityError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -88,6 +91,7 @@ mod tests {
     }
 
     #[test]
+    // TAG: surface=database owner=platform-team rule=GENERAL-001
     fn test_validate_identifier_empty() {
         let result = validate_identifier("");
         assert!(result.is_err());
@@ -117,6 +121,7 @@ mod tests {
         );
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     #[test]
     fn test_validate_identifier_case_insensitive_keyword() {
         let result = validate_identifier("drop");

@@ -14,6 +14,7 @@ use tracing::info;
 use crate::LocalClient;
 use crate::UserPreferences;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 impl LocalClient {
     /// Get user preferences
     /// P0g: Added onboarding dismissal fields (§27.3)
@@ -28,6 +29,7 @@ impl LocalClient {
         Ok(Some(row.get::<String>(idx)?))
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Retrieves user preferences from the database.
     ///
     /// # Errors
@@ -72,6 +74,7 @@ impl LocalClient {
         }
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Save user preferences
     /// P0g: Added onboarding dismissal fields (§27.3)
     /// # Errors
@@ -105,6 +108,7 @@ impl LocalClient {
                 email_notifications_enabled = excluded.email_notifications_enabled,
                 kilt_did_enabled = excluded.kilt_did_enabled,
                 ai_mode = excluded.ai_mode,
+                // TAG: surface=database owner=data-team rule=DB-001
                 mock_data_enabled = excluded.mock_data_enabled,
                 onboarding_completed = excluded.onboarding_completed,
                 onboarding_permanently_dismissed = excluded.onboarding_permanently_dismissed,

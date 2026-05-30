@@ -8,6 +8,7 @@ use std::future::Future;
 use std::time::Duration;
 use tracing::{info, warn};
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Configuration for database connection retry behavior
 #[derive(Debug, Clone)]
 pub struct RetryConfig {
@@ -21,6 +22,7 @@ pub struct RetryConfig {
     pub jitter_percentage: f64,
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 impl Default for RetryConfig {
     fn default() -> Self {
         Self {
@@ -50,6 +52,7 @@ impl RetryConfig {
                     .and_then(|v| v.parse::<u64>().ok())
                     .unwrap_or(10000),
             ),
+            // TAG: surface=database owner=platform-team rule=GENERAL-001
             max_attempts: std::env::var("DB_RETRY_MAX_ATTEMPTS")
                 .ok()
                 .and_then(|v| v.parse::<u32>().ok())
@@ -80,10 +83,12 @@ impl RetryConfig {
         let jitter: i64 = rng.gen_range(-jitter_range..=jitter_range);
         let final_delay = (capped_delay as i64 + jitter).max(0) as u64;
 
+        // TAG: surface=database owner=platform-team rule=DB-001
         Some(Duration::from_millis(final_delay))
     }
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Execute an async operation with retry logic
 ///
 /// # Example
@@ -116,6 +121,7 @@ where
                 }
                 return Ok(result);
             }
+            // TAG: surface=database owner=platform-team rule=GENERAL-001
             Err(err) => {
                 if let Some(delay) = config.delay_for_attempt(attempt) {
                     warn!(
@@ -150,6 +156,7 @@ mod tests {
         assert_eq!(config.max_delay, Duration::from_secs(10));
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     #[test]
     fn test_delay_calculation() {
         let config = RetryConfig {

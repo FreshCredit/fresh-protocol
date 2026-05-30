@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use std::path::PathBuf;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Connection mode for libSQL
 ///
 /// # Feature Flags
@@ -32,6 +33,7 @@ pub enum ConnectionMode {
     Adaptive,
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Read consistency level for replica mode
 ///
 /// **Requires `embedded-replica` feature**
@@ -61,6 +63,7 @@ pub struct ConnectionHealth {
     pub cache_hit_rate: Option<f64>,
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Configuration for database connection
 #[derive(Debug, Clone)]
 pub struct ConnectionConfig {
@@ -87,6 +90,7 @@ pub struct ConnectionConfig {
     pub max_retries: u32,
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Unified database connection interface
 ///
 /// This trait abstracts over direct remote and embedded replica connections,
@@ -114,6 +118,7 @@ pub trait DatabaseConnection: Send + Sync {
         Ok(())
     }
 }
+// TAG: surface=database owner=platform-team rule=GENERAL-001
 
 /// Extension trait for connection utilities
 #[async_trait]

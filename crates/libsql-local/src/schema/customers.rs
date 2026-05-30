@@ -8,6 +8,7 @@ use anyhow::Result;
 use libsql::Connection;
 use tracing::info;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize customer management tables
 /// # Errors
 ///
@@ -37,6 +38,7 @@ pub async fn initialize_customer_tables(conn: &Connection) -> Result<()> {
         "CREATE TABLE IF NOT EXISTS customer_segments (
             id TEXT PRIMARY KEY,
             provider_id TEXT NOT NULL,
+            // TAG: surface=database owner=data-team rule=DB-001
             name TEXT NOT NULL,
             description TEXT,
             color TEXT DEFAULT '#6b7280',
@@ -67,6 +69,7 @@ pub async fn initialize_customer_tables(conn: &Connection) -> Result<()> {
 
     // Customer communications table - tracks all communications with customers
     conn.execute(
+        // TAG: surface=database owner=platform-team rule=DB-001
         "CREATE TABLE IF NOT EXISTS customer_communications (
             id TEXT PRIMARY KEY,
             provider_id TEXT NOT NULL,
@@ -92,6 +95,7 @@ pub async fn initialize_customer_tables(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize indexes for customer tables
 /// # Errors
 ///
@@ -137,6 +141,7 @@ pub async fn initialize_customer_indexes(conn: &Connection) -> Result<()> {
     )
     .await?;
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     // Communications indexes
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_customer_communications_customer_id ON customer_communications(customer_id)",

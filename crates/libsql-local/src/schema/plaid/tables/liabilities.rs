@@ -1,6 +1,7 @@
 use anyhow::Result;
 use libsql::Connection;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize Plaid liabilities and layer tables
 /// # Errors
 ///
@@ -33,6 +34,7 @@ pub async fn initialize_plaid_liabilities_tables(conn: &Connection) -> Result<()
             liability_type TEXT NOT NULL,
             aprs TEXT,
             is_overdue BOOLEAN,
+            // TAG: surface=database owner=data-team rule=DB-001
             last_payment_amount REAL,
             last_payment_date DATE,
             last_statement_issue_date DATE,

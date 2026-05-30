@@ -19,6 +19,7 @@ use crate::UserProfile;
 // Re-export the UserProfileService trait
 pub use super::user_profile_service::UserProfileService;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 impl LocalClient {
     /// Store user profile in local database (matches production schema)
     ///

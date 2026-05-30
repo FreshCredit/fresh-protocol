@@ -6,8 +6,10 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::Instant;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 use crate::connection::{ConnectionHealth, ConnectionMode, DatabaseConnection};
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Local-only `SQLite` connection
 ///
 /// This connection type provides:
@@ -56,6 +58,7 @@ impl LocalConnection {
         Ok(Self::new(db))
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Get the underlying database (for advanced operations)
     #[must_use]
     pub fn database(&self) -> Arc<Database> {
@@ -86,6 +89,7 @@ impl DatabaseConnection for LocalConnection {
         let start = Instant::now();
         let conn = self.db.connect()?;
 
+        // TAG: surface=database owner=platform-team rule=GENERAL-001
         match conn.query("SELECT 1", ()).await {
             Ok(_) => {
                 let latency = start.elapsed().as_millis() as u64;
@@ -116,6 +120,7 @@ impl DatabaseConnection for LocalConnection {
     }
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -153,6 +158,7 @@ mod tests {
         // Clean up before test
         let _ = std::fs::remove_file(&db_path);
 
+        // TAG: surface=database owner=platform-team rule=DB-001
         let conn = LocalConnection::connect(&db_path).await.unwrap();
 
         // Create table

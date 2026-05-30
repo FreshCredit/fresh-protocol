@@ -12,6 +12,7 @@ use async_trait::async_trait;
 use crate::LocalClient;
 use crate::UserProfile;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// User Profile Service trait
 ///
 /// Provides standardized methods for user profile CRUD operations.
@@ -31,6 +32,7 @@ pub trait UserProfileService {
     async fn exists(&self, platform_user_id: &str) -> Result<bool>;
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Implementation of `UserProfileService` for `LocalClient`
 ///
 /// This implementation uses prepared statements and proper parameter binding
@@ -58,6 +60,7 @@ impl UserProfileService for LocalClient {
     }
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Internal implementation methods for `LocalClient`
 ///
 /// These methods contain the actual SQL queries and are marked as internal
@@ -86,6 +89,7 @@ impl LocalClient {
                 profile.display_name.clone(),
                 profile.given_name.clone().unwrap_or_default(),
                 profile.family_name.clone().unwrap_or_default(),
+// TAG: surface=database owner=platform-team rule=GENERAL-001
                 profile.surname.clone().unwrap_or_default(),
                 profile.mobile_phone.clone().unwrap_or_default(),
                 profile.job_title.clone().unwrap_or_default(),
@@ -114,6 +118,7 @@ impl LocalClient {
         Ok(())
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Internal: Get user profile by platform user ID
     pub(crate) async fn get_user_profile_internal(
         &self,
@@ -152,6 +157,7 @@ impl LocalClient {
             )
             .await?;
 
+        // TAG: surface=database owner=platform-team rule=DB-001
         self.parse_profile_row(&mut rows).await
     }
 
@@ -183,6 +189,7 @@ impl LocalClient {
                 preferred_name: row.get::<Option<String>>(20).unwrap_or(None),
                 emergency_contact_name: row.get::<Option<String>>(21).unwrap_or(None),
                 emergency_contact_phone: row.get::<Option<String>>(22).unwrap_or(None),
+                // TAG: surface=database owner=platform-team rule=DB-001
                 employer_name: row.get::<Option<String>>(23).unwrap_or(None),
                 // Remaining columns (shifted by 5)
                 role: row.get(24).unwrap_or_else(|_| "consumer".to_string()),

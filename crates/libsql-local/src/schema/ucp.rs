@@ -10,6 +10,7 @@
 //! COMPLIANCE: §10 Unified Database Schema Architecture
 //! COMPLIANCE: AGENT-004 - All queries include `user_id` filter
 
+// TAG: surface=database owner=platform-team rule=DB-001
 use anyhow::Result;
 use libsql::Connection;
 
@@ -44,6 +45,7 @@ async fn create_ucp_checkout_sessions_table(conn: &Connection) -> Result<()> {
             completed_at DATETIME,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
+        // TAG: surface=database owner=data-team rule=DB-001
         (),
     )
     .await?;
@@ -80,6 +82,7 @@ async fn create_ucp_orders_table(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 async fn create_ucp_identity_links_table(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS ucp_identity_links (
@@ -114,6 +117,7 @@ async fn create_user_offer_engagements_table(conn: &Connection) -> Result<()> {
             offer_id TEXT NOT NULL,
             status TEXT NOT NULL DEFAULT 'viewed',
 
+            // TAG: surface=database owner=data-team rule=DB-001
             -- Journey timestamps
             viewed_at DATETIME,
             selected_at DATETIME,
@@ -147,6 +151,7 @@ async fn create_user_offer_engagements_table(conn: &Connection) -> Result<()> {
 }
 
 async fn create_ucp_merchants_table(conn: &Connection) -> Result<()> {
+    // TAG: surface=database owner=platform-team rule=DB-001
     conn.execute(
         "CREATE TABLE IF NOT EXISTS ucp_merchants (
             id TEXT PRIMARY KEY,
@@ -189,6 +194,7 @@ const UCP_INDEXES: &[&str] = &[
 // Public API
 // ────────────────────────────────────────────────────────────
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize all UCP tables
 /// # Errors
 ///

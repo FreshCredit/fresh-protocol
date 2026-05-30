@@ -13,7 +13,9 @@ use tracing::info;
 
 use crate::LocalClient;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 impl LocalClient {
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Store account data in local database
     /// # Errors
     ///
@@ -40,6 +42,7 @@ impl LocalClient {
 
     /// Store transaction data in local database
     /// # Errors
+    // TAG: surface=database owner=platform-team rule=GENERAL-001
     ///
     /// Returns an error if the operation fails.
     pub async fn store_transaction(
@@ -66,6 +69,7 @@ impl LocalClient {
         Ok(())
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Get all accounts for a user
     /// P0-PERF: Limited to 1000 accounts to prevent memory exhaustion
     /// # Errors
@@ -109,6 +113,7 @@ impl LocalClient {
             accounts.push(account);
         }
 
+        // TAG: surface=database owner=platform-team rule=DB-001
         Ok(accounts)
     }
 
@@ -131,6 +136,7 @@ impl LocalClient {
             .with_timezone(&chrono::Utc))
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Retrieves a user's transactions from the database.
     ///
     /// # Errors

@@ -4,6 +4,7 @@ use std::path::PathBuf;
 
 use super::types::*;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 impl fmt::Display for ConnectionMode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -43,6 +44,7 @@ impl std::str::FromStr for ConnectionMode {
     }
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 #[cfg(feature = "embedded-replica")]
 impl fmt::Display for ReadConsistency {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -54,6 +56,7 @@ impl fmt::Display for ReadConsistency {
     }
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 #[cfg(feature = "embedded-replica")]
 impl std::str::FromStr for ReadConsistency {
     type Err = String;
@@ -94,6 +97,7 @@ impl ConnectionHealth {
     }
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 impl Default for ConnectionConfig {
     fn default() -> Self {
         Self {
@@ -121,6 +125,7 @@ impl ConnectionConfig {
 
         let mode = env::var("LIBSQL_MODE")
             .unwrap_or_else(|_| "remote".to_string())
+// TAG: surface=database owner=platform-team rule=GENERAL-001
             .parse::<ConnectionMode>()
             .map_err(|e| anyhow::anyhow!(e))?;
 
@@ -148,6 +153,7 @@ impl ConnectionConfig {
             .parse::<ReadConsistency>()
             .map_err(|e| anyhow::anyhow!(e))?;
 
+        // TAG: surface=database owner=platform-team rule=DB-001
         let timeout_secs = env::var("LIBSQL_TIMEOUT_SECS")
             .ok()
             .and_then(|v| v.parse::<u64>().ok())
@@ -172,6 +178,7 @@ impl ConnectionConfig {
         })
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Validate the configuration
     /// # Errors
     ///

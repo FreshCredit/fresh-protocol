@@ -3,6 +3,7 @@
 //! Contains all Plaid product tables:
 //! - auth: Account authentication data (routing/account numbers)
 //! - identities: Identity data per account
+// TAG: surface=database owner=platform-team rule=DB-001
 //! - assets: Asset Reports
 //! - balances: Balance history
 //! - `consumer_reports`: Consumer Reports (credit data)
@@ -28,6 +29,7 @@ use anyhow::Result;
 use libsql::Connection;
 use tracing::info;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize all Plaid tables (convenience function)
 /// # Errors
 ///

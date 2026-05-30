@@ -1,3 +1,4 @@
+// TAG: surface=database owner=platform-team rule=DB-001 test-coverage=unit
 use std::sync::Arc;
 
 use crate::connection::{ConnectionConfig, DatabaseConnection};

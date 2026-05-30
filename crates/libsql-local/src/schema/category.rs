@@ -1,5 +1,6 @@
 //! Schema category enum
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Schema category for organizing table initialization
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SchemaCategory {
@@ -21,11 +22,12 @@ pub enum SchemaCategory {
     Compliance,
     /// Notification tables
     Notifications,
-    /// Apple HealthKit tables
+    /// Apple `HealthKit` tables
     HealthKit,
-    /// LinkedIn professional data tables
+    /// `LinkedIn` professional data tables
     LinkedIn,
     /// IP address tracking tables
+    // TAG: surface=database owner=platform-team rule=GENERAL-001
     Ip,
     /// Publication and research tables
     Publications,
@@ -53,6 +55,7 @@ pub enum SchemaCategory {
     Indexes,
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 impl SchemaCategory {
     /// Get all schema categories
     #[must_use]
@@ -85,6 +88,7 @@ impl SchemaCategory {
         ]
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Get the category name
     #[must_use]
     pub const fn name(&self) -> &'static str {

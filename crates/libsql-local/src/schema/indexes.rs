@@ -8,6 +8,7 @@
 //! Note: Index creation is defensive - it silently ignores errors for columns
 //! that may not exist in synced Turso cloud databases with older schemas.
 
+// TAG: surface=database owner=platform-team rule=DB-001
 use anyhow::Result;
 use libsql::Connection;
 
@@ -39,6 +40,7 @@ const PLAID_INDEXES: &[&str] = &[
     "CREATE INDEX IF NOT EXISTS idx_transactions_sync_item_id ON transactions_sync(item_id)",
 ];
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize Plaid table indexes
 /// # Errors
 ///
@@ -63,6 +65,7 @@ const PAYMENT_INDEXES: &[&str] = &[
     "CREATE INDEX IF NOT EXISTS idx_virtual_accounts_customer_id ON virtual_accounts(customer_id)",
 ];
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize payment table indexes
 /// # Errors
 ///
@@ -95,6 +98,7 @@ const BUSINESS_INDEXES: &[&str] = &[
     "CREATE INDEX IF NOT EXISTS idx_identities_user_id ON identities(user_id)",
 ];
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize business logic table indexes
 /// # Errors
 ///
@@ -121,6 +125,7 @@ const NOTIFICATION_INDEXES: &[&str] = &[
 
 /// Initialize notification and webhook indexes
 /// # Errors
+// TAG: surface=database owner=platform-team rule=GENERAL-001
 ///
 /// Returns an error if the operation fails.
 pub async fn initialize_notification_indexes(conn: &Connection) -> Result<()> {
@@ -148,6 +153,7 @@ const TICKETING_INDEXES: &[&str] = &[
     "CREATE INDEX IF NOT EXISTS idx_ticket_sla_events_ticket_id ON ticket_sla_events(ticket_id)",
 ];
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize ticketing system indexes
 /// # Errors
 ///
@@ -178,6 +184,7 @@ const COMPLIANCE_INDEXES: &[&str] = &[
     "CREATE INDEX IF NOT EXISTS idx_compliance_evidence_finding_id ON compliance_evidence(finding_id)",
 ];
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize compliance monitoring indexes
 /// # Errors
 ///
@@ -207,6 +214,7 @@ const PLATFORM_INDEXES: &[&str] = &[
     "CREATE INDEX IF NOT EXISTS idx_sales_pipeline_hubspot_deal_id ON sales_pipeline(hubspot_deal_id)",
 ];
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize platform table indexes
 /// # Errors
 ///
@@ -255,6 +263,7 @@ const HEALTHKIT_INDEXES: &[&str] = &[
     "CREATE INDEX IF NOT EXISTS idx_healthkit_activity_profile ON healthkit_activity_summaries(healthkit_profile_id)",
 ];
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize `HealthKit` table indexes
 /// # Errors
 ///
@@ -304,6 +313,7 @@ const APPLE_MUSIC_INDEXES: &[&str] = &[
     "CREATE INDEX IF NOT EXISTS idx_apple_music_genre_stats_user ON apple_music_genre_stats(user_id)",
 ];
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize Apple Music table indexes
 /// # Errors
 ///

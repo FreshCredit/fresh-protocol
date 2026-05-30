@@ -1,6 +1,7 @@
 use anyhow::Result;
 use libsql::Connection;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize offer analytics tables
 /// # Errors
 ///
@@ -34,6 +35,7 @@ pub async fn initialize_offer_analytics_tables(conn: &Connection) -> Result<()> 
             id TEXT PRIMARY KEY,
             offer_id TEXT NOT NULL,
             variant TEXT NOT NULL,
+            // TAG: surface=database owner=data-team rule=DB-001
             impressions INTEGER DEFAULT 0,
             conversions INTEGER DEFAULT 0,
             revenue_cents INTEGER DEFAULT 0,

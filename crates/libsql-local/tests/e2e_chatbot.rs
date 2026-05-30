@@ -1,3 +1,4 @@
+// TAG: surface=database owner=data-team rule=DB-001
 //! E2E Tests for Chatbot Integration
 //!
 //! Tests the chatbot service including:
@@ -47,6 +48,7 @@ async fn setup_test_user(client: &LocalClient) -> Result<TestChatData> {
 
 /// Test conversation creation
 #[tokio::test]
+// TAG: surface=database owner=data-team rule=DB-001
 async fn test_conversation_creation() -> Result<()> {
     println!("🧪 E2E Test: Conversation Creation");
 
@@ -73,6 +75,7 @@ async fn test_conversation_creation() -> Result<()> {
         .await?;
     assert!(has_rows(&mut conv).await, "Conversation should exist");
     println!("✅ Conversation verified in database");
+    // TAG: surface=database owner=data-team rule=DB-001
 
     println!("🎉 Conversation Creation test passed!");
     Ok(())
@@ -99,6 +102,7 @@ async fn test_message_persistence() -> Result<()> {
             &conversation_id,
             "user",
             "What is my credit score?",
+            // TAG: surface=database owner=data-team rule=DB-001
             None,
             None,
             Some("gemini-1.5-flash"),
@@ -125,6 +129,7 @@ async fn test_message_persistence() -> Result<()> {
         .await?;
     assert_eq!(messages.len(), 2, "Should have 2 messages");
     println!("✅ Retrieved {} messages", messages.len());
+    // TAG: surface=database owner=data-team rule=DB-001
 
     // Verify message order
     assert_eq!(messages[0].role, "user");
@@ -151,6 +156,7 @@ async fn test_bucketed_data_access() -> Result<()> {
          VALUES (?, ?, 'checking', 5000.00, 'USD', 'Test Bank', CURRENT_TIMESTAMP)",
         vec![Value::Text(account_id.clone()), Value::Text(test_data.user_id.clone())]
     ).await?;
+    // TAG: surface=database owner=data-team rule=DB-001
     println!("✅ Account created with balance");
 
     // Query aggregated data (bucketed, no PII)
@@ -177,6 +183,7 @@ async fn test_conversation_history() -> Result<()> {
 
     let client = LocalClient::new(":memory:").await?;
     client.initialize_schema().await?;
+    // TAG: surface=database owner=data-team rule=DB-001
     let test_data = setup_test_user(&client).await?;
 
     // Create multiple conversations
@@ -203,6 +210,7 @@ async fn test_conversation_history() -> Result<()> {
                 &conv1_id,
                 if i % 2 == 1 { "user" } else { "assistant" },
                 &format!("Message {i} in conversation 1"),
+                // TAG: surface=database owner=data-team rule=DB-001
                 None,
                 Some(50 * i),
                 Some("gemini-1.5-flash"),
@@ -229,6 +237,7 @@ async fn test_conversation_history() -> Result<()> {
     // Get user's conversations
     let conversations = client
         .get_user_conversations(&test_data.user_id, 10)
+        // TAG: surface=database owner=data-team rule=DB-001
         .await?;
     assert_eq!(conversations.len(), 2, "Should have 2 conversations");
     println!("✅ Retrieved {} conversations", conversations.len());
@@ -255,6 +264,7 @@ async fn test_conversation_history() -> Result<()> {
     Ok(())
 }
 
+// TAG: surface=database owner=data-team rule=DB-001
 /// Test conversation with message limit
 #[tokio::test]
 async fn test_message_limit() -> Result<()> {
@@ -281,6 +291,7 @@ async fn test_message_limit() -> Result<()> {
                 Some("gemini-1.5-flash"),
             )
             .await?;
+        // TAG: surface=database owner=data-team rule=DB-001
     }
     println!("✅ Added 10 messages");
 

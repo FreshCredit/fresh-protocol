@@ -1,3 +1,4 @@
+// TAG: surface=database owner=platform-team rule=DB-001 test-coverage=unit
 use super::*;
 
 /// Map a [`CircuitBreakerError`] to an [`anyhow::Error`] with human-friendly

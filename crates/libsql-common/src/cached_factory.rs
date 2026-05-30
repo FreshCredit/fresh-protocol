@@ -3,6 +3,7 @@
 //! Optimized for Cloud Run: stateless, ephemeral, connection reuse across requests.
 //!
 //! This factory maintains an LRU cache of database connections to minimize
+// TAG: surface=database owner=platform-team rule=DB-001
 //! connection establishment overhead for frequently accessed users.
 //!
 //! # Example
@@ -42,6 +43,7 @@ use tracing::{debug, info};
 use crate::connection_factory::{with_retry, RetryConfig};
 use crate::url_builder::TursoUrlBuilder;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Configuration for cached connection factory
 #[derive(Debug, Clone)]
 pub struct CachedFactoryConfig {
@@ -63,6 +65,7 @@ impl Default for CachedFactoryConfig {
     }
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 impl CachedFactoryConfig {
     /// Create from environment variables
     pub fn from_env() -> Self {
@@ -98,6 +101,7 @@ pub struct CacheStats {
     pub misses: u64,
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 impl CacheStats {
     /// Calculate hit rate (0.0 - 1.0)
     pub fn hit_rate(&self) -> f64 {
@@ -139,6 +143,7 @@ impl std::fmt::Debug for CachedConnectionFactory {
     }
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 impl CachedConnectionFactory {
     /// Create new cached factory
     ///
@@ -173,6 +178,7 @@ impl CachedConnectionFactory {
         factory
     }
 
+// TAG: surface=database owner=platform-team rule=DB-001
     /// Create from environment variables
     ///
     /// Uses `TURSO_AUTH_TOKEN` from environment for authentication.
@@ -201,6 +207,7 @@ impl CachedConnectionFactory {
     ///
     /// # Errors
     ///
+// TAG: surface=database owner=platform-team rule=GENERAL-001
     /// Returns error if connection creation fails.
     pub async fn get(&self, user_id: &str) -> anyhow::Result<Arc<Database>> {
         // Check cache first
@@ -229,6 +236,7 @@ impl CachedConnectionFactory {
             (db_arc.clone(), Instant::now())
         );
 
+// TAG: surface=database owner=platform-team rule=DB-001
         // Update stats
         self.stats.fetch_add(1 << 32, std::sync::atomic::Ordering::Relaxed);
 
@@ -265,6 +273,7 @@ impl CachedConnectionFactory {
             .min_by_key(|entry| entry.value().1)
             .map(|entry| entry.key().clone());
 
+// TAG: surface=database owner=platform-team rule=DB-001
         if let Some(user_id) = oldest {
             debug!(user_id = %user_id, "Evicting oldest connection");
             self.connections.remove(&user_id);
@@ -310,6 +319,7 @@ impl CachedConnectionFactory {
         *guard = Some(handle);
     }
 
+// TAG: surface=database owner=platform-team rule=DB-001
     /// Get cache statistics
     pub fn stats(&self) -> CacheStats {
         let stats_val = self.stats.load(std::sync::atomic::Ordering::Relaxed);
@@ -320,6 +330,7 @@ impl CachedConnectionFactory {
         }
     }
 
+// TAG: surface=database owner=platform-team rule=DB-001
     /// Remove a specific user from cache
     ///
     /// Useful for logout or session invalidation scenarios.
@@ -347,6 +358,7 @@ impl Drop for CachedConnectionFactory {
         }
     }
 }
+// TAG: surface=database owner=platform-team rule=GENERAL-001
 
 #[cfg(test)]
 mod tests {
