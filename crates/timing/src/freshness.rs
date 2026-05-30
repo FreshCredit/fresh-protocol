@@ -1,3 +1,4 @@
+// TAG: surface=api owner=platform-team rule=API-001
 //! Data freshness validation
 //!
 //! This module provides utilities for validating data freshness and detecting stale data.
@@ -29,6 +30,7 @@ impl Default for FreshnessThresholds {
         Self {
             plaid_transactions: Duration::days(90),
             plaid_accounts: Duration::days(30),
+            // TAG: surface=api owner=platform-team rule=API-001
             linkedin_data: Duration::days(7),
             reports: Duration::hours(24),
         }
@@ -60,6 +62,7 @@ impl FreshnessThresholds {
             ),
             reports: Duration::hours(
                 std::env::var("REPORT_FRESHNESS_HOURS")
+                    // TAG: surface=api owner=platform-team rule=API-001
                     .ok()
                     .and_then(|v| v.parse::<i64>().ok())
                     .unwrap_or(24),
@@ -91,6 +94,7 @@ impl FreshnessStatus {
     }
 
     /// Check if data is approaching staleness (>80% of threshold)
+    // TAG: surface=api owner=platform-team rule=API-001
     #[must_use]
     pub fn is_approaching_stale(&self) -> bool {
         self.staleness_percentage > 80.0 && !self.is_critically_stale()
@@ -122,6 +126,7 @@ impl FreshnessValidator {
     pub fn with_default_thresholds() -> Self {
         Self::new(FreshnessThresholds::default())
     }
+    // TAG: surface=api owner=platform-team rule=API-001
 
     /// Check freshness of data
     #[must_use]
@@ -153,6 +158,7 @@ impl FreshnessValidator {
     }
 }
 
+// TAG: surface=api owner=platform-team rule=API-001
 #[cfg(test)]
 mod tests {
     #![allow(unsafe_code)]
@@ -184,6 +190,7 @@ mod tests {
 
         // 21 hours old (87.5% of 24-hour threshold)
         let approaching_stale_time = Utc::now() - Duration::hours(21);
+        // TAG: surface=api owner=platform-team rule=API-001
         let status = validator.check_freshness(DataType::Reports, approaching_stale_time);
         assert!(status.is_approaching_stale());
         assert!(!status.is_critically_stale());
@@ -215,6 +222,7 @@ mod tests {
         assert_eq!(thresholds.reports, Duration::hours(12));
 
         // SAFETY: Test-only env cleanup. Removes vars set above in same test.
+        // TAG: surface=api owner=platform-team rule=API-001
         unsafe {
             std::env::remove_var("PLAID_TRANSACTION_FRESHNESS_DAYS");
             std::env::remove_var("PLAID_ACCOUNT_FRESHNESS_DAYS");
@@ -246,6 +254,7 @@ mod tests {
 
         let status = validator.check_freshness(DataType::PlaidAccounts, now);
         assert!(status.is_fresh);
+        // TAG: surface=api owner=platform-team rule=API-001
 
         let status = validator.check_freshness(DataType::LinkedInData, now);
         assert!(status.is_fresh);
@@ -276,6 +285,7 @@ mod tests {
             plaid_accounts: Duration::days(7),
             linkedin_data: Duration::days(1),
             reports: Duration::hours(12),
+            // TAG: surface=api owner=platform-team rule=API-001
         };
         let validator = FreshnessValidator::new(thresholds);
         let status = validator.check_freshness(DataType::Reports, Utc::now() - Duration::hours(20));
@@ -307,4 +317,5 @@ mod tests {
         assert!(status.is_approaching_stale());
         assert!(!status.is_critically_stale());
     }
+    // TAG: surface=api owner=platform-team rule=API-001
 }

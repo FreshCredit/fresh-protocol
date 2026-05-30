@@ -1,3 +1,4 @@
+// TAG: surface=api owner=platform-team rule=API-001
 //! `FreshCredit` Core Timing Module
 //!
 //! This module provides timing abstractions and utilities for the `FreshCredit` platform.

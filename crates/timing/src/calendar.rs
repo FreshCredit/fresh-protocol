@@ -1,3 +1,4 @@
+// TAG: surface=api owner=platform-team rule=API-001
 //! Business day calendar for settlement calculations
 //!
 //! This module provides utilities for working with business days,
@@ -23,6 +24,7 @@ impl BusinessDayCalendar {
         holidays.extend(Self::us_federal_holidays_for_year(2026));
 
         Self { holidays }
+        // TAG: surface=api owner=platform-team rule=API-001
     }
 
     /// Create a new business day calendar with US banking holidays (alias for new)
@@ -49,6 +51,7 @@ impl BusinessDayCalendar {
     pub fn is_business_day(&self, date: NaiveDate) -> bool {
         !Self::is_weekend(date) && !self.holidays.contains(&date)
     }
+    // TAG: surface=api owner=platform-team rule=API-001
 
     /// Check if a date is a weekend
     fn is_weekend(date: NaiveDate) -> bool {
@@ -75,6 +78,7 @@ impl BusinessDayCalendar {
     /// Add business days to a `DateTime<Utc>`
     #[must_use]
     /// # Panics
+    // TAG: surface=api owner=platform-team rule=API-001
     ///
     /// Panics if preconditions are not met.
     pub fn add_business_days_datetime(
@@ -101,6 +105,7 @@ impl BusinessDayCalendar {
     /// Calculate business days between two dates
     #[must_use]
     pub fn business_days_between(&self, start: NaiveDate, end: NaiveDate) -> i32 {
+        // TAG: surface=api owner=platform-team rule=API-001
         let mut count = 0;
         let mut current = start;
 
@@ -127,6 +132,7 @@ impl BusinessDayCalendar {
     }
 
     /// Calculate US Federal Holidays for a given year
+    // TAG: surface=api owner=platform-team rule=API-001
     ///
     /// Dynamically calculates holidays based on federal holiday rules:
     /// - Fixed date holidays (New Year's, Juneteenth, Independence Day, Veterans Day, Christmas)
@@ -153,6 +159,7 @@ impl BusinessDayCalendar {
         }
         // Christmas - December 25
         if let Some(date) = NaiveDate::from_ymd_opt(year, 12, 25) {
+            // TAG: surface=api owner=platform-team rule=API-001
             holidays.insert(date);
         }
 
@@ -179,6 +186,7 @@ impl BusinessDayCalendar {
         }
         // Thanksgiving - 4th Thursday in November
         if let Some(date) = Self::nth_weekday_of_month(year, 11, Weekday::Thu, 4) {
+            // TAG: surface=api owner=platform-team rule=API-001
             holidays.insert(date);
         }
 
@@ -205,6 +213,7 @@ impl BusinessDayCalendar {
         let next_year = if month == 12 { year + 1 } else { year };
         let first_of_next = NaiveDate::from_ymd_opt(next_year, next_month, 1)?;
         let last_of_month = first_of_next - Duration::days(1);
+        // TAG: surface=api owner=platform-team rule=API-001
 
         let mut current = last_of_month;
         while current.weekday() != weekday {
@@ -230,6 +239,7 @@ mod tests {
     fn test_is_business_day() {
         let calendar = BusinessDayCalendar::new();
 
+        // TAG: surface=api owner=platform-team rule=API-001
         // Monday, Jan 6, 2025 (business day)
         let monday = NaiveDate::from_ymd_opt(2025, 1, 6).unwrap();
         assert!(calendar.is_business_day(monday));
@@ -256,6 +266,7 @@ mod tests {
 
         // Add 5 business days -> Friday, Jan 10
         let next = calendar.add_business_days(friday, 5);
+        // TAG: surface=api owner=platform-team rule=API-001
         assert_eq!(next, NaiveDate::from_ymd_opt(2025, 1, 10).unwrap());
     }
 
@@ -282,6 +293,7 @@ mod tests {
         let monday = NaiveDate::from_ymd_opt(2025, 1, 6).unwrap();
         assert!(calendar.is_business_day(monday));
 
+        // TAG: surface=api owner=platform-team rule=API-001
         calendar.add_holidays(&[monday]);
         assert!(!calendar.is_business_day(monday));
     }
@@ -308,6 +320,7 @@ mod tests {
         let monday = NaiveDate::from_ymd_opt(2025, 1, 6).unwrap();
         let prev = calendar.add_business_days(monday, -1);
         assert_eq!(prev, NaiveDate::from_ymd_opt(2025, 1, 3).unwrap());
+        // TAG: surface=api owner=platform-team rule=API-001
     }
 
     #[test]
@@ -334,6 +347,7 @@ mod tests {
         let calendar = BusinessDayCalendar::new();
         let juneteenth = NaiveDate::from_ymd_opt(2025, 6, 19).unwrap();
         assert!(!calendar.is_business_day(juneteenth));
+        // TAG: surface=api owner=platform-team rule=API-001
     }
 
     #[test]
@@ -360,6 +374,7 @@ mod tests {
         assert!(!calendar.is_business_day(labor_day));
     }
 
+    // TAG: surface=api owner=platform-team rule=API-001
     #[test]
     fn test_holiday_mlk_day() {
         let calendar = BusinessDayCalendar::new();
@@ -385,6 +400,7 @@ mod tests {
     }
 
     #[test]
+    // TAG: surface=api owner=platform-team rule=API-001
     fn test_holiday_veterans_day() {
         let calendar = BusinessDayCalendar::new();
         let veterans_day = NaiveDate::from_ymd_opt(2025, 11, 11).unwrap();
@@ -411,4 +427,5 @@ mod tests {
         let new_years = NaiveDate::from_ymd_opt(2025, 1, 1).unwrap();
         assert!(!calendar.is_business_day(new_years));
     }
+    // TAG: surface=api owner=platform-team rule=API-001
 }

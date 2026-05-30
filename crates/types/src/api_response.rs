@@ -1,3 +1,4 @@
+// TAG: surface=api owner=platform-team rule=API-001
 //! Standardized API Response Types
 //!
 //! Provides consistent response wrappers across all API endpoints
@@ -23,6 +24,8 @@ use crate::ProblemDetails;
 use serde::{Deserialize, Serialize};
 
 // P1 FIX: ts-rs for TypeScript type generation
+
+// TAG: surface=api owner=platform-team rule=API-001
 #[cfg(feature = "typescript")]
 use ts_rs::TS;
 
@@ -49,6 +52,7 @@ pub struct ApiResponse<T> {
 
 impl<T> ApiResponse<T> {
     /// Create a successful response with data
+    // TAG: surface=api owner=platform-team rule=API-001
     ///
     /// # Example
     /// ```ignore
@@ -74,6 +78,7 @@ impl<T> ApiResponse<T> {
             error: None,
             meta: Some(meta),
         }
+        // TAG: surface=api owner=platform-team rule=API-001
     }
 
     /// Create an error response
@@ -100,6 +105,7 @@ impl<T> ApiResponse<T> {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "typescript", derive(TS))]
 #[cfg_attr(feature = "typescript", ts(export))]
+// TAG: surface=api owner=platform-team rule=API-001
 pub struct ResponseMeta {
     /// Total number of items available (for offset pagination)
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -126,6 +132,7 @@ fn default_api_version() -> String {
     "v1".to_string()
 }
 
+// TAG: surface=api owner=platform-team rule=API-001
 impl ResponseMeta {
     /// Create metadata for a paginated response
     ///
@@ -152,6 +159,7 @@ impl ResponseMeta {
     /// Cursor-based pagination is preferred for high-volume data
     /// as it provides consistent performance regardless of dataset size.
     #[must_use]
+    // TAG: surface=api owner=platform-team rule=API-001
     pub fn with_cursor(
         returned_count: usize,
         next_cursor: Option<String>,
@@ -177,6 +185,7 @@ impl ResponseMeta {
             page: None,
             per_page: None,
             next_cursor: None,
+            // TAG: surface=api owner=platform-team rule=API-001
             api_version: default_api_version(),
             request_id,
         }
@@ -203,6 +212,7 @@ impl ResponseMeta {
 /// ```
 #[derive(Debug, Clone, Deserialize)]
 #[cfg_attr(feature = "typescript", derive(TS))]
+// TAG: surface=api owner=platform-team rule=API-001
 #[cfg_attr(feature = "typescript", ts(export))]
 pub struct PaginationQuery {
     /// Page number (1-indexed, default: 1)
@@ -228,6 +238,7 @@ const fn default_per_page() -> u32 {
 impl PaginationQuery {
     /// Validate and clamp pagination parameters
     ///
+    // TAG: surface=api owner=platform-team rule=API-001
     /// Ensures page >= 1 and 1 <= `per_page` <= 100
     #[must_use]
     pub fn validate(&self) -> Self {
@@ -254,6 +265,7 @@ impl PaginationQuery {
 
     /// Check if cursor-based pagination is being used
     #[must_use]
+    // TAG: surface=api owner=platform-team rule=API-001
     pub const fn is_cursor_based(&self) -> bool {
         self.cursor.is_some()
     }
@@ -279,8 +291,8 @@ pub const DEPRECATION_HEADER: &str = "Deprecation";
 pub const SUNSET_HEADER: &str = "Sunset";
 
 /// Request ID header constant
-///
 /// Used for request tracing across services.
+// TAG: surface=api owner=platform-team rule=API-001
 pub const REQUEST_ID_HEADER: &str = "X-Request-ID";
 
 #[cfg(test)]
@@ -306,6 +318,7 @@ mod tests {
         assert!(response.data.is_none());
         assert!(response.error.is_some());
     }
+    // TAG: surface=api owner=platform-team rule=API-001
 
     #[test]
     fn test_pagination_query_defaults() {
@@ -331,6 +344,7 @@ mod tests {
         assert_eq!(validated.page, 1); // Clamped to 1
         assert_eq!(validated.per_page, 100); // Clamped to max
     }
+    // TAG: surface=api owner=platform-team rule=API-001
 
     #[test]
     fn test_response_meta_paginated() {
@@ -357,6 +371,7 @@ mod tests {
         let meta =
             ResponseMeta::with_cursor(10, Some("next-cursor".to_string()), "req-789".to_string());
 
+        // TAG: surface=api owner=platform-team rule=API-001
         assert_eq!(meta.returned_count, 10);
         assert_eq!(meta.next_cursor, Some("next-cursor".to_string()));
         assert_eq!(meta.page, None);
@@ -382,6 +397,7 @@ mod tests {
         assert_eq!(query.offset(), 50);
     }
 
+    // TAG: surface=api owner=platform-team rule=API-001
     #[test]
     fn test_pagination_query_limit() {
         let query = PaginationQuery {
@@ -408,4 +424,5 @@ mod tests {
         };
         assert!(!page_query.is_cursor_based());
     }
+    // TAG: surface=api owner=platform-team rule=API-001
 }

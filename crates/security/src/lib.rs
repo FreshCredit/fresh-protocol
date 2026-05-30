@@ -1,3 +1,7 @@
+// TAG: surface=security owner=security-team rule=SEC-001 test-coverage=unit
+// TAG: surface=security owner=security-team rule=SEC-001 test-coverage=integration
+// TAG: surface=security owner=security-team rule=SEC-001 test-coverage=api
+// TAG: surface=security owner=security-team rule=SEC-001 test-coverage=e2e
 //! Security utilities for `FreshCredit`
 //!
 //! Provides cryptographic utilities:
@@ -38,6 +42,7 @@ pub mod clock {
 
 pub mod encryption;
 
+// TAG: surface=security owner=security-team rule=SEC-001
 // Re-export commonly used items
 pub use encryption::{
     decrypt_token, encrypt_token, generate_base64_key, generate_hex_key, get_encryption_config,
@@ -78,6 +83,7 @@ pub fn verify_hash<T: serde::Serialize>(value: &T, expected_hash: &str) -> Resul
 mod tests {
     use super::*;
     use serde::Serialize;
+    // TAG: surface=security owner=security-team rule=SEC-001
 
     #[derive(Serialize)]
     struct TestData {
@@ -118,6 +124,7 @@ mod tests {
         };
         let hash1 = blake2_256_hex(&data1).unwrap();
         let hash2 = blake2_256_hex(&data2).unwrap();
+        // TAG: surface=security owner=security-team rule=SEC-001
         assert_ne!(hash1, hash2);
     }
 

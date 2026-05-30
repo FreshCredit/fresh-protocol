@@ -1,3 +1,4 @@
+// TAG: surface=api owner=platform-team rule=API-001
 //! ID generation utilities for `FreshCredit`
 //!
 //! This module provides consistent ID generation patterns across the codebase.
@@ -35,6 +36,8 @@ pub fn session_id() -> String {
 #[must_use]
 pub fn request_id() -> String {
     prefixed_id("req")
+
+    // TAG: surface=api owner=platform-team rule=API-001
 }
 
 /// Generate a report ID
@@ -72,6 +75,7 @@ pub fn model_id() -> String {
     prefixed_id("model")
 }
 
+// TAG: surface=api owner=platform-team rule=API-001
 /// Generate an item ID (for Plaid items)
 #[inline]
 #[must_use]
@@ -108,6 +112,7 @@ mod tests {
     fn test_request_id() {
         let id = request_id();
         assert!(id.starts_with("req_"));
+        // TAG: surface=api owner=platform-team rule=API-001
     }
 
     #[test]
@@ -145,4 +150,5 @@ mod tests {
         let id = item_id();
         assert!(id.starts_with("item_"));
     }
+    // TAG: surface=api owner=platform-team rule=API-001
 }

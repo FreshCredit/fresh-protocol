@@ -1,3 +1,4 @@
+// TAG: surface=api owner=platform-team rule=API-001
 //! Core domain types for `FreshCredit`
 //!
 //! P1 FIX: Cross-language type sync with ts-rs

@@ -1,3 +1,4 @@
+// TAG: surface=api owner=platform-team rule=API-001
 //! Core domain types for `FreshCredit`
 
 use chrono::{DateTime, Utc};
@@ -24,6 +25,7 @@ pub struct Account {
     /// Balance
     pub balance: Option<f64>,
     /// Currency
+    // TAG: surface=api owner=platform-team rule=API-001
     pub currency: String,
     /// Institution Name
     pub institution_name: String,
@@ -51,6 +53,7 @@ pub enum AccountType {
 /// Financial transaction
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "typescript", derive(TS))]
+// TAG: surface=api owner=platform-team rule=API-001
 #[cfg_attr(feature = "typescript", ts(export))]
 pub struct Transaction {
     /// Unique identifier
@@ -77,6 +80,7 @@ pub struct Transaction {
 #[cfg_attr(feature = "typescript", ts(export))]
 pub struct FinancialReport {
     /// Unique identifier
+    // TAG: surface=api owner=platform-team rule=API-001
     pub id: Uuid,
     /// User identifier
     pub user_id: UserId,
@@ -104,6 +108,7 @@ pub struct Payment {
     /// Currency
     pub currency: String,
     /// Status
+    // TAG: surface=api owner=platform-team rule=API-001
     pub status: PaymentStatus,
     /// Timestamp when the created was created/updated
     pub created_at: DateTime<Utc>,
@@ -130,6 +135,7 @@ pub enum PaymentStatus {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum PaymentMethodType {
+    // TAG: surface=api owner=platform-team rule=API-001
     /// Card
     Card,
     /// Bankaccount
@@ -157,6 +163,7 @@ pub enum CardBrand {
     /// Visa
     Visa,
     /// Mastercard
+    // TAG: surface=api owner=platform-team rule=API-001
     Mastercard,
     /// Amex
     Amex,
@@ -183,6 +190,7 @@ pub struct PaymentMethod {
     /// Method Ref
     pub method_ref: String,
     /// Processor
+    // TAG: surface=api owner=platform-team rule=API-001
     pub processor: PaymentProcessor,
     /// Method Type
     pub method_type: PaymentMethodType,
@@ -210,6 +218,7 @@ pub struct PaymentMethod {
     pub updated_at: DateTime<Utc>,
 }
 
+// TAG: surface=api owner=platform-team rule=API-001
 /// Billing details for payment methods
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BillingDetails {
@@ -236,6 +245,7 @@ pub struct CreatePaymentMethodRequest {
     pub billing_details: Option<BillingDetails>,
 }
 
+// TAG: surface=api owner=platform-team rule=API-001
 /// Response after creating a payment method
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PaymentMethodResponse {
@@ -263,6 +273,7 @@ pub struct PaymentMethodResponse {
     pub created_at: DateTime<Utc>,
 }
 
+// TAG: surface=api owner=platform-team rule=API-001
 /// Financial institution information
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Institution {
@@ -289,6 +300,7 @@ pub struct UserProfile {
     pub first_name: String,
     /// Last Name
     pub last_name: String,
+    // TAG: surface=api owner=platform-team rule=API-001
     /// Phone
     pub phone: Option<String>,
     /// Address
@@ -316,6 +328,7 @@ pub struct Address {
 
 #[cfg(test)]
 mod tests {
+    // TAG: surface=api owner=platform-team rule=API-001
     use super::*;
 
     #[test]
@@ -342,6 +355,7 @@ mod tests {
     fn test_address_serialization() {
         let address = Address {
             street: "123 Main St".to_string(),
+            // TAG: surface=api owner=platform-team rule=API-001
             city: "San Francisco".to_string(),
             state: "CA".to_string(),
             postal_code: "94102".to_string(),
@@ -369,6 +383,7 @@ mod tests {
         assert_eq!(parsed.name, "Test Bank");
         assert_eq!(parsed.products.len(), 2);
     }
+    // TAG: surface=api owner=platform-team rule=API-001
 
     #[test]
     fn test_transaction_serialization() {
@@ -395,6 +410,7 @@ mod tests {
             id: "acct_123".to_string(),
             user_id: "user_456".to_string(),
             account_type: AccountType::Savings,
+            // TAG: surface=api owner=platform-team rule=API-001
             balance: Some(1000.50),
             currency: "USD".to_string(),
             institution_name: "Test Bank".to_string(),
@@ -422,4 +438,5 @@ mod tests {
         let report_ts = FinancialReport::name(&cfg);
         assert_eq!(report_ts, "FinancialReport");
     }
+    // TAG: surface=api owner=platform-team rule=API-001
 }

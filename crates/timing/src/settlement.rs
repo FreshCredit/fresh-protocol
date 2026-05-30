@@ -1,3 +1,4 @@
+// TAG: surface=api owner=platform-team rule=API-001
 //! ACH settlement timing calculations for `FreshCredit`
 //!
 //! Implements business day calculations for ACH settlement dates (T+1 to T+4).
@@ -26,6 +27,7 @@ impl SettlementCalculator {
 
     /// Create settlement calculator with custom calendar
     #[must_use]
+    // TAG: surface=api owner=platform-team rule=API-001
     pub const fn with_calendar(calendar: BusinessDayCalendar) -> Self {
         Self { calendar }
     }
@@ -54,6 +56,7 @@ impl SettlementCalculator {
             "Calculating settlement date: initiated={}, type={:?}, business_days={}",
             initiated_at.format("%Y-%m-%d %H:%M:%S"),
             settlement_type,
+            // TAG: surface=api owner=platform-team rule=API-001
             business_days
         );
 
@@ -82,6 +85,7 @@ impl SettlementCalculator {
         initiated_at: DateTime<Utc>,
         settlement_type: AchSettlementType,
     ) -> bool {
+        // TAG: surface=api owner=platform-team rule=API-001
         let expected_settlement = self.calculate_settlement_date(initiated_at, settlement_type);
         let now = Utc::now();
 
@@ -111,6 +115,7 @@ impl SettlementCalculator {
         if now < expected_settlement.settlement_date {
             SettlementStatus::InTransit
         } else if now.date_naive() == expected_settlement.settlement_date.date_naive() {
+            // TAG: surface=api owner=platform-team rule=API-001
             SettlementStatus::SettlingToday
         } else {
             SettlementStatus::Overdue
@@ -139,6 +144,7 @@ impl Default for SettlementCalculator {
 
 /// ACH settlement types with different timing
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+// TAG: surface=api owner=platform-team rule=API-001
 pub enum AchSettlementType {
     /// Regular ACH (T+2 to T+4 business days) - most common, 3-day settlement
     ThreeDaySettlement,
@@ -168,6 +174,7 @@ pub struct SettlementDate {
     pub settlement_date: DateTime<Utc>,
 
     /// When payment was initiated
+    // TAG: surface=api owner=platform-team rule=API-001
     pub initiated_at: DateTime<Utc>,
 
     /// Number of business days for settlement
@@ -196,6 +203,7 @@ mod tests {
     use chrono::{Duration, TimeZone};
 
     #[test]
+    // TAG: surface=api owner=platform-team rule=API-001
     fn test_standard_ach_settlement() {
         let calculator = SettlementCalculator::new();
 
@@ -224,6 +232,7 @@ mod tests {
 
     #[test]
     fn test_settlement_overdue() {
+        // TAG: surface=api owner=platform-team rule=API-001
         let calculator = SettlementCalculator::new();
 
         // Payment initiated 10 days ago
@@ -252,6 +261,7 @@ mod tests {
         let initiated = Utc::now();
 
         let status =
+            // TAG: surface=api owner=platform-team rule=API-001
             calculator.get_settlement_status(initiated, AchSettlementType::ThreeDaySettlement);
         assert_eq!(status, SettlementStatus::InTransit);
     }
@@ -281,6 +291,7 @@ mod tests {
         assert_eq!(result.business_days, 1);
     }
 
+    // TAG: surface=api owner=platform-team rule=API-001
     #[test]
     fn test_settlement_status_settling_today() {
         let calculator = SettlementCalculator::new();
@@ -309,6 +320,7 @@ mod tests {
     fn test_next_day_ach_settlement() {
         let calculator = SettlementCalculator::new();
 
+        // TAG: surface=api owner=platform-team rule=API-001
         let initiated = Utc.with_ymd_and_hms(2025, 1, 6, 10, 0, 0).unwrap(); // Monday
         let result = calculator.calculate_settlement_date(initiated, AchSettlementType::NextDay);
 
@@ -337,4 +349,5 @@ mod tests {
         );
         assert_eq!(result.business_days, 3);
     }
+    // TAG: surface=api owner=platform-team rule=API-001
 }
