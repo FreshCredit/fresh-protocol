@@ -71,7 +71,6 @@ pub async fn initialize_security_tables(conn: &Connection) -> Result<()> {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             expires_at DATETIME NOT NULL,
             verified_at DATETIME,
-            // TAG: surface=database owner=data-team rule=DB-001
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
             FOREIGN KEY (audit_event_id) REFERENCES audit_events (id) ON DELETE SET NULL
         )",

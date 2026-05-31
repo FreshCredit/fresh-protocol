@@ -54,7 +54,6 @@ pub async fn initialize_plaid_monitoring_tables(conn: &Connection) -> Result<()>
             raw_recurring_data TEXT NOT NULL,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            // TAG: surface=database owner=data-team rule=DB-001
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
             FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE
         )",
@@ -80,7 +79,6 @@ pub async fn initialize_plaid_monitoring_tables(conn: &Connection) -> Result<()>
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
-            // TAG: surface=database
             FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE
         )",
         (),

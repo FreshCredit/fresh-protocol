@@ -49,7 +49,6 @@ pub async fn initialize_publication_records_table(conn: &Connection) -> Result<(
             -- Classification
             concepts TEXT,
             open_access_status TEXT CHECK(open_access_status IN ('gold', 'green', 'hybrid', 'bronze', 'closed', NULL)),
-            // TAG: surface=database owner=data-team rule=DB-001
             is_open_access BOOLEAN DEFAULT FALSE,
             cited_by_count INTEGER DEFAULT 0,
             -- Enrichment tracking

@@ -42,7 +42,6 @@ pub async fn initialize_identity_tables(conn: &Connection) -> Result<()> {
             raw_identity_verification_data TEXT NOT NULL,
             blockchain_hash TEXT,
             block_number INTEGER,
-            // TAG: surface=database owner=data-team rule=DB-001
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE

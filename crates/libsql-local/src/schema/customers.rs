@@ -38,7 +38,6 @@ pub async fn initialize_customer_tables(conn: &Connection) -> Result<()> {
         "CREATE TABLE IF NOT EXISTS customer_segments (
             id TEXT PRIMARY KEY,
             provider_id TEXT NOT NULL,
-            // TAG: surface=database owner=data-team rule=DB-001
             name TEXT NOT NULL,
             description TEXT,
             color TEXT DEFAULT '#6b7280',

@@ -87,7 +87,6 @@ pub async fn initialize_linkedin_tables(conn: &Connection) -> Result<()> {
             raw_education_data TEXT NOT NULL,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
-            // TAG: surface=database owner=data-team rule=DB-001
             FOREIGN KEY (linkedin_profile_id) REFERENCES linkedin_profiles (id) ON DELETE CASCADE
         )",
         (),

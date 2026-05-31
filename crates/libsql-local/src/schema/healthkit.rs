@@ -78,7 +78,6 @@ pub async fn initialize_healthkit_tables(conn: &Connection) -> Result<()> {
             distance_unit TEXT,
             total_energy_burned REAL,
             energy_unit TEXT,
-            // TAG: surface=database owner=data-team rule=DB-001
             source_name TEXT,
             source_version TEXT,
             device TEXT,
@@ -104,7 +103,6 @@ pub async fn initialize_healthkit_tables(conn: &Connection) -> Result<()> {
             active_energy_burned REAL,
             active_energy_burned_goal REAL,
             active_energy_burned_unit TEXT,
-            // TAG: surface=database
             apple_move_time REAL,
             apple_move_time_goal REAL,
             apple_exercise_time REAL,

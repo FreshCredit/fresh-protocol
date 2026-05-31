@@ -48,7 +48,6 @@ pub async fn initialize_teams_tables(conn: &Connection) -> Result<()> {
             joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             status TEXT NOT NULL DEFAULT 'active',
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            // TAG: surface=database owner=data-team rule=DB-001
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (team_id) REFERENCES provider_teams (id) ON DELETE CASCADE,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,

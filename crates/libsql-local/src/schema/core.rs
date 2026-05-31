@@ -49,7 +49,6 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
             city TEXT,
             state_province TEXT,
             postal_code TEXT,
-            // TAG: surface=database owner=data-team rule=DB-001
             country_region TEXT,
             date_of_birth TEXT,
             ssn_last_four TEXT,
@@ -200,7 +199,6 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
         "CREATE TABLE IF NOT EXISTS api_keys (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
-            // TAG: surface=database owner=data-team rule=DB-001
             key_name TEXT NOT NULL,
             key_hash TEXT NOT NULL,
             key_prefix TEXT NOT NULL,

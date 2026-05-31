@@ -107,7 +107,6 @@ pub async fn initialize_reports_tables(conn: &Connection) -> Result<()> {
             user_viewed_at DATETIME,
             user_clicked_at DATETIME,
             user_applied_at DATETIME,
-            // TAG: surface=database
             expires_at DATETIME,
             raw_offer_data TEXT NOT NULL,
             blockchain_hash TEXT,

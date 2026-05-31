@@ -85,7 +85,6 @@ pub async fn create_crypto_tables(conn: &Connection) -> Result<()> {
             -- Description/memo
             description TEXT,
             -- Error message if failed
-            // TAG: surface=database owner=data-team rule=DB-001
             failure_reason TEXT,
             -- Timestamps
             initiated_at DATETIME,

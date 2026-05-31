@@ -40,7 +40,6 @@ pub async fn create_arc_tables(conn: &Connection) -> Result<()> {
             retry_count INTEGER DEFAULT 0,
             -- Next retry time (for exponential backoff)
             next_retry_at DATETIME,
-            // TAG: surface=database owner=data-team rule=DB-001
             -- Optional metadata (JSON)
             metadata TEXT,
             -- Timestamps
@@ -112,7 +111,6 @@ pub async fn create_bridge_tables(conn: &Connection) -> Result<()> {
             -- Actual completion time
             completed_at DATETIME,
             -- Fee charged for the bridge
-            // TAG: surface=database owner=data-team rule=DB-001
             fee TEXT,
             -- Error message if failed
             error_message TEXT,
@@ -224,7 +222,6 @@ pub async fn create_gateway_tables(conn: &Connection) -> Result<()> {
             -- Fee charged
             fee TEXT,
             -- On-chain transaction hash (for USDC transfer)
-            // TAG: surface=database owner=data-team rule=DB-001
             tx_hash TEXT,
             -- Bank reference (for fiat transfer)
             bank_reference TEXT,

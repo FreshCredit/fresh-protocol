@@ -117,7 +117,6 @@ async fn create_user_offer_engagements_table(conn: &Connection) -> Result<()> {
             offer_id TEXT NOT NULL,
             status TEXT NOT NULL DEFAULT 'viewed',
 
-            // TAG: surface=database owner=data-team rule=DB-001
             -- Journey timestamps
             viewed_at DATETIME,
             selected_at DATETIME,

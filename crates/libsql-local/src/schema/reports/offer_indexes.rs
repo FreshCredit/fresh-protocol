@@ -68,7 +68,6 @@ pub(crate) async fn initialize_blockchain_proofs_table(conn: &Connection) -> Res
             substrate_block_number INTEGER,
             substrate_block_hash TEXT,
             leaf_hash TEXT,
-            // TAG: surface=database owner=data-team rule=DB-001
             siblings TEXT,
             path TEXT,
             verified_at DATETIME,

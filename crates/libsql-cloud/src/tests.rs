@@ -153,7 +153,6 @@ async fn init_full_schema(client: &CloudClient) {
             street_address TEXT,
             city TEXT,
             state_province TEXT,
-            // TAG: surface=database owner=data-team rule=DB-001
             postal_code TEXT,
             country_region TEXT,
             date_of_birth TEXT,

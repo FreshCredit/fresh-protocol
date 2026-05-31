@@ -108,7 +108,6 @@ impl LocalClient {
                 email_notifications_enabled = excluded.email_notifications_enabled,
                 kilt_did_enabled = excluded.kilt_did_enabled,
                 ai_mode = excluded.ai_mode,
-                // TAG: surface=database owner=data-team rule=DB-001
                 mock_data_enabled = excluded.mock_data_enabled,
                 onboarding_completed = excluded.onboarding_completed,
                 onboarding_permanently_dismissed = excluded.onboarding_permanently_dismissed,

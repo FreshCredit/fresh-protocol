@@ -46,7 +46,6 @@ pub async fn initialize_compliance_tables(conn: &Connection) -> Result<()> {
             title TEXT NOT NULL,
             description TEXT NOT NULL,
             severity TEXT NOT NULL,
-            // TAG: surface=database owner=data-team rule=DB-001
             detection_pattern TEXT,
             remediation_template TEXT,
             is_active INTEGER NOT NULL DEFAULT 1,
@@ -114,7 +113,6 @@ pub async fn initialize_compliance_tables(conn: &Connection) -> Result<()> {
             -- Request metadata
             request_path TEXT,
             request_method TEXT,
-            // TAG: surface=database owner=data-team rule=DB-001
             response_status INTEGER,
             ip_address TEXT,
             user_agent TEXT,

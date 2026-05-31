@@ -53,7 +53,6 @@ async fn create_uploaded_files_table(conn: &Connection) -> Result<()> {
             file_hash TEXT,
             file_data BLOB,
             text_content TEXT,
-            // TAG: surface=database owner=data-team rule=DB-001
             ai_analysis TEXT,
             is_encrypted BOOLEAN DEFAULT FALSE,
             encryption_key_id TEXT,
@@ -169,7 +168,6 @@ async fn create_ai_feedback_table(conn: &Connection) -> Result<()> {
             feedback_reason TEXT,
             original_response TEXT,
             corrected_response TEXT,
-            // TAG: surface=database owner=data-team rule=DB-001
             metadata TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,

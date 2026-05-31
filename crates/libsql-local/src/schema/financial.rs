@@ -51,7 +51,6 @@ pub async fn initialize_financial_tables(conn: &Connection) -> Result<()> {
             balance_available REAL,
             balance_current REAL,
             balance_limit REAL,
-            // TAG: surface=database owner=data-team rule=DB-001
             current_balance REAL,
             available_balance REAL,
             currency TEXT DEFAULT 'USD',
