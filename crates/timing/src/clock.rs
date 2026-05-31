@@ -77,6 +77,7 @@ mod tests {
     use chrono::Duration;
 
     #[test]
+    #[cfg(not(miri))]
     fn test_system_clock() {
         let clock = SystemClock;
         let now1 = clock.now();
@@ -87,6 +88,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(miri))]
     fn test_mock_clock() {
         let time = Utc::now();
         let mut clock = MockClock::new(time);
