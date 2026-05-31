@@ -183,13 +183,13 @@ mod tests {
 
     #[test]
     fn test_parse_simple_create_table() {
+        // TAG: surface=database owner=data-team rule=DB-001
         let sql = r"
             CREATE TABLE IF NOT EXISTS users (
                 id TEXT PRIMARY KEY,
                 email TEXT NOT NULL,
                 name TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            // TAG: surface=database owner=data-team rule=DB-001
             );
         ";
 
