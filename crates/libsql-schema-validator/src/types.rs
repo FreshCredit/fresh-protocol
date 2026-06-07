@@ -161,6 +161,7 @@ pub struct ForeignKeyInfo {
 /// Schema validator
 #[derive(Debug)]
 // TAG: surface=database owner=platform-team rule=GENERAL-001
+#[allow(clippy::struct_field_names)]
 pub struct SchemaValidator {
     pub(crate) staging_connection: Option<libsql::Connection>,
     pub(crate) local_connection: Option<libsql::Connection>,

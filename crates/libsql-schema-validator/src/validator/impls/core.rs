@@ -46,10 +46,10 @@ impl SchemaValidator {
 
         // TAG: surface=database owner=platform-team rule=DB-001
         // Compare schemas and detect drift
-        let (issues, warnings) = self.compare_schemas(&all_schemas)?;
+        let (issues, warnings) = Self::compare_schemas(&all_schemas);
 
         // Calculate summary
-        let summary = self.calculate_summary(&all_schemas, &issues, &warnings);
+        let summary = Self::calculate_summary(&all_schemas, &issues, &warnings);
 
         let is_valid = issues.iter().all(|i| {
             !matches!(
@@ -119,9 +119,8 @@ impl SchemaValidator {
     // TAG: surface=database owner=platform-team rule=DB-001
     /// Compare schemas and detect drift
     fn compare_schemas(
-        &self,
         all_schemas: &HashMap<String, HashMap<String, TableSchema>>,
-    ) -> Result<(Vec<SchemaIssue>, Vec<SchemaWarning>)> {
+    ) -> (Vec<SchemaIssue>, Vec<SchemaWarning>) {
         let mut issues = Vec::new();
         let mut warnings = Vec::new();
 
@@ -133,16 +132,15 @@ impl SchemaValidator {
 
         // Compare each table across databases
         for table_name in all_tables {
-            self.compare_table(table_name, all_schemas, &mut issues, &mut warnings);
+            Self::compare_table(&table_name, all_schemas, &mut issues, &mut warnings);
         }
 
-        Ok((issues, warnings))
+        (issues, warnings)
     }
 
     /// Compare a specific table across databases
     fn compare_table(
-        &self,
-        table_name: String,
+        table_name: &str,
         all_schemas: &HashMap<String, HashMap<String, TableSchema>>,
         issues: &mut Vec<SchemaIssue>,
         warnings: &mut Vec<SchemaWarning>,
@@ -152,38 +150,36 @@ impl SchemaValidator {
         // Check if table exists in all databases
         for (db_name, schemas) in all_schemas {
             // TAG: surface=database owner=platform-team rule=DB-001
-            if !schemas.contains_key(&table_name) {
+            if !schemas.contains_key(table_name) {
                 issues.push(SchemaIssue {
                     severity: IssueSeverity::High,
                     database: db_name.clone(),
                     issue_type: IssueType::MissingTable,
                     description: format!("Table '{table_name}' is missing"),
-                    affected_object: table_name.clone(),
+                    affected_object: table_name.to_string(),
                 });
             }
         }
 
         // If table exists in at least one database, compare columns
         // Use a deterministic reference: local > staging > cloud
-        let reference_schema = ["local", "staging", "cloud"].iter().find_map(|&name| {
-            all_schemas
-                .get(name)
-                .filter(|s| s.contains_key(&table_name))
-        });
+        let reference_schema = ["local", "staging", "cloud"]
+            .iter()
+            .find_map(|&name| all_schemas.get(name).filter(|s| s.contains_key(table_name)));
         if let Some(reference_schema) = reference_schema {
-            if let Some(reference_table) = reference_schema.get(&table_name) {
+            if let Some(reference_table) = reference_schema.get(table_name) {
                 for (db_name, schemas) in all_schemas {
-                    if let Some(table) = schemas.get(&table_name) {
-                        self.compare_columns(
+                    if let Some(table) = schemas.get(table_name) {
+                        Self::compare_columns(
                             db_name,
-                            &table_name,
+                            table_name,
                             &reference_table.columns,
                             &table.columns,
                             issues,
                         );
-                        self.compare_indexes(
+                        Self::compare_indexes(
                             db_name,
-                            &table_name,
+                            table_name,
                             &reference_table.indexes,
                             &table.indexes,
                             issues,
@@ -232,7 +228,6 @@ mod tests {
     // TAG: surface=database owner=platform-team rule=DB-001
     #[test]
     fn test_compare_schemas_missing_table() {
-        let validator = test_validator();
         let mut schemas: HashMap<String, HashMap<String, TableSchema>> = HashMap::new();
 
         let mut local = HashMap::new();
@@ -249,7 +244,7 @@ mod tests {
         );
         schemas.insert("staging".to_string(), staging);
 
-        let (issues, warnings) = validator.compare_schemas(&schemas).unwrap();
+        let (issues, warnings) = SchemaValidator::compare_schemas(&schemas);
         assert_eq!(issues.len(), 2); // users missing in staging, accounts missing in local
         assert!(warnings.is_empty());
         assert!(issues
@@ -259,7 +254,6 @@ mod tests {
 
     #[test]
     fn test_compare_schemas_equal() {
-        let validator = test_validator();
         let mut schemas: HashMap<String, HashMap<String, TableSchema>> = HashMap::new();
 
         let table = test_table("users", vec![test_column("id", "INTEGER")], vec![]);
@@ -272,16 +266,15 @@ mod tests {
         staging.insert("users".to_string(), table);
         schemas.insert("staging".to_string(), staging);
 
-        let (issues, warnings) = validator.compare_schemas(&schemas).unwrap();
+        let (issues, warnings) = SchemaValidator::compare_schemas(&schemas);
         assert!(issues.is_empty());
         assert!(warnings.is_empty());
     }
 
     #[test]
     fn test_compare_schemas_empty() {
-        let validator = test_validator();
         let schemas: HashMap<String, HashMap<String, TableSchema>> = HashMap::new();
-        let (issues, warnings) = validator.compare_schemas(&schemas).unwrap();
+        let (issues, warnings) = SchemaValidator::compare_schemas(&schemas);
         assert!(issues.is_empty());
         assert!(warnings.is_empty());
     }

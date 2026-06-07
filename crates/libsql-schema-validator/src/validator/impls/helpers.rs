@@ -121,7 +121,6 @@ impl SchemaValidator {
 
     /// Compare columns between tables
     pub(crate) fn compare_columns(
-        &self,
         db_name: &str,
         table_name: &str,
         reference_columns: &[ColumnInfo],
@@ -171,7 +170,6 @@ impl SchemaValidator {
     /// Note: `_warnings` parameter kept for API consistency with other compare methods
     #[allow(clippy::ptr_arg)]
     pub(crate) fn compare_indexes(
-        &self,
         db_name: &str,
         table_name: &str,
         reference_indexes: &[IndexInfo],
@@ -201,7 +199,6 @@ impl SchemaValidator {
 
     /// Calculate validation summary
     pub(crate) fn calculate_summary(
-        &self,
         all_schemas: &std::collections::HashMap<
             // TAG: surface=database owner=platform-team rule=DB-001
             String,
@@ -260,14 +257,6 @@ impl SchemaValidator {
 mod tests {
     use crate::types::*;
 
-    fn test_validator() -> SchemaValidator {
-        SchemaValidator {
-            staging_connection: None,
-            local_connection: None,
-            cloud_connection: None,
-        }
-    }
-
     fn test_column(name: &str, data_type: &str) -> ColumnInfo {
         ColumnInfo {
             name: name.to_string(),
@@ -289,12 +278,11 @@ mod tests {
     // TAG: surface=database owner=platform-team rule=DB-001
     #[test]
     fn test_compare_columns_missing() {
-        let validator = test_validator();
         let ref_cols = vec![test_column("id", "INTEGER"), test_column("email", "TEXT")];
         let actual_cols = vec![test_column("id", "INTEGER")];
         let mut issues = vec![];
 
-        validator.compare_columns("db1", "users", &ref_cols, &actual_cols, &mut issues);
+        SchemaValidator::compare_columns("db1", "users", &ref_cols, &actual_cols, &mut issues);
 
         assert_eq!(issues.len(), 1);
         assert_eq!(issues[0].issue_type, IssueType::MissingColumn);
@@ -303,12 +291,11 @@ mod tests {
 
     #[test]
     fn test_compare_columns_extra() {
-        let validator = test_validator();
         let ref_cols = vec![test_column("id", "INTEGER")];
         let actual_cols = vec![test_column("id", "INTEGER"), test_column("extra", "TEXT")];
         let mut issues = vec![];
 
-        validator.compare_columns("db1", "users", &ref_cols, &actual_cols, &mut issues);
+        SchemaValidator::compare_columns("db1", "users", &ref_cols, &actual_cols, &mut issues);
 
         assert_eq!(issues.len(), 1);
         assert_eq!(issues[0].issue_type, IssueType::ExtraColumn);
@@ -317,11 +304,10 @@ mod tests {
 
     #[test]
     fn test_compare_columns_equal() {
-        let validator = test_validator();
         let cols = vec![test_column("id", "INTEGER"), test_column("email", "TEXT")];
         let mut issues = vec![];
 
-        validator.compare_columns("db1", "users", &cols, &cols, &mut issues);
+        SchemaValidator::compare_columns("db1", "users", &cols, &cols, &mut issues);
 
         assert!(issues.is_empty());
     }
@@ -329,13 +315,12 @@ mod tests {
     // TAG: surface=database owner=platform-team rule=DB-001
     #[test]
     fn test_compare_indexes_missing() {
-        let validator = test_validator();
         let ref_idx = vec![test_index("idx_email", &["email"])];
         let actual_idx = vec![];
         let mut issues = vec![];
         let mut warnings = vec![];
 
-        validator.compare_indexes(
+        SchemaValidator::compare_indexes(
             "db1",
             "users",
             &ref_idx,
@@ -350,9 +335,8 @@ mod tests {
 
     #[test]
     fn test_calculate_summary_empty() {
-        let validator = test_validator();
         let schemas = std::collections::HashMap::new();
-        let summary = validator.calculate_summary(&schemas, &[], &[]);
+        let summary = SchemaValidator::calculate_summary(&schemas, &[], &[]);
 
         assert_eq!(summary.total_tables_checked, 0);
         assert_eq!(summary.critical_issues, 0);
@@ -361,7 +345,6 @@ mod tests {
 
     #[test]
     fn test_calculate_summary_with_issues() {
-        let validator = test_validator();
         let mut schemas = std::collections::HashMap::new();
         // TAG: surface=database owner=platform-team rule=DB-001
         let mut tables = std::collections::HashMap::new();
@@ -393,7 +376,7 @@ mod tests {
             },
         ];
 
-        let summary = validator.calculate_summary(&schemas, &issues, &[]);
+        let summary = SchemaValidator::calculate_summary(&schemas, &issues, &[]);
 
         assert_eq!(summary.total_tables_checked, 1);
         assert_eq!(summary.total_columns_checked, 2);

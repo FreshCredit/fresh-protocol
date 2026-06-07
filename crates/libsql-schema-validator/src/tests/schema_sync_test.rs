@@ -142,6 +142,7 @@ pub fn load_migration_schema(project_root: &Path) -> Result<HashMap<String, Tabl
 /// Compare two schemas and return differences
 #[must_use]
 // TAG: surface=database owner=data-team rule=DB-001
+#[allow(clippy::implicit_hasher)]
 pub fn compare_schemas(
     source_name: &str,
     source: &HashMap<String, TableDef>,
