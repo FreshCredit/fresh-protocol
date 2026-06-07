@@ -15,15 +15,13 @@ impl CloudClient {
             .await
             .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?;
 
-        if let Some(row) = rows
+        (rows
             .next()
             .await
-            .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?
-        {
-            Ok(row.get::<i64>(0).unwrap_or(0) as u64)
-        } else {
-            Ok(0)
-        }
+            .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?)
+        .map_or(Ok(0), |row| {
+            Ok(row.get::<i64>(0).unwrap_or(0).try_into().unwrap_or(0))
+        })
     }
 
     // TAG: surface=database owner=platform-team rule=DB-001
@@ -40,15 +38,13 @@ impl CloudClient {
             .await
             .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?;
 
-        if let Some(row) = rows
+        (rows
             .next()
             .await
-            .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?
-        {
-            Ok(row.get::<i64>(0).unwrap_or(0) as u64)
-        } else {
-            Ok(0)
-        }
+            .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?)
+        .map_or(Ok(0), |row| {
+            Ok(row.get::<i64>(0).unwrap_or(0).try_into().unwrap_or(0))
+        })
     }
 
     /// Get user preferences from cloud
@@ -71,11 +67,11 @@ impl CloudClient {
         ).await
         .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?;
 
-        if let Some(row) = rows
+        (rows
             .next()
             .await
-            .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?
-        {
+            .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?)
+        .map_or(Ok(None), |row| {
             Ok(Some(freshcredit_libsql_local::UserPreferences {
                 ai_agent_enabled: row.get::<bool>(0).ok(),
                 ai_feedback_enabled: row.get::<bool>(1).ok(),
@@ -94,9 +90,7 @@ impl CloudClient {
                 plaid_connection_skipped: row.get::<bool>(13).ok(),
                 plaid_reminder_dismissed_until: row.get::<String>(14).ok(),
             }))
-        } else {
-            Ok(None)
-        }
+        })
     }
 
     // TAG: surface=database owner=platform-team rule=DB-001
@@ -169,11 +163,11 @@ impl CloudClient {
             .await
             .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?;
 
-        if let Some(row) = rows
+        (rows
             .next()
             .await
-            .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?
-        {
+            .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?)
+        .map_or(Ok(None), |row| {
             Ok(Some(freshcredit_libsql_local::UserProfile {
                 id: row.get(0).unwrap_or_default(),
                 platform_user_id: row.get(1).unwrap_or_default(),
@@ -215,9 +209,7 @@ impl CloudClient {
                 created_at: row.get(32).unwrap_or_default(),
                 updated_at: row.get(33).unwrap_or_default(),
             }))
-        } else {
-            Ok(None)
-        }
+        })
     }
 
     // TAG: surface=database owner=platform-team rule=DB-001
@@ -252,7 +244,6 @@ impl CloudClient {
         {
             let account_type_str: String = row.get(2).unwrap_or_default();
             let account_type = match account_type_str.to_lowercase().as_str() {
-                "checking" => freshcredit_types::AccountType::Checking,
                 "savings" => freshcredit_types::AccountType::Savings,
                 "credit" => freshcredit_types::AccountType::Credit,
                 "investment" => freshcredit_types::AccountType::Investment,
@@ -432,7 +423,6 @@ impl CloudClient {
         {
             let account_type_str: String = row.get(2).unwrap_or_default();
             let account_type = match account_type_str.to_lowercase().as_str() {
-                "checking" => freshcredit_types::AccountType::Checking,
                 "savings" => freshcredit_types::AccountType::Savings,
                 "credit" => freshcredit_types::AccountType::Credit,
                 "investment" => freshcredit_types::AccountType::Investment,

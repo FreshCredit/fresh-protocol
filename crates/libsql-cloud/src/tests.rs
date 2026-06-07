@@ -593,7 +593,7 @@ async fn test_sync_transaction_with_custom_table() {
 
     assert_eq!(id, tx.id);
     assert_eq!(account_id, tx.account_id);
-    assert_eq!(amount, tx.amount);
+    assert!((amount - tx.amount).abs() < f64::EPSILON);
     assert_eq!(description, tx.description);
     assert_eq!(category, tx.category.unwrap());
     assert_eq!(merchant, tx.merchant_name.unwrap());
@@ -685,7 +685,7 @@ async fn test_get_user_transactions() {
 
     let tx1 = txs.iter().find(|t| t.id == "tx-1").unwrap();
     assert_eq!(tx1.account_id, "acc-1");
-    assert_eq!(tx1.amount, 50.0);
+    assert!((tx1.amount - 50.0).abs() < f64::EPSILON);
     assert_eq!(tx1.currency, "USD");
     assert_eq!(tx1.description, "Coffee");
     assert_eq!(tx1.category, Some("Food".to_string()));

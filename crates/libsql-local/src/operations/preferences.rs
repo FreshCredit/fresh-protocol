@@ -29,6 +29,27 @@ impl LocalClient {
         Ok(Some(row.get::<String>(idx)?))
     }
 
+    /// Parse a user preferences row into a struct.
+    fn row_to_user_preferences(row: &libsql::Row) -> Result<UserPreferences> {
+        Ok(UserPreferences {
+            ai_agent_enabled: Self::get_bool_pref(row, 0)?,
+            ai_feedback_enabled: Self::get_bool_pref(row, 1)?,
+            ai_offers_enabled: Self::get_bool_pref(row, 2)?,
+            ai_lenders_enabled: Self::get_bool_pref(row, 3)?,
+            cloud_sync_enabled: Self::get_bool_pref(row, 4)?,
+            blockchain_enabled: Self::get_bool_pref(row, 5)?,
+            email_notifications_enabled: Self::get_bool_pref(row, 6)?,
+            kilt_did_enabled: Self::get_bool_pref(row, 7)?,
+            ai_mode: Self::get_string_pref(row, 8)?,
+            mock_data_enabled: Self::get_bool_pref(row, 9)?,
+            onboarding_completed: Self::get_bool_pref(row, 10)?,
+            onboarding_permanently_dismissed: Self::get_bool_pref(row, 11)?,
+            onboarding_reminder_dismissed_until: row.get::<Option<String>>(12).unwrap_or(None),
+            plaid_connection_skipped: Self::get_bool_pref(row, 13)?,
+            plaid_reminder_dismissed_until: row.get::<Option<String>>(14).unwrap_or(None),
+        })
+    }
+
     // TAG: surface=database owner=platform-team rule=DB-001
     /// Retrieves user preferences from the database.
     ///
@@ -51,27 +72,11 @@ impl LocalClient {
             libsql::params![user_id],
         ).await?;
 
-        if let Some(row) = rows.next().await? {
-            Ok(Some(UserPreferences {
-                ai_agent_enabled: Self::get_bool_pref(&row, 0)?,
-                ai_feedback_enabled: Self::get_bool_pref(&row, 1)?,
-                ai_offers_enabled: Self::get_bool_pref(&row, 2)?,
-                ai_lenders_enabled: Self::get_bool_pref(&row, 3)?,
-                cloud_sync_enabled: Self::get_bool_pref(&row, 4)?,
-                blockchain_enabled: Self::get_bool_pref(&row, 5)?,
-                email_notifications_enabled: Self::get_bool_pref(&row, 6)?,
-                kilt_did_enabled: Self::get_bool_pref(&row, 7)?,
-                ai_mode: Self::get_string_pref(&row, 8)?,
-                mock_data_enabled: Self::get_bool_pref(&row, 9)?,
-                onboarding_completed: Self::get_bool_pref(&row, 10)?,
-                onboarding_permanently_dismissed: Self::get_bool_pref(&row, 11)?,
-                onboarding_reminder_dismissed_until: row.get::<Option<String>>(12).unwrap_or(None),
-                plaid_connection_skipped: Self::get_bool_pref(&row, 13)?,
-                plaid_reminder_dismissed_until: row.get::<Option<String>>(14).unwrap_or(None),
-            }))
+        Ok(if let Some(row) = rows.next().await? {
+            Some(Self::row_to_user_preferences(&row)?)
         } else {
-            Ok(None)
-        }
+            None
+        })
     }
 
     // TAG: surface=database owner=platform-team rule=DB-001

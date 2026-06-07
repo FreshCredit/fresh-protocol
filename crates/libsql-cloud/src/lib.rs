@@ -374,11 +374,11 @@ impl CloudClient {
             .await
             .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?;
 
-        if let Some(row) = rows
+        (rows
             .next()
             .await
-            .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?
-        {
+            .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?)
+        .map_or(Ok(None), |row| {
             Ok(Some(freshcredit_libsql_local::UserProfile {
                 id: uuid::Uuid::new_v4().to_string(),
                 platform_user_id: row.get::<String>(0).unwrap_or_default(),
@@ -420,9 +420,7 @@ impl CloudClient {
                 created_at: row.get::<String>(9).unwrap_or_default(),
                 updated_at: row.get::<String>(10).unwrap_or_default(),
             }))
-        } else {
-            Ok(None)
-        }
+        })
     }
 }
 
