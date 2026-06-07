@@ -29,6 +29,7 @@ pub trait Clock: Send + Sync {
 ///
 /// This is the production implementation that returns the actual current time.
 // TAG: surface=api owner=platform-team rule=API-001
+#[derive(Debug)]
 pub struct SystemClock;
 
 impl Clock for SystemClock {
