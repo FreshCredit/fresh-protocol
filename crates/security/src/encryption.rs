@@ -3,6 +3,7 @@
 //! Provides authenticated encryption for sensitive tokens (ORCID, Plaid, etc.)
 //! Uses AES-256-GCM with a 256-bit key and 96-bit nonce.
 //!
+// TAG: surface=security owner=security-team rule=SEC-001
 //! # Configuration
 //! - `FRESHCREDIT_ENCRYPTION_ENABLED`: Set to "false" to disable encryption (testing only)
 //! - `FRESHCREDIT_TOKEN_ENCRYPTION_KEY`: 64-character hex key for encryption
@@ -22,6 +23,7 @@ use anyhow::{anyhow, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use rand::RngCore;
 use std::sync::OnceLock;
+// TAG: surface=security owner=security-team rule=SEC-001
 /// P1-FIX: Encryption errors that can occur during encryption/decryption
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EncryptionError {
@@ -59,6 +61,7 @@ pub const KEY_SIZE: usize = 32;
 /// Global encryption configuration (initialized once)
 static ENCRYPTION_CONFIG: OnceLock<EncryptionConfig> = OnceLock::new();
 
+// TAG: surface=security owner=security-team rule=SEC-001
 /// Encryption configuration for the application
 #[derive(Debug, Clone)]
 pub struct EncryptionConfig {
@@ -87,6 +90,7 @@ impl EncryptionConfig {
                 "⚠️ Token encryption is DISABLED. This should only be used for testing!"
             );
             return Ok(Self {
+                // TAG: surface=security owner=platform-team rule=GENERAL-001
                 enabled: false,
                 encryptor: None,
             });
@@ -116,6 +120,7 @@ impl EncryptionConfig {
         self.enabled && self.encryptor.is_some()
     }
 
+    // TAG: surface=security owner=security-team rule=SEC-001
     /// Encrypt a token if encryption is available
     ///
     /// CRITICAL SECURITY FIX: Never falls back to plaintext. Returns error on encryption failure.
@@ -132,6 +137,7 @@ impl EncryptionConfig {
         }
     }
 
+    // TAG: surface=security owner=security-team rule=SEC-001
     /// Decrypt a token if encryption is available
     ///
     /// P1-FIX: Returns Result instead of silently falling back to plaintext
@@ -176,6 +182,7 @@ pub fn encrypt_token(plaintext: &str) -> Result<String> {
     get_encryption_config().encrypt(plaintext)
 }
 
+// TAG: surface=security owner=security-team rule=SEC-001
 /// Decrypt a token using the global configuration
 ///
 /// This is the primary API for decrypting tokens throughout the application.
@@ -213,6 +220,7 @@ impl Clone for TokenEncryptor {
 }
 
 impl TokenEncryptor {
+    // TAG: surface=security owner=security-team rule=SEC-001
     /// Create a new `TokenEncryptor` with a 256-bit key
     ///
     /// # Arguments
@@ -252,6 +260,7 @@ impl TokenEncryptor {
         Self::new(&key)
     }
 
+    // TAG: surface=security owner=security-team rule=SEC-001
     /// Create a `TokenEncryptor` from a base64-encoded key
     ///
     /// # Arguments
@@ -293,6 +302,7 @@ impl TokenEncryptor {
         Ok(BASE64.encode(&combined))
     }
 
+    // TAG: surface=security owner=security-team rule=SEC-001
     /// Decrypt a ciphertext token
     ///
     /// Input should be base64-encoded (nonce || ciphertext || tag)
@@ -336,6 +346,7 @@ pub fn generate_hex_key() -> String {
     hex::encode(generate_key())
 }
 
+// TAG: surface=security owner=security-team rule=SEC-001
 /// Generate a random 256-bit key and return as base64 string
 #[must_use]
 pub fn generate_base64_key() -> String {
@@ -366,6 +377,7 @@ mod tests {
         let encryptor = TokenEncryptor::from_hex_key(&hex_key).unwrap();
         let plaintext = "test-token";
         let encrypted = encryptor.encrypt(plaintext).unwrap();
+        // TAG: surface=security owner=platform-team rule=GENERAL-001
         let decrypted = encryptor.decrypt(&encrypted).unwrap();
 
         assert_eq!(plaintext, decrypted);
@@ -398,6 +410,7 @@ mod tests {
             encryptor: Some(TokenEncryptor::new(&generate_key()).unwrap()),
         };
 
+        // TAG: surface=security owner=security-team rule=SEC-001
         let plaintext = "my-secret-oauth-token";
         let encrypted = config
             .encrypt(plaintext)
@@ -437,6 +450,7 @@ mod tests {
         assert_eq!(plaintext, decrypted);
     }
 
+    // TAG: surface=security owner=security-team rule=SEC-001
     #[test]
     fn test_generate_key_formats() {
         let key = generate_key();
@@ -476,6 +490,7 @@ mod tests {
         let result = TokenEncryptor::from_hex_key("not-hex");
         assert!(result.is_err());
 
+        // TAG: surface=security owner=security-team rule=SEC-001
         let result2 = TokenEncryptor::from_hex_key("abcd"); // too short
         assert!(result2.is_err());
     }

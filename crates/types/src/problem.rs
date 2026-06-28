@@ -1,3 +1,4 @@
+// TAG: surface=api owner=platform-team rule=API-001
 //! API response wrappers and error types
 
 use chrono::{DateTime, Utc};
@@ -26,6 +27,7 @@ impl<T> ApiResponse<T> {
     pub fn success(data: T) -> Self {
         Self {
             success: true,
+            // TAG: surface=api owner=platform-team rule=API-001
             data: Some(data),
             error: None,
             timestamp: Utc::now(),
@@ -54,6 +56,7 @@ pub enum FreshCreditError {
     /// Validationerror
     ValidationError(String),
     #[error("Database error: {0}")]
+    // TAG: surface=api owner=platform-team rule=API-001
     /// Databaseerror
     DatabaseError(String),
     #[error("External API error: {0}")]
@@ -82,6 +85,7 @@ pub enum FreshCreditError {
 #[cfg_attr(feature = "typescript", ts(export))]
 pub struct ProblemDetails {
     #[serde(rename = "type")]
+    // TAG: surface=api owner=platform-team rule=API-001
     /// Problem Type
     pub problem_type: String,
     /// Title
@@ -111,6 +115,7 @@ impl ProblemDetails {
             problem_type: problem_type.to_string(),
             title: title.to_string(),
             status,
+            // TAG: surface=api owner=platform-team rule=API-001
             detail: None,
             instance: None,
             context: None,
@@ -139,6 +144,7 @@ impl ProblemDetails {
         )
         .with_detail(detail)
     }
+    // TAG: surface=api owner=platform-team rule=API-001
 
     #[must_use]
     /// Forbidden
@@ -167,6 +173,7 @@ impl ProblemDetails {
     pub fn internal_error(detail: &str) -> Self {
         Self::new(
             "https://freshcredit.com/problems/internal-error",
+            // TAG: surface=api owner=platform-team rule=API-001
             "Internal Server Error",
             500,
         )
@@ -195,6 +202,7 @@ impl ProblemDetails {
     }
 
     #[must_use]
+    // TAG: surface=api owner=platform-team rule=API-001
     /// Set the request id
     pub fn with_request_id(mut self, request_id: &str) -> Self {
         self.request_id = Some(request_id.to_string());
@@ -224,6 +232,7 @@ mod tests {
     #[test]
     fn test_api_response_success() {
         let response = ApiResponse::success("test data".to_string());
+        // TAG: surface=api owner=platform-team rule=API-001
         assert!(response.success);
         assert_eq!(response.data, Some("test data".to_string()));
         assert!(response.error.is_none());
@@ -252,6 +261,7 @@ mod tests {
             ProblemDetails::new("https://freshcredit.com/problems/test", "Test Error", 400);
         assert_eq!(
             problem.problem_type,
+            // TAG: surface=api owner=platform-team rule=API-001
             "https://freshcredit.com/problems/test"
         );
         assert_eq!(problem.title, "Test Error");
@@ -280,6 +290,7 @@ mod tests {
         assert_eq!(problem.status, 403);
         assert_eq!(problem.title, "Forbidden");
     }
+    // TAG: surface=api owner=platform-team rule=API-001
 
     #[test]
     fn test_problem_details_not_found() {
@@ -308,6 +319,7 @@ mod tests {
         assert_eq!(problem.request_id, Some("req_12345".to_string()));
     }
 
+    // TAG: surface=api owner=platform-team rule=API-001
     #[test]
     fn test_problem_details_serialization() {
         let problem = ProblemDetails::validation_error("Email is required")
@@ -336,4 +348,5 @@ mod tests {
         let problem: ProblemDetails = error.into();
         assert_eq!(problem.status, 401);
     }
+    // TAG: surface=api owner=platform-team rule=API-001
 }

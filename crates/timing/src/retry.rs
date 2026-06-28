@@ -1,3 +1,4 @@
+// TAG: surface=api owner=platform-team rule=API-001
 //! Retry strategies with exponential backoff
 //!
 //! This module provides retry logic with exponential backoff and jitter
@@ -24,6 +25,7 @@ pub struct ExponentialBackoff {
     /// Initial Delay
     pub initial_delay: Duration,
     /// Max Delay
+    // TAG: surface=api owner=platform-team rule=API-001
     pub max_delay: Duration,
     /// Max Attempts
     pub max_attempts: u32,
@@ -51,6 +53,7 @@ impl ExponentialBackoff {
         max_attempts: u32,
         jitter_percentage: f64,
     ) -> Self {
+        // TAG: surface=api owner=platform-team rule=API-001
         Self {
             initial_delay,
             max_delay,
@@ -78,6 +81,7 @@ impl ExponentialBackoff {
             max_attempts: std::env::var("WORKFLOW_RETRY_MAX_ATTEMPTS")
                 .ok()
                 .and_then(|v| v.parse::<u32>().ok())
+                // TAG: surface=api owner=platform-team rule=API-001
                 .unwrap_or(3),
             jitter_percentage: 0.2,
         }
@@ -105,6 +109,7 @@ impl RetryStrategy for ExponentialBackoff {
         let jitter = rng.gen_range(-jitter_range..=jitter_range);
         let final_delay = u64::try_from(
             i64::try_from(capped_delay)
+                // TAG: surface=api owner=platform-team rule=API-001
                 .expect("capped delay fits in i64")
                 .saturating_add(jitter)
                 .max(0),
@@ -131,6 +136,7 @@ impl<S: RetryStrategy> RetryExecutor<S> {
         Self { strategy }
     }
 
+    // TAG: surface=api owner=platform-team rule=API-001
     /// Execute an operation with retry logic
     /// # Errors
     ///
@@ -158,6 +164,7 @@ impl<S: RetryStrategy> RetryExecutor<S> {
                 }
             }
         }
+        // TAG: surface=api owner=platform-team rule=API-001
     }
 }
 
@@ -185,6 +192,7 @@ where
 ///
 /// # Example
 /// ```ignore
+// TAG: surface=api owner=platform-team rule=API-001
 /// let result = with_retry_attempts(5, || async {
 ///     external_api.call().await
 /// }).await?;
@@ -212,6 +220,7 @@ mod tests {
     use std::sync::Mutex;
 
     static ENV_LOCK: Mutex<()> = Mutex::new(());
+    // TAG: surface=api owner=platform-team rule=API-001
 
     #[test]
     fn test_exponential_backoff() {
@@ -236,7 +245,9 @@ mod tests {
     #[test]
     fn test_exponential_backoff_from_env() {
         let _guard = ENV_LOCK.lock().unwrap();
+        // SAFETY: Test-only env manipulation. Guarded by ENV_LOCK mutex.
         unsafe {
+            // TAG: surface=api owner=platform-team rule=API-001
             std::env::set_var("WORKFLOW_RETRY_INITIAL_DELAY_MS", "500");
             std::env::set_var("WORKFLOW_RETRY_MAX_DELAY_MS", "30000");
             std::env::set_var("WORKFLOW_RETRY_MAX_ATTEMPTS", "5");
@@ -250,6 +261,7 @@ mod tests {
         assert_eq!(strategy.max_delay, std::time::Duration::from_millis(30000));
         assert_eq!(strategy.max_attempts, 5);
 
+        // SAFETY: Test-only env cleanup. Removes vars set above in same test.
         unsafe {
             std::env::remove_var("WORKFLOW_RETRY_INITIAL_DELAY_MS");
             std::env::remove_var("WORKFLOW_RETRY_MAX_DELAY_MS");
@@ -263,6 +275,7 @@ mod tests {
             std::time::Duration::from_millis(10),
             std::time::Duration::from_millis(100),
             3,
+            // TAG: surface=api owner=platform-team rule=API-001
             0.0,
         );
         let executor = RetryExecutor::new(strategy);
@@ -290,6 +303,7 @@ mod tests {
                     if count < 3 {
                         Err("not yet")
                     } else {
+                        // TAG: surface=api owner=platform-team rule=API-001
                         Ok(42)
                     }
                 }
@@ -317,6 +331,7 @@ mod tests {
         assert!(result.is_err());
         assert_eq!(result.unwrap_err(), "always fails");
     }
+    // TAG: surface=api owner=platform-team rule=API-001
 
     #[tokio::test]
     async fn test_with_retry() {
@@ -343,6 +358,7 @@ mod tests {
         std::env::remove_var("WORKFLOW_RETRY_INITIAL_DELAY_MS");
         std::env::remove_var("WORKFLOW_RETRY_MAX_DELAY_MS");
         std::env::remove_var("WORKFLOW_RETRY_MAX_ATTEMPTS");
+        // TAG: surface=api owner=platform-team rule=API-001
 
         let strategy = ExponentialBackoff::from_env();
         assert_eq!(
@@ -370,4 +386,5 @@ mod tests {
         assert_eq!(strategy.max_attempts, 5);
         assert_eq!(strategy.jitter_percentage, 0.1);
     }
+    // TAG: surface=api owner=platform-team rule=API-001
 }

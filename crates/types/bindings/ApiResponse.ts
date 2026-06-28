@@ -3,4 +3,20 @@
 /**
  * API response wrapper
  */
-export type ApiResponse<T> = { success: boolean, data: T | null, error: string | null, timestamp: string, };
+export type ApiResponse<T> = { 
+/**
+ * Success
+ */
+success: boolean, 
+/**
+ * Data
+ */
+data: T | null, 
+/**
+ * Error
+ */
+error: string | null, 
+/**
+ * Timestamp
+ */
+timestamp: string, };

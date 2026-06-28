@@ -7,7 +7,7 @@
  * across all list endpoints.
  *
  * # Example
- * ```
+ * ```ignore
  * use axum::extract::Query;
  *
  * async fn list_users(

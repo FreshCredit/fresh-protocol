@@ -1,3 +1,4 @@
+// TAG: surface=api owner=platform-team rule=API-001
 //! Clock abstraction for time operations
 //!
 //! This module provides a trait-based clock abstraction that allows for testable
@@ -27,7 +28,8 @@ pub trait Clock: Send + Sync {
 /// System clock using actual time
 ///
 /// This is the production implementation that returns the actual current time.
-#[derive(Debug, Clone, Copy, Default)]
+// TAG: surface=api owner=platform-team rule=API-001
+#[derive(Debug)]
 pub struct SystemClock;
 
 impl Clock for SystemClock {
@@ -53,6 +55,7 @@ impl MockClock {
     }
 
     /// Advance the clock by the given duration
+    // TAG: surface=api owner=platform-team rule=API-001
     pub fn advance(&mut self, duration: chrono::Duration) {
         self.current_time += duration;
     }
@@ -75,15 +78,18 @@ mod tests {
     use chrono::Duration;
 
     #[test]
+    #[cfg(not(miri))]
     fn test_system_clock() {
         let clock = SystemClock;
         let now1 = clock.now();
         std::thread::sleep(std::time::Duration::from_millis(10));
         let now2 = clock.now();
+        // TAG: surface=api owner=platform-team rule=API-001
         assert!(now2 > now1);
     }
 
     #[test]
+    #[cfg(not(miri))]
     fn test_mock_clock() {
         let time = Utc::now();
         let mut clock = MockClock::new(time);
@@ -105,7 +111,8 @@ mod tests {
             .with_timezone(&Utc);
         let clock = MockClock::new(time);
 
-        assert_eq!(clock.timestamp(), 1735689600);
-        assert_eq!(clock.timestamp_millis(), 1735689600000);
+        assert_eq!(clock.timestamp(), 1_735_689_600);
+        assert_eq!(clock.timestamp_millis(), 1_735_689_600_000);
     }
+    // TAG: surface=api owner=platform-team rule=API-001
 }

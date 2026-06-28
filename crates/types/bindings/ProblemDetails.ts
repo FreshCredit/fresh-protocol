@@ -3,4 +3,28 @@
 /**
  * RFC 7807 Problem Details for HTTP APIs
  */
-export type ProblemDetails = { type: string, title: string, status: number, detail: string | null, instance: string | null, request_id: string | null, };
+export type ProblemDetails = { 
+/**
+ * Problem Type
+ */
+type: string, 
+/**
+ * Title
+ */
+title: string, 
+/**
+ * Status
+ */
+status: number, 
+/**
+ * Detail
+ */
+detail: string | null, 
+/**
+ * Instance
+ */
+instance: string | null, 
+/**
+ * Request identifier
+ */
+request_id: string | null, };

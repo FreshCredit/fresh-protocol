@@ -1,3 +1,4 @@
+// TAG: surface=api owner=platform-team rule=API-001
 //! Timeout enforcement for async operations
 //!
 //! This module provides utilities for enforcing timeouts on async operations.
@@ -27,6 +28,7 @@ pub struct TimeoutEnforcer {
 impl Default for TimeoutEnforcer {
     fn default() -> Self {
         Self {
+            // TAG: surface=api owner=platform-team rule=API-001
             default_timeout: Duration::from_secs(30),
             max_timeout: Duration::from_secs(300),
         }
@@ -57,6 +59,7 @@ impl TimeoutEnforcer {
                 std::env::var("WORKFLOW_MAX_TIMEOUT_MS")
                     .ok()
                     .and_then(|v| v.parse::<u64>().ok())
+                    // TAG: surface=api owner=platform-team rule=API-001
                     .unwrap_or(300_000),
             ),
         }
@@ -87,6 +90,7 @@ impl TimeoutEnforcer {
     }
 
     /// Execute an operation with the default timeout
+    // TAG: surface=api owner=platform-team rule=API-001
     /// # Errors
     ///
     /// Returns an error if the operation fails.
@@ -117,6 +121,7 @@ mod tests {
                 || async { Ok::<_, String>(42) },
                 Some(Duration::from_secs(1)),
             )
+            // TAG: surface=api owner=platform-team rule=API-001
             .await;
 
         assert!(result.is_ok());
@@ -147,6 +152,7 @@ mod tests {
     #[tokio::test]
     async fn test_operation_error() {
         let enforcer = TimeoutEnforcer::default();
+        // TAG: surface=api owner=platform-team rule=API-001
 
         let result = enforcer
             .execute(
@@ -165,6 +171,7 @@ mod tests {
     #[test]
     fn test_timeout_enforcer_from_env() {
         let _guard = ENV_LOCK.lock().unwrap();
+        // SAFETY: Test-only env manipulation. Guarded by ENV_LOCK mutex.
         unsafe {
             std::env::set_var("WORKFLOW_DEFAULT_TIMEOUT_MS", "15000");
             std::env::set_var("WORKFLOW_MAX_TIMEOUT_MS", "600000");
@@ -172,9 +179,11 @@ mod tests {
 
         let enforcer = TimeoutEnforcer::from_env();
         assert_eq!(enforcer.default_timeout, Duration::from_millis(15000));
-        assert_eq!(enforcer.max_timeout, Duration::from_millis(600000));
+        assert_eq!(enforcer.max_timeout, Duration::from_millis(600_000));
 
+        // SAFETY: Test-only env cleanup. Removes vars set above in same test.
         unsafe {
+            // TAG: surface=api owner=platform-team rule=API-001
             std::env::remove_var("WORKFLOW_DEFAULT_TIMEOUT_MS");
             std::env::remove_var("WORKFLOW_MAX_TIMEOUT_MS");
         }
@@ -204,6 +213,7 @@ mod tests {
             .execute(
                 || async {
                     sleep(Duration::from_millis(200)).await;
+                    // TAG: surface=api owner=platform-team rule=API-001
                     Ok::<_, String>(42)
                 },
                 Some(Duration::from_secs(1)),
@@ -234,4 +244,5 @@ mod tests {
         assert_eq!(enforcer.default_timeout, Duration::from_secs(10));
         assert_eq!(enforcer.max_timeout, Duration::from_secs(60));
     }
+    // TAG: surface=api owner=platform-team rule=API-001
 }

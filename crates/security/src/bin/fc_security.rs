@@ -3,6 +3,7 @@
 //! Provides key management and encryption utilities for `FreshCredit`.
 //!
 //! # Usage
+// TAG: surface=security owner=security-team rule=SEC-001
 //! ```bash
 //! # Generate a new encryption key
 //! fc-security generate-key
@@ -44,6 +45,7 @@ enum Commands {
         #[arg(short, long)]
         key: String,
 
+        // TAG: surface=security owner=security-team rule=SEC-001
         /// Plaintext to encrypt
         #[arg(short, long)]
         plaintext: String,
@@ -81,6 +83,7 @@ fn handle_generate_key(format: &str) {
     println!("\nSet this as FRESHCREDIT_TOKEN_ENCRYPTION_KEY environment variable.");
 }
 
+// TAG: surface=security owner=security-team rule=SEC-001
 fn handle_test_encrypt(key: &str, plaintext: &str) {
     let expected_len = KEY_SIZE * 2;
     let actual_len = key.len();
@@ -116,6 +119,7 @@ fn handle_test_encrypt(key: &str, plaintext: &str) {
     }
 }
 
+// TAG: surface=security owner=security-team rule=SEC-001
 fn handle_validate_config() {
     println!("Validating encryption configuration...\n");
 
@@ -152,6 +156,7 @@ fn handle_validate_config() {
     }
 }
 
+// TAG: surface=security owner=security-team rule=SEC-001
 fn handle_encrypt(plaintext: &str) {
     match encrypt_token(plaintext) {
         Ok(encrypted) => println!("{encrypted}"),

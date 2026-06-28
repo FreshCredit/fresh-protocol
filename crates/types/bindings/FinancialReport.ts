@@ -5,4 +5,32 @@ import type { Transaction } from "./Transaction";
 /**
  * Financial report data
  */
-export type FinancialReport = { id: string, user_id: string, bureau_score: number | null, accounts: Array<Account>, transactions: Array<Transaction>, generated_at: string, blockchain_hash: string | null, };
+export type FinancialReport = { 
+/**
+ * Unique identifier
+ */
+id: string, 
+/**
+ * User identifier
+ */
+user_id: string, 
+/**
+ * Bureau Score
+ */
+bureau_score: number | null, 
+/**
+ * Accounts
+ */
+accounts: Array<Account>, 
+/**
+ * Transactions
+ */
+transactions: Array<Transaction>, 
+/**
+ * Timestamp when the generated was created/updated
+ */
+generated_at: string, 
+/**
+ * Blockchain Hash
+ */
+blockchain_hash: string | null, };

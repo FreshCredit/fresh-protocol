@@ -1,3 +1,4 @@
+// TAG: surface=api owner=platform-team rule=API-001
 //! TTL (Time-To-Live) enforcement for ephemeral data
 //!
 //! This module provides traits and utilities for enforcing TTL on ephemeral data
@@ -26,6 +27,7 @@ pub trait TtlEnforcement: Send + Sync {
 
 /// TTL-related errors
 #[derive(Debug, thiserror::Error)]
+// TAG: surface=api owner=platform-team rule=API-001
 pub enum TtlError {
     #[error("Database error: {0}")]
     /// Databaseerror
@@ -55,6 +57,7 @@ impl Default for TtlConfig {
     fn default() -> Self {
         Self {
             sessions: Duration::hours(24),
+            // TAG: surface=api owner=platform-team rule=API-001
             csrf_tokens: Duration::minutes(30),
             rate_limits: Duration::hours(1),
             staged_payloads: Duration::hours(48),
@@ -83,6 +86,7 @@ impl TtlConfig {
                     * 60,
             ),
             rate_limits: Duration::seconds(
+                // TAG: surface=api owner=platform-team rule=API-001
                 std::env::var("TTL_RATE_LIMIT_HOURS")
                     .ok()
                     .and_then(|v| v.parse::<i64>().ok())
@@ -112,6 +116,7 @@ mod tests {
     #![allow(unsafe_code)]
     use super::*;
     use std::sync::Mutex;
+    // TAG: surface=api owner=platform-team rule=API-001
 
     static ENV_LOCK: Mutex<()> = Mutex::new(());
 
@@ -140,6 +145,7 @@ mod tests {
         let created_at = DateTime::parse_from_rfc3339("2025-01-01T00:00:00Z")
             .unwrap()
             .with_timezone(&Utc);
+        // TAG: surface=api owner=platform-team rule=API-001
         let ttl_duration = Duration::hours(24);
 
         let expiration = ttl.expiration_timestamp(created_at, ttl_duration);
@@ -169,6 +175,7 @@ mod tests {
         struct TestTtl;
 
         #[async_trait]
+        // TAG: surface=api owner=platform-team rule=API-001
         impl TtlEnforcement for TestTtl {
             async fn cleanup_expired(&self, _table: &str, _ttl: Duration) -> Result<u64, TtlError> {
                 Ok(0)
@@ -185,6 +192,7 @@ mod tests {
     #[test]
     fn test_ttl_config_from_env() {
         let _guard = ENV_LOCK.lock().unwrap();
+        // SAFETY: Test-only env manipulation. Guarded by ENV_LOCK mutex.
         unsafe {
             std::env::set_var("TTL_SESSION_HOURS", "12");
             std::env::set_var("TTL_CSRF_MINUTES", "15");
@@ -196,10 +204,12 @@ mod tests {
         let config = TtlConfig::from_env();
         assert_eq!(config.sessions, Duration::hours(12));
         assert_eq!(config.csrf_tokens, Duration::minutes(15));
+        // TAG: surface=api owner=platform-team rule=API-001
         assert_eq!(config.rate_limits, Duration::hours(2));
         assert_eq!(config.staged_payloads, Duration::hours(24));
         assert_eq!(config.idempotency_keys, Duration::hours(12));
 
+        // SAFETY: Test-only env cleanup. Removes vars set above in same test.
         unsafe {
             std::env::remove_var("TTL_SESSION_HOURS");
             std::env::remove_var("TTL_CSRF_MINUTES");
@@ -224,6 +234,7 @@ mod tests {
 
         let ttl = TestTtl;
         let result = ttl.cleanup_expired("sessions", Duration::hours(24)).await;
+        // TAG: surface=api owner=platform-team rule=API-001
         assert_eq!(result.unwrap(), 5);
     }
 
@@ -252,6 +263,7 @@ mod tests {
         impl TtlEnforcement for TestTtl {
             async fn cleanup_expired(&self, _table: &str, _ttl: Duration) -> Result<u64, TtlError> {
                 Ok(0)
+                // TAG: surface=api owner=platform-team rule=API-001
             }
         }
 
@@ -280,4 +292,5 @@ mod tests {
 
         assert!(!ttl.is_expired(created_at, ttl_duration));
     }
+    // TAG: surface=api owner=platform-team rule=API-001
 }
