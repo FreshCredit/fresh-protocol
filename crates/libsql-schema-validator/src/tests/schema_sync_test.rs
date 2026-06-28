@@ -1,3 +1,4 @@
+// TAG: surface=database owner=data-team rule=DB-001
 //! Schema synchronization tests
 //!
 //! These tests verify that Rust schema definitions, Turso cloud schema,
@@ -16,15 +17,20 @@ use std::path::Path;
 /// Represents a column extracted from schema definitions
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SchemaColumn {
+    /// Column name
     pub name: String,
+    /// SQL data type
     pub data_type: String,
+    /// Whether the column has a NOT NULL constraint
     pub not_null: bool,
 }
 
 /// Represents a table schema
 #[derive(Debug, Clone)]
 pub struct TableDef {
+    /// Table name
     pub name: String,
+    /// Columns defined in the table
     pub columns: Vec<SchemaColumn>,
 }
 
@@ -38,6 +44,7 @@ pub fn parse_sql_schema(sql: &str) -> HashMap<String, TableDef> {
 
     // Find all CREATE TABLE statements
     let create_table_re =
+            // TAG: surface=database owner=data-team rule=DB-001
         regex::Regex::new(r"(?is)CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(\w+)\s*\(([^;]+)\)")
             .unwrap();
 
@@ -86,6 +93,7 @@ fn parse_columns(columns_str: &str) -> Vec<SchemaColumn> {
         }
     }
     if !current_col.trim().is_empty() {
+        // TAG: surface=database owner=data-team rule=DB-001
         col_strs.push(current_col.trim().to_string());
     }
 
@@ -133,6 +141,8 @@ pub fn load_migration_schema(project_root: &Path) -> Result<HashMap<String, Tabl
 
 /// Compare two schemas and return differences
 #[must_use]
+// TAG: surface=database owner=data-team rule=DB-001
+#[allow(clippy::implicit_hasher)]
 pub fn compare_schemas(
     source_name: &str,
     source: &HashMap<String, TableDef>,
@@ -174,6 +184,7 @@ mod tests {
 
     #[test]
     fn test_parse_simple_create_table() {
+        // TAG: surface=database owner=data-team rule=DB-001
         let sql = r"
             CREATE TABLE IF NOT EXISTS users (
                 id TEXT PRIMARY KEY,
@@ -228,6 +239,7 @@ mod tests {
         );
         source.insert(
             "accounts".to_string(),
+            // TAG: surface=database owner=data-team rule=DB-001
             TableDef {
                 name: "accounts".to_string(),
                 columns: vec![],
@@ -276,6 +288,7 @@ mod tests {
             "users".to_string(),
             TableDef {
                 name: "users".to_string(),
+                // TAG: surface=database owner=data-team rule=DB-001
                 columns: vec![SchemaColumn {
                     name: "id".to_string(),
                     data_type: "TEXT".to_string(),

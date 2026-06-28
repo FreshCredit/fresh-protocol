@@ -1,3 +1,4 @@
+// TAG: surface=database owner=platform-team rule=DB-001 test-coverage=unit
 #[cfg(test)]
 mod unit_tests {
     use crate::types::SchemaValidator;
@@ -12,7 +13,7 @@ mod unit_tests {
 
     #[test]
     fn test_schema_validator_default() {
-        let validator: SchemaValidator = Default::default();
+        let validator: SchemaValidator = SchemaValidator::default();
         assert!(validator.staging_connection.is_none());
         assert!(validator.local_connection.is_none());
         assert!(validator.cloud_connection.is_none());

@@ -1,4 +1,4 @@
-#![allow(missing_docs)]
+// TAG: surface=database owner=platform-team rule=DB-001 test-coverage=unit
 //! Schema validation and drift detection for `LibSQL` databases
 //!
 //! This module provides tools to detect schema drift between staging, local, and cloud databases.
@@ -13,8 +13,11 @@
 //! Run the validator binary: `cargo run --bin validate-schema`
 //! Or use the library programmatically in tests.
 
+/// Schema synchronization tests
 pub mod tests;
+/// Schema validation types
 pub mod types;
+/// Schema validation logic
 pub mod validator;
 
 pub use tests::schema_sync_test::{
