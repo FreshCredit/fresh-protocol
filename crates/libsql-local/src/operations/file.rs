@@ -25,8 +25,11 @@ impl LocalClient {
     pub async fn save_uploaded_file(&self, params: &SaveUploadedFileParams<'_>) -> Result<String> {
         let id = uuid::Uuid::new_v4().to_string();
         let now = chrono::Utc::now().to_rfc3339();
-        // Files expire after 24 hours
-        let expires_at = (chrono::Utc::now() + chrono::Duration::hours(24)).to_rfc3339();
+        // Files expire after 24 hours by default
+        let expires_at = params
+            .expires_at
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| (chrono::Utc::now() + chrono::Duration::hours(24)).to_rfc3339());
         // Derive file_type from mime_type
         let file_type = params
             .mime_type

@@ -269,6 +269,8 @@ pub struct SaveUploadedFileParams<'a> {
     pub text_content: Option<&'a str>,
     /// Associated AI conversation ID
     pub conversation_id: Option<&'a str>,
+    /// Optional RFC 3339 expiration timestamp. Defaults to 24 hours if omitted.
+    pub expires_at: Option<&'a str>,
 }
 
 // ============================================================================
