@@ -3,6 +3,7 @@ use libsql::Connection;
 
 use crate::schema::try_create_index;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize crypto tables: `crypto_wallets` and `crypto_payments`.
 pub async fn create_crypto_tables(conn: &Connection) -> Result<()> {
     // Crypto wallet connections (WalletConnect / Circle Wallets)
@@ -52,6 +53,7 @@ pub async fn create_crypto_tables(conn: &Connection) -> Result<()> {
     )
     .await?;
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     // Crypto payment transactions with Arc settlement
     // COMPLIANCE: §1 - Payments via external wallets, receipts on Arc
     conn.execute(

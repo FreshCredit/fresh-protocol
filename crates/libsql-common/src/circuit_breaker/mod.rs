@@ -3,6 +3,7 @@
 //! This module provides a circuit breaker implementation that wraps database connections
 //! to prevent cascading failures when the database becomes unavailable.
 //!
+// TAG: surface=database owner=platform-team rule=DB-001
 //! # Circuit Breaker States
 //!
 //! ```text
@@ -31,6 +32,7 @@
 //!
 //! async fn example() -> anyhow::Result<()> {
 //!     // Create underlying connection
+// TAG: surface=database owner=platform-team rule=GENERAL-001
 //!     let inner = ConnectionFactory::from_env().await?;
 //!
 //!     // Wrap with circuit breaker
@@ -59,6 +61,7 @@ use tracing::{debug, info, warn};
 
 use crate::connection::{ConnectionHealth, ConnectionMode, DatabaseConnection};
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Circuit breaker states
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum CircuitBreakerState {
@@ -71,5 +74,6 @@ pub enum CircuitBreakerState {
     HalfOpen,
 }
 
+/// Circuit breaker implementations
 pub mod impls;
 pub use impls::*;

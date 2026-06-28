@@ -5,6 +5,7 @@
 //!   `cargo run --bin run-migrations -- --cloud <url> --token <token>`
 //!   `cargo run --bin run-migrations -- --rollback <version>`
 
+// TAG: surface=database owner=platform-team rule=DB-001
 use anyhow::Result;
 use freshcredit_db_migrations::MigrationRunner;
 use std::env;
@@ -44,6 +45,7 @@ async fn main() -> Result<()> {
         return Ok(());
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     if let Some(version) = args.rollback_version {
         runner.rollback_migration(version).await?;
         return Ok(());
@@ -82,6 +84,7 @@ fn parse_args_from(args: &[String]) -> Result<MigrationArgs> {
         check_only: false,
     };
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     let mut i = 1;
     while i < args.len() {
         match args.get(i).map(std::string::String::as_str) {
@@ -111,6 +114,7 @@ fn parse_args_from(args: &[String]) -> Result<MigrationArgs> {
             }
             Some("--rollback") => {
                 i += 1;
+                // TAG: surface=database owner=platform-team rule=DB-001
                 if let Some(val) = args.get(i) {
                     result.rollback_version = Some(val.parse()?);
                 }
@@ -148,6 +152,7 @@ fn find_migrations_dir(migrations_dir: Option<String>) -> Result<PathBuf> {
             .join("migrations"));
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     let workspace_root = current
         .ancestors()
         .find(|p| p.join("Cargo.lock").exists())
@@ -183,6 +188,7 @@ fn print_help() {
     println!(
         "FreshCredit Database Migration Runner
 
+    // TAG: surface=database owner=data-team rule=DB-001
 USAGE:
     run-migrations [OPTIONS]
 
@@ -219,6 +225,7 @@ mod tests {
         print_help();
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     #[test]
     fn test_parse_args_local() {
         let args = vec![
@@ -255,6 +262,7 @@ mod tests {
         assert_eq!(result.migrations_dir, Some("/tmp/mig".to_string()));
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     #[test]
     fn test_parse_args_rollback() {
         let args = vec![

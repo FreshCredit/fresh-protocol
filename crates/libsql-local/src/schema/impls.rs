@@ -3,6 +3,7 @@ use libsql::Connection;
 
 use super::*;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize all schema tables from extracted modules
 ///
 /// ARCH-007: Schema validation tracking for startup validation logging
@@ -42,6 +43,7 @@ async fn init_core_group(conn: &Connection, validations: &mut Vec<SchemaValidati
     });
     info!("[ARCH-007] Schema category initialized: core");
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     initialize_financial_tables(conn).await?;
     validations.push(SchemaValidation {
         category: "financial",
@@ -80,6 +82,7 @@ async fn init_core_group(conn: &Connection, validations: &mut Vec<SchemaValidati
     Ok(())
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize business logic schema modules.
 async fn init_business_group(
     conn: &Connection,
@@ -122,6 +125,7 @@ async fn init_business_group(
     });
     info!("[ARCH-007] Schema category initialized: compliance");
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     initialize_notification_tables(conn).await?;
     validations.push(SchemaValidation {
         category: "notifications",
@@ -160,6 +164,7 @@ async fn init_data_source_group(
     });
     info!("[ARCH-007] Schema category initialized: ip");
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     initialize_publication_tables(conn).await?;
     validations.push(SchemaValidation {
         category: "publications",
@@ -201,6 +206,7 @@ async fn init_platform_group(
 ) -> Result<()> {
     use tracing::info;
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     initialize_teams_tables(conn).await?;
     initialize_teams_indexes(conn).await?;
     validations.push(SchemaValidation {
@@ -238,6 +244,7 @@ async fn init_platform_group(
     });
     info!("[ARCH-007] Schema category initialized: ucp");
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     initialize_governance_tables(conn).await?;
     initialize_governance_indexes(conn).await?;
     validations.push(SchemaValidation {

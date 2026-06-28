@@ -1,6 +1,7 @@
 use anyhow::Result;
 use libsql::Connection;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize offer analytics tables
 /// # Errors
 ///

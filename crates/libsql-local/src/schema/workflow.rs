@@ -10,6 +10,7 @@ use libsql::Connection;
 use super::try_create_index;
 use tracing::info;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize workflow-related tables
 /// # Errors
 ///
@@ -48,6 +49,7 @@ pub async fn initialize_workflow_tables(conn: &Connection) -> Result<()> {
     )
     .await?;
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     // Create indexes for workflow tables (using defensive helper for cloud schema compatibility)
     try_create_index(
         conn,

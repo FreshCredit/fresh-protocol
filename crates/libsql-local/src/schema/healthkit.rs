@@ -14,6 +14,7 @@ use anyhow::Result;
 use libsql::Connection;
 use tracing::info;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize `HealthKit` tables
 /// # Errors
 ///
@@ -40,6 +41,7 @@ pub async fn initialize_healthkit_tables(conn: &Connection) -> Result<()> {
     )
     .await?;
 
+    // TAG: surface=database
     conn.execute(
         "CREATE TABLE IF NOT EXISTS healthkit_records (
             id TEXT PRIMARY KEY,
@@ -139,6 +141,7 @@ pub async fn initialize_healthkit_tables(conn: &Connection) -> Result<()> {
     .await?;
 
     conn.execute(
+        // TAG: surface=database owner=platform-team rule=DB-001
         "CREATE TABLE IF NOT EXISTS healthkit_correlations (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,

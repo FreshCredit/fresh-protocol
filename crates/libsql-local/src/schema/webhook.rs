@@ -8,6 +8,7 @@ use libsql::Connection;
 use super::try_create_index;
 use tracing::info;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize webhook-related tables
 /// # Errors
 ///
@@ -34,6 +35,7 @@ pub async fn initialize_webhook_tables(conn: &Connection) -> Result<()> {
     )
     .await?;
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     // Create notifications table
     conn.execute(
         "CREATE TABLE IF NOT EXISTS notifications (
@@ -65,6 +67,7 @@ pub async fn initialize_webhook_tables(conn: &Connection) -> Result<()> {
     )
     .await?;
     try_create_index(
+        // TAG: surface=database owner=platform-team rule=DB-001
         conn,
         "CREATE INDEX IF NOT EXISTS idx_webhook_events_provider ON webhook_events(provider)",
     )

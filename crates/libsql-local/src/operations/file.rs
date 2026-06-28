@@ -14,6 +14,7 @@ use crate::LocalClient;
 use crate::SaveUploadedFileParams;
 use crate::UploadedFile;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 impl LocalClient {
     /// Save an uploaded file for AI analysis
     ///
@@ -56,6 +57,7 @@ impl LocalClient {
         Ok(id)
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Get an uploaded file by ID
     /// # Errors
     ///
@@ -86,6 +88,7 @@ impl LocalClient {
         }
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Update AI analysis for an uploaded file
     /// # Errors
     ///

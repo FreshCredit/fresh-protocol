@@ -2,6 +2,7 @@ use anyhow::Result;
 use libsql::Connection;
 use tracing::info;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize Plaid assets and balances tables
 /// # Errors
 ///
@@ -28,6 +29,7 @@ pub async fn initialize_plaid_assets_tables(conn: &Connection) -> Result<()> {
     )
     .await?;
 
+    // TAG: surface=database owner=data-team rule=DB-001
     conn.execute(
         "CREATE TABLE IF NOT EXISTS balances (
             id TEXT PRIMARY KEY,

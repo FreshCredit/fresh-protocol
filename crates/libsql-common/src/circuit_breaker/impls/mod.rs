@@ -6,6 +6,7 @@ mod helpers;
 mod tests;
 
 pub use core::CircuitBreakerConnection;
+// TAG: surface=database owner=platform-team rule=DB-001
 impl fmt::Display for CircuitBreakerState {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -16,6 +17,7 @@ impl fmt::Display for CircuitBreakerState {
     }
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Configuration for circuit breaker
 #[derive(Debug, Clone, Copy)]
 pub struct CircuitBreakerConfig {
@@ -45,6 +47,7 @@ impl CircuitBreakerConfig {
     #[must_use]
     pub fn from_env() -> Self {
         use std::env;
+        // TAG: surface=database owner=platform-team rule=GENERAL-001
 
         let failure_threshold = env::var("DB_CB_FAILURE_THRESHOLD")
             .ok()
@@ -75,6 +78,7 @@ impl CircuitBreakerConfig {
     }
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Statistics for circuit breaker
 #[derive(Debug, Clone, Default)]
 pub struct CircuitBreakerStats {
@@ -113,13 +117,17 @@ struct CircuitBreakerInner {
     stats: CircuitBreakerStats,
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Circuit breaker error types
 #[derive(Debug, thiserror::Error)]
 pub enum CircuitBreakerError {
+    /// Circuit is open and rejecting requests
     #[error("Circuit breaker is OPEN - database unavailable")]
     CircuitOpen,
+    /// Too many test calls while circuit is half-open
     #[error("Circuit breaker is HALF_OPEN - too many test calls")]
     CircuitHalfOpenLimit,
+    /// Underlying database operation failed
     #[error("Database operation failed: {0}")]
     DatabaseError(#[from] anyhow::Error),
 }

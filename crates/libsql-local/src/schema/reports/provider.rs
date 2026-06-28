@@ -1,6 +1,7 @@
 use anyhow::Result;
 use libsql::Connection;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize provider offers and dispute tables
 /// # Errors
 ///
@@ -42,6 +43,7 @@ pub async fn initialize_provider_tables(conn: &Connection) -> Result<()> {
     )
     .await?;
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     conn.execute(
         "CREATE TABLE IF NOT EXISTS disputes (
             id TEXT PRIMARY KEY,
@@ -67,6 +69,7 @@ pub async fn initialize_provider_tables(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Seed demo provider offers if table is empty
 /// COMPLIANCE: §4 - Template rules - these are example offers for demonstration
 /// NOTE: These are demo offers. Providers must define their own terms in production.
@@ -102,6 +105,7 @@ pub(crate) async fn seed_demo_provider_offers(conn: &Connection) -> Result<()> {
             "autodrive@demo.freshcredit.com",
         ),
         (
+            // TAG: surface=database owner=platform-team rule=DB-001
             "demo_provider_004",
             "HomeFirst Lending",
             "homefirst@demo.freshcredit.com",
@@ -138,6 +142,7 @@ pub(crate) async fn seed_demo_provider_offers(conn: &Connection) -> Result<()> {
         (),
     ).await?;
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     conn.execute(
         "INSERT INTO provider_offers (id, provider_id, name, description, product_type,
             loan_amount_min_cents, loan_amount_max_cents, apr_min_percent, apr_max_percent,
@@ -171,6 +176,7 @@ pub(crate) async fn seed_demo_provider_offers(conn: &Connection) -> Result<()> {
     )
     .await?;
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     conn.execute(
         "INSERT INTO provider_offers (id, provider_id, name, description, product_type,
             loan_amount_min_cents, loan_amount_max_cents, apr_min_percent, apr_max_percent,

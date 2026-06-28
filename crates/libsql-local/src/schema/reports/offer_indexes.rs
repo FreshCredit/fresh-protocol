@@ -2,6 +2,7 @@ use crate::schema::try_create_index;
 use anyhow::Result;
 use libsql::Connection;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize offer analytics indexes
 /// # Errors
 ///
@@ -37,6 +38,7 @@ pub async fn initialize_offer_analytics_indexes(conn: &Connection) -> Result<()>
     )
     .await?;
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_offer_events_user_id ON offer_events(user_id)",
         (),

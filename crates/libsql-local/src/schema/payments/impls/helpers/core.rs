@@ -3,6 +3,7 @@ use libsql::Connection;
 
 use crate::schema::try_create_index;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize Arc receipts table with indexes.
 pub async fn create_arc_tables(conn: &Connection) -> Result<()> {
     // Arc receipts - L1 settlement receipts on Circle Arc
@@ -76,6 +77,7 @@ pub async fn create_arc_tables(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize bridge transfers table with indexes.
 pub async fn create_bridge_tables(conn: &Connection) -> Result<()> {
     // Bridge transfers - Circle Bridge Kit cross-chain USDC transfers (Phase 2A)
@@ -143,6 +145,7 @@ pub async fn create_bridge_tables(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize gateway tables: `gateway_sessions` and `gateway_transactions`.
 pub async fn create_gateway_tables(conn: &Connection) -> Result<()> {
     // Gateway sessions - Circle Gateway fiat on/off ramp sessions (Phase 2B)
@@ -183,6 +186,7 @@ pub async fn create_gateway_tables(conn: &Connection) -> Result<()> {
     try_create_index(
         conn,
         "CREATE INDEX IF NOT EXISTS idx_gateway_sessions_user_id ON gateway_sessions(user_id)",
+        // TAG: surface=database owner=platform-team rule=DB-001
     )
     .await?;
     try_create_index(

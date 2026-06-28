@@ -1,5 +1,6 @@
 use super::*;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 impl CloudClient {
     /// Get count of accounts from cloud (for sync status)
     /// # Errors
@@ -14,17 +15,16 @@ impl CloudClient {
             .await
             .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?;
 
-        if let Some(row) = rows
+        (rows
             .next()
             .await
-            .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?
-        {
-            Ok(row.get::<i64>(0).unwrap_or(0) as u64)
-        } else {
-            Ok(0)
-        }
+            .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?)
+        .map_or(Ok(0), |row| {
+            Ok(row.get::<i64>(0).unwrap_or(0).try_into().unwrap_or(0))
+        })
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Get count of transactions from cloud (for sync status)
     /// # Errors
     ///
@@ -38,19 +38,18 @@ impl CloudClient {
             .await
             .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?;
 
-        if let Some(row) = rows
+        (rows
             .next()
             .await
-            .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?
-        {
-            Ok(row.get::<i64>(0).unwrap_or(0) as u64)
-        } else {
-            Ok(0)
-        }
+            .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?)
+        .map_or(Ok(0), |row| {
+            Ok(row.get::<i64>(0).unwrap_or(0).try_into().unwrap_or(0))
+        })
     }
 
     /// Get user preferences from cloud
     /// # Errors
+    // TAG: surface=database owner=platform-team rule=GENERAL-001
     ///
     /// Returns an error if the operation fails.
     pub async fn get_user_preferences(
@@ -68,15 +67,16 @@ impl CloudClient {
         ).await
         .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?;
 
-        if let Some(row) = rows
+        (rows
             .next()
             .await
-            .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?
-        {
+            .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?)
+        .map_or(Ok(None), |row| {
             Ok(Some(freshcredit_libsql_local::UserPreferences {
                 ai_agent_enabled: row.get::<bool>(0).ok(),
                 ai_feedback_enabled: row.get::<bool>(1).ok(),
                 ai_offers_enabled: row.get::<bool>(2).ok(),
+                // TAG: surface=database owner=platform-team rule=DB-001
                 ai_lenders_enabled: row.get::<bool>(3).ok(),
                 cloud_sync_enabled: row.get::<bool>(4).ok(),
                 blockchain_enabled: row.get::<bool>(5).ok(),
@@ -90,11 +90,10 @@ impl CloudClient {
                 plaid_connection_skipped: row.get::<bool>(13).ok(),
                 plaid_reminder_dismissed_until: row.get::<String>(14).ok(),
             }))
-        } else {
-            Ok(None)
-        }
+        })
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Save user preferences to cloud
     /// # Errors
     ///
@@ -132,6 +131,7 @@ impl CloudClient {
         Ok(())
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Get user profile by Azure ID (`object_id`) from per-user Turso cloud
     ///
     /// ARCHITECTURE: Used by payments/plaid routes to read user data from per-user cloud.
@@ -159,14 +159,15 @@ impl CloudClient {
                  FROM user_profile WHERE azure_id = ? OR object_id = ?",
                 libsql::params![azure_id.to_string(), azure_id.to_string()],
             )
+// TAG: surface=database owner=platform-team rule=GENERAL-001
             .await
             .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?;
 
-        if let Some(row) = rows
+        (rows
             .next()
             .await
-            .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?
-        {
+            .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?)
+        .map_or(Ok(None), |row| {
             Ok(Some(freshcredit_libsql_local::UserProfile {
                 id: row.get(0).unwrap_or_default(),
                 platform_user_id: row.get(1).unwrap_or_default(),
@@ -188,6 +189,7 @@ impl CloudClient {
                 employment_status: row.get(17).ok(),
                 annual_income: row.get(18).ok(),
                 // New fields added in ARCH-P2-001 (columns 19-23)
+                // TAG: surface=database owner=platform-team rule=DB-001
                 phone_number: row.get(19).ok(),
                 preferred_name: row.get(20).ok(),
                 emergency_contact_name: row.get(21).ok(),
@@ -207,11 +209,10 @@ impl CloudClient {
                 created_at: row.get(32).unwrap_or_default(),
                 updated_at: row.get(33).unwrap_or_default(),
             }))
-        } else {
-            Ok(None)
-        }
+        })
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Get all accounts for a user from per-user Turso cloud
     ///
     /// ARCHITECTURE: Used by payments/plaid routes to read account data from per-user cloud.
@@ -238,11 +239,11 @@ impl CloudClient {
         while let Some(row) = rows
             .next()
             .await
+// TAG: surface=database owner=platform-team rule=GENERAL-001
             .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?
         {
             let account_type_str: String = row.get(2).unwrap_or_default();
             let account_type = match account_type_str.to_lowercase().as_str() {
-                "checking" => freshcredit_types::AccountType::Checking,
                 "savings" => freshcredit_types::AccountType::Savings,
                 "credit" => freshcredit_types::AccountType::Credit,
                 "investment" => freshcredit_types::AccountType::Investment,
@@ -268,6 +269,7 @@ impl CloudClient {
         Ok(accounts)
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Get all transactions for a user from per-user Turso cloud
     ///
     /// ARCHITECTURE: Used by payments/plaid routes to read transaction data from per-user cloud.
@@ -306,6 +308,7 @@ impl CloudClient {
             let date = chrono::DateTime::parse_from_rfc3339(&date_str)
                 .map_or_else(|_| chrono::Utc::now(), |dt| dt.with_timezone(&chrono::Utc));
 
+            // TAG: surface=database owner=platform-team rule=DB-001
             transactions.push(freshcredit_types::Transaction {
                 id: row.get(0).unwrap_or_default(),
                 account_id: row.get(1).unwrap_or_default(),
@@ -321,6 +324,7 @@ impl CloudClient {
         Ok(transactions)
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Get Plaid access token for a user's account
     ///
     /// ARCHITECTURE: Retrieves the encrypted access token for Plaid API calls.
@@ -352,6 +356,7 @@ impl CloudClient {
         Ok(None)
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Get Plaid access token for a specific account ID
     ///
     /// ARCHITECTURE: Retrieves the encrypted access token for a specific account.
@@ -386,6 +391,7 @@ impl CloudClient {
         Ok(None)
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Get a specific account by ID
     ///
     /// ARCHITECTURE: Used by payment flow to get account details for a specific account.
@@ -411,12 +417,12 @@ impl CloudClient {
 
         if let Some(row) = rows
             .next()
+// TAG: surface=database owner=platform-team rule=GENERAL-001
             .await
             .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?
         {
             let account_type_str: String = row.get(2).unwrap_or_default();
             let account_type = match account_type_str.to_lowercase().as_str() {
-                "checking" => freshcredit_types::AccountType::Checking,
                 "savings" => freshcredit_types::AccountType::Savings,
                 "credit" => freshcredit_types::AccountType::Credit,
                 "investment" => freshcredit_types::AccountType::Investment,

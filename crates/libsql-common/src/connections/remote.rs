@@ -5,8 +5,10 @@ use libsql::Database;
 use std::sync::Arc;
 use std::time::Instant;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 use crate::connection::{ConnectionHealth, ConnectionMode, DatabaseConnection};
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Direct remote connection to Turso
 ///
 /// This connection type provides:
@@ -33,6 +35,7 @@ use crate::connection::{ConnectionHealth, ConnectionMode, DatabaseConnection};
 /// ```
 #[derive(Debug)]
 pub struct RemoteConnection {
+    // TAG: surface=database owner=platform-team rule=GENERAL-001
     db: Arc<Database>,
 }
 
@@ -60,6 +63,7 @@ impl RemoteConnection {
     }
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 #[async_trait]
 impl DatabaseConnection for RemoteConnection {
     async fn query(&self, sql: &str, params: Vec<libsql::Value>) -> anyhow::Result<libsql::Rows> {
@@ -85,6 +89,7 @@ impl DatabaseConnection for RemoteConnection {
 
         match conn.query("SELECT 1", ()).await {
             Ok(_) => {
+                // TAG: surface=database owner=platform-team rule=GENERAL-001
                 let latency = start.elapsed().as_millis() as u64;
                 Ok(ConnectionHealth {
                     mode: ConnectionMode::DirectRemote,

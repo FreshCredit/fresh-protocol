@@ -1,3 +1,4 @@
+// TAG: surface=database owner=platform-team rule=DB-001 test-coverage=unit
 //! Database operations for `FreshCredit` unified schema
 //!
 //! Module structure (REFACTORING IN PROGRESS):

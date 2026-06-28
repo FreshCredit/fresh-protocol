@@ -2,6 +2,7 @@ use anyhow::Result;
 use libsql::Connection;
 use tracing::info;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// # Errors
 ///
 /// Returns an error if the operation fails.

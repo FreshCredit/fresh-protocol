@@ -14,6 +14,7 @@ use anyhow::Result;
 use libsql::Connection;
 use tracing::info;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize Apple Music tables
 /// # Errors
 ///
@@ -42,6 +43,7 @@ pub async fn initialize_apple_music_tables(conn: &Connection) -> Result<()> {
     .await?;
 
     conn.execute(
+        // TAG: surface=database owner=platform-team rule=DB-001
         "CREATE TABLE IF NOT EXISTS apple_music_library_songs (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL REFERENCES user_profile(id),
@@ -86,6 +88,7 @@ pub async fn initialize_apple_music_tables(conn: &Connection) -> Result<()> {
     )
     .await?;
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     conn.execute(
         "CREATE TABLE IF NOT EXISTS apple_music_playlists (
             id TEXT PRIMARY KEY,
@@ -126,6 +129,7 @@ pub async fn initialize_apple_music_tables(conn: &Connection) -> Result<()> {
     )
     .await?;
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     conn.execute(
         "CREATE TABLE IF NOT EXISTS apple_music_genre_stats (
             id TEXT PRIMARY KEY,

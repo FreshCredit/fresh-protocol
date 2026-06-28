@@ -10,12 +10,14 @@
 //!
 //! COMPLIANCE: §10 Unified Database Schema Architecture
 
+// TAG: surface=database owner=platform-team rule=DB-001
 use anyhow::Result;
 use libsql::Connection;
 
 use super::try_create_index;
 use tracing::info;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize core tables (`user_profile` and related)
 ///
 /// Creates 6 core tables: `user_profile`, `user_preferences`, `auth_tokens`,
@@ -79,6 +81,7 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
     // CHATBOT-FIX: platform_user_id is required by RBAC middleware queries
     // This column was added to the schema but existing databases may not have it
     let _ = conn
+// TAG: surface=database owner=platform-team rule=DB-001
         .execute(
             "ALTER TABLE user_profile ADD COLUMN platform_user_id TEXT",
             (),
@@ -126,6 +129,7 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
         .execute("ALTER TABLE user_profile ADD COLUMN employer_name TEXT", ())
         .await;
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     // Create user_preferences table (matches production Turso schema)
     // P0g: Includes onboarding dismissal fields for §27.3 onboarding flow rules
     conn.execute(
@@ -155,6 +159,7 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
     )
     .await?;
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     // Migrations for user_preferences
     let _ = conn
         .execute(
@@ -234,6 +239,7 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
     )
     .await?;
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     // Create kilt_dids table for KILT Protocol DID storage
     conn.execute(
         "CREATE TABLE IF NOT EXISTS kilt_dids (
@@ -253,6 +259,7 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize core table indexes
 /// # Errors
 ///

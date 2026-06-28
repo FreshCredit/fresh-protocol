@@ -11,6 +11,7 @@ use tracing::info;
 
 use crate::LocalClient;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 impl LocalClient {
     /// Store financial report locally (uses reports table - `BlockID`)
     /// # Errors
@@ -41,6 +42,7 @@ impl LocalClient {
         Ok(())
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Retrieve financial report from local storage using raw SQL
     /// # Errors
     ///

@@ -2,6 +2,7 @@ use anyhow::Result;
 use libsql::Connection;
 use tracing::info;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize Plaid consumer reports and employment tables
 /// # Errors
 ///
@@ -37,6 +38,7 @@ pub async fn initialize_plaid_reports_tables(conn: &Connection) -> Result<()> {
     )
     .await?;
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     conn.execute(
         "CREATE TABLE IF NOT EXISTS employment (
             id TEXT PRIMARY KEY,

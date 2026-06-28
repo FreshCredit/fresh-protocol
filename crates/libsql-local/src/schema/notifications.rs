@@ -10,6 +10,7 @@ use anyhow::Result;
 use libsql::Connection;
 use tracing::info;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize webhook and notification tables
 /// # Errors
 ///
@@ -35,6 +36,7 @@ pub async fn initialize_notification_tables(conn: &Connection) -> Result<()> {
     )
     .await?;
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     conn.execute(
         "CREATE TABLE IF NOT EXISTS notifications (
             id TEXT PRIMARY KEY,

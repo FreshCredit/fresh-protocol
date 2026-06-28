@@ -3,6 +3,7 @@
 //! This crate provides a dual-path architecture for libSQL connections:
 //! - **Direct Remote** (default): HTTP connection to Turso Cloud
 //! - **Embedded Replica** (opt-in): Local cache with background sync
+// TAG: surface=database owner=platform-team rule=DB-001
 //!
 //! # Feature Flags
 //!
@@ -39,6 +40,7 @@
 //! │  │              DatabaseConnection (trait)                │  │
 //! │  └───────────────────────────────────────────────────────┘  │
 //! └─────────────────────────────────────────────────────────────┘
+// TAG: surface=database owner=platform-team rule=DB-001
 //!                              │
 //!                              ▼
 //! ┌─────────────────────────────────────────────────────────────┐
@@ -75,6 +77,7 @@
 //!
 //!     // Create connection
 //!     let db = ConnectionFactory::create(&config).await?;
+// TAG: surface=database owner=platform-team rule=DB-001
 //!
 //!     // Use the connection
 //!     let rows = db.query("SELECT * FROM users", vec![]).await?;
@@ -111,6 +114,7 @@
 //!
 //! async fn example() -> anyhow::Result<()> {
 //!     let primary = ConnectionConfig {
+// TAG: surface=database owner=platform-team rule=DB-001
 //!         mode: ConnectionMode::DirectRemote,
 //!         remote_url: "libsql://primary.turso.io".to_string(),
 //!         auth_token: "token".to_string(),
@@ -148,8 +152,8 @@
 
 // Core modules
 #![allow(clippy::wildcard_imports)]
-#![allow(missing_docs)]
 
+// TAG: surface=database owner=platform-team rule=DB-001
 pub mod circuit_breaker;
 pub mod connection;
 pub mod connections;

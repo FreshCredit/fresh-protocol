@@ -6,6 +6,7 @@ use crate::{
     ConnectionHealth, ConnectionMode, DatabaseConnection, RetryConfig,
 };
 
+// TAG: surface=database owner=platform-team rule=DB-001
 static CRYPTO_PROVIDER_INIT: std::sync::Once = std::sync::Once::new();
 
 fn ensure_crypto_provider() {
@@ -49,6 +50,7 @@ async fn test_config_validation() {
         ..Default::default()
     };
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     let result = ConnectionFactory::create(&config).await;
     assert!(result.is_err());
 }
@@ -87,6 +89,7 @@ async fn test_validate_local_ok() {
     assert!(config.validate().is_ok());
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 #[tokio::test]
 async fn test_create_with_fallback_primary_succeeds() {
     let primary = ConnectionConfig {
@@ -130,6 +133,7 @@ async fn test_create_with_circuit_breaker() {
     };
     let cb_config = CircuitBreakerConfig::default();
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     let result = ConnectionFactory::create_with_circuit_breaker(&config, cb_config).await;
     assert!(result.is_ok());
 }
@@ -170,6 +174,7 @@ async fn test_circuit_breaker_with_local_db() {
     cb.trip().await;
     assert_eq!(cb.state().await, CircuitBreakerState::Open);
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     // Health check should now be unhealthy
     let health = cb.health_check().await.unwrap();
     assert!(!health.is_healthy);
@@ -214,6 +219,7 @@ fn test_connection_mode_display() {
     assert_eq!(ConnectionMode::DirectRemote.to_string(), "direct-remote");
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 #[tokio::test]
 async fn test_database_connection_ext() {
     use crate::DatabaseConnectionExt;
@@ -252,6 +258,7 @@ async fn test_database_connection_ext() {
         .unwrap();
     assert!(row.is_none());
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     // query_one with existing row
     let row = conn
         .query_one("SELECT name FROM ext_test WHERE id = 1", vec![])
@@ -293,6 +300,7 @@ async fn test_with_retry_success() {
     assert_eq!(attempts.load(std::sync::atomic::Ordering::SeqCst), 1);
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 #[tokio::test]
 async fn test_with_retry_eventual_success() {
     let config = RetryConfig {
@@ -341,6 +349,7 @@ async fn test_with_retry_exhausted() {
     })
     .await;
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     assert!(result.is_err());
     assert_eq!(attempts.load(std::sync::atomic::Ordering::SeqCst), 3); // initial + 2 retries
 }
@@ -378,6 +387,7 @@ fn test_circuit_breaker_config_from_env() {
         std::env::set_var("DB_CB_SUCCESS_THRESHOLD", "3");
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     let config = CircuitBreakerConfig::from_env();
     assert_eq!(config.failure_threshold, 10);
     assert_eq!(config.recovery_timeout_secs, 60);
@@ -422,6 +432,7 @@ fn test_connection_config_from_env() {
     }
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 #[tokio::test]
 async fn test_create_local_with_path() {
     let temp_dir = std::env::temp_dir();
@@ -460,6 +471,7 @@ async fn test_remote_connection_new_and_query_fails() {
     assert_eq!(health.mode, ConnectionMode::DirectRemote);
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 #[tokio::test]
 async fn test_create_remote_with_url_query_fails() {
     ensure_crypto_provider();
@@ -496,6 +508,7 @@ async fn test_create_with_circuit_breaker_from_env() {
         std::env::set_var("LIBSQL_LOCAL_PATH", ":memory:");
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     let result = ConnectionFactory::create_with_circuit_breaker_from_env().await;
     assert!(result.is_ok());
 
@@ -541,6 +554,7 @@ async fn test_create_remote_fails() {
     assert!(err.is_err());
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 #[tokio::test]
 async fn test_replica_connection_with_local_db() {
     use crate::connections::ReplicaConnection;
@@ -579,6 +593,7 @@ async fn test_replica_connection_with_local_db() {
     assert!(health.is_healthy);
     assert_eq!(health.mode, ConnectionMode::EmbeddedReplica);
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     // sync on local db fails (no remote)
     let err = conn.sync().await;
     assert!(err.is_err());
@@ -619,6 +634,7 @@ async fn test_create_replica_with_params_fails() {
     assert!(result.is_err());
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 #[tokio::test]
 async fn test_circuit_breaker_auto_open_via_failures() {
     use crate::connections::LocalConnection;
@@ -664,6 +680,7 @@ async fn test_circuit_breaker_half_open_failure_returns_to_open() {
         },
     );
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     // Trip and wait
     cb.trip().await;
     tokio::time::sleep(std::time::Duration::from_millis(50)).await;
@@ -702,6 +719,7 @@ async fn test_circuit_breaker_open_rejects_with_remaining_time() {
     assert!(stats.rejected > 0);
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 #[tokio::test]
 async fn test_create_with_cb_and_fallback_both_fail() {
     let primary = ConnectionConfig {
@@ -745,6 +763,7 @@ async fn test_circuit_breaker_from_env() {
 async fn test_circuit_breaker_half_open_transitions() {
     use crate::connections::LocalConnection;
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     let local = LocalConnection::in_memory().await.unwrap();
     let cb = CircuitBreakerConnection::new(
         Arc::new(local),
@@ -787,6 +806,7 @@ async fn test_circuit_breaker_half_open_limit() {
         },
     );
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     cb.trip().await;
     tokio::time::sleep(std::time::Duration::from_millis(50)).await;
 

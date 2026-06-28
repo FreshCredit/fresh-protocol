@@ -11,6 +11,7 @@ async fn test_schema_table_count() {
     let client = LocalClient::new_in_memory().await.unwrap();
     client.initialize_schema().await.unwrap();
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     // Query sqlite_master for table count
     let mut rows = client
         .query(
@@ -51,6 +52,7 @@ async fn test_schema_table_count() {
     assert_eq!(count, 136, "Schema should contain exactly 136 tables");
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Test that critical tables exist in the schema
 #[tokio::test]
 async fn test_critical_tables_exist() {
@@ -81,6 +83,7 @@ async fn test_critical_tables_exist() {
         "linkedin_languages",
         // HealthKit tables (H1: Multi-Source Integration)
         "healthkit_profiles",
+        // TAG: surface=database owner=platform-team rule=DB-001
         "healthkit_records",
         "healthkit_workouts",
         "healthkit_activity_summaries",
@@ -120,6 +123,7 @@ async fn test_user_profile_crud() {
 
     let now = chrono::Utc::now().to_rfc3339();
     let profile = UserProfile {
+        // TAG: surface=database owner=platform-team rule=DB-001
         id: "test-user-123".to_string(),
         platform_user_id: "platform-123".to_string(),
         azure_id: "azure-123".to_string(),
@@ -162,6 +166,7 @@ async fn test_user_profile_crud() {
     // Store user profile
     client.store_user_profile(&profile).await.unwrap();
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     // Verify user exists
     let retrieved = client.get_user_profile("platform-123").await.unwrap();
     assert!(
@@ -203,6 +208,7 @@ async fn test_execute_returns_rows_affected() {
         .await
         .unwrap();
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     // Insert a test row
     let result = client
         .execute(
@@ -238,6 +244,7 @@ async fn test_schema_initialization_idempotent() {
     assert!(count > 0);
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Test user profile update
 #[tokio::test]
 async fn test_user_profile_update() {
@@ -285,6 +292,7 @@ async fn test_user_profile_update() {
         updated_at: now.clone(),
     };
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     // Store initial profile
     client.store_user_profile(&profile).await.unwrap();
 

@@ -3,6 +3,7 @@
 //! This module provides a factory pattern for creating different types of
 //! database connections based on configuration.
 //!
+// TAG: surface=database owner=platform-team rule=DB-001
 //! # Feature Flags
 //!
 //! - `remote` (default): Direct HTTP connections to Turso Cloud
@@ -32,8 +33,11 @@
 //! }
 //! ```
 
+/// Local-only connection factory
 pub mod local;
+/// Remote connection factory
 pub mod remote;
+/// Embedded replica connection factory
 pub mod replica;
 
 use std::sync::Arc;
@@ -41,11 +45,13 @@ use std::sync::Arc;
 use crate::circuit_breaker::{CircuitBreakerConfig, CircuitBreakerConnection};
 use crate::connection::{ConnectionConfig, ConnectionMode, DatabaseConnection};
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Factory for creating database connections
 #[derive(Debug)]
 pub struct ConnectionFactory;
 
 impl ConnectionFactory {
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Create a new connection based on configuration
     ///
     /// # Errors
@@ -78,6 +84,7 @@ impl ConnectionFactory {
         }
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Create with automatic fallback
     ///
     /// Attempts primary mode first, falls back to secondary on failure.
@@ -109,6 +116,7 @@ impl ConnectionFactory {
     /// }
     /// ```
     /// # Errors
+    // TAG: surface=database owner=platform-team rule=GENERAL-001
     ///
     /// Returns an error if the operation fails.
     pub async fn create_with_fallback(
@@ -141,6 +149,7 @@ impl ConnectionFactory {
         }
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Create from environment variables
     ///
     /// Uses the following environment variables:
@@ -170,6 +179,7 @@ impl ConnectionFactory {
         Self::create(&config).await
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Create a connection with circuit breaker protection
     ///
     /// Wraps the underlying connection with a circuit breaker that will
@@ -208,6 +218,7 @@ impl ConnectionFactory {
         Ok(CircuitBreakerConnection::new(inner, cb_config))
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Create a connection with circuit breaker from environment
     ///
     /// Uses both database connection env vars and circuit breaker env vars.
@@ -233,6 +244,7 @@ impl ConnectionFactory {
         Self::create_with_circuit_breaker(&config, cb_config).await
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Create with circuit breaker and automatic fallback
     ///
     /// Combines circuit breaker protection with fallback to a secondary
@@ -271,6 +283,7 @@ impl ConnectionFactory {
     ///
     /// Returns an error if the operation fails.
     pub async fn create_with_cb_and_fallback(
+        // TAG: surface=database owner=platform-team rule=GENERAL-001
         primary: &ConnectionConfig,
         fallback: &ConnectionConfig,
         cb_config: CircuitBreakerConfig,

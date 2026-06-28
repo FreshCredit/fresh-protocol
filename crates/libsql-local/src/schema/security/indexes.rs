@@ -3,6 +3,7 @@
 use anyhow::Result;
 use libsql::Connection;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize security monitoring indexes
 /// # Errors
 ///
@@ -39,6 +40,7 @@ pub async fn initialize_security_indexes(conn: &Connection) -> Result<()> {
     )
     .await?;
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_step_up_auth_user ON step_up_auth_requests(user_id, status)",
         (),

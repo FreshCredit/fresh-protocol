@@ -1,34 +1,61 @@
 //! Schema category enum
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Schema category for organizing table initialization
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SchemaCategory {
+    /// Core user and authentication tables
     Core,
+    /// Financial account and transaction tables
     Financial,
+    /// Identity verification tables
     Identity,
+    /// Plaid product tables
     Plaid,
+    /// Payment processing tables
     Payments,
+    /// Reports and scoring tables
     Reports,
+    /// Ticketing system tables
     Ticketing,
+    /// Compliance monitoring tables
     Compliance,
+    /// Notification tables
     Notifications,
+    /// Apple `HealthKit` tables
     HealthKit,
+    /// `LinkedIn` professional data tables
     LinkedIn,
+    /// IP address tracking tables
+    // TAG: surface=database owner=platform-team rule=GENERAL-001
     Ip,
+    /// Publication and research tables
     Publications,
+    /// Correlation engine tables
     Correlation,
+    /// Apple Music tables
     AppleMusic,
+    /// Platform-level tables
     Platform,
+    /// Team management tables
     Teams,
+    /// Customer data tables
     Customers,
+    /// AI conversation and file tables
     Ai,
+    /// Workflow automation tables
     Workflow,
+    /// Webhook event tables
     Webhook,
+    /// Security monitoring tables
     Security,
+    /// Governance and policy tables
     Governance,
+    /// Database index definitions
     Indexes,
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 impl SchemaCategory {
     /// Get all schema categories
     #[must_use]
@@ -61,6 +88,7 @@ impl SchemaCategory {
         ]
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Get the category name
     #[must_use]
     pub const fn name(&self) -> &'static str {

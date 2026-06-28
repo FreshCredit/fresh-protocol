@@ -3,6 +3,7 @@
 //! This module implements the unified database schema for `FreshCredit`,
 //! // `HARDCODED_SCHEMA`: 117 tables in Rust modular schema, 118 in `unified_schema.sql` (+1 browser-specific `blockchain_proofs`) (verified 2026-01-15)
 //! containing 117 tables that support:
+// TAG: surface=database owner=platform-team rule=DB-001
 //! - User profile and authentication (Entra ID + Verified ID)
 //! - All 11 Plaid products (Accounts, Transactions, Auth, Identity, etc.)
 //! - Payment processing (Stripe Connect ACH)
@@ -32,12 +33,17 @@
 
 // Submodules for incremental extraction
 #![allow(clippy::wildcard_imports)]
-#![allow(missing_docs)]
 
+// TAG: surface=database owner=platform-team rule=DB-001
+/// Helper utilities for local `LibSQL` operations
 pub mod helpers;
+/// `LocalClient` struct and core implementation
 pub mod impls;
+/// Database CRUD operations organized by domain
 pub mod operations;
+/// Database schema definitions organized by domain
 pub mod schema;
+/// Type definitions for database records
 pub mod types;
 
 #[cfg(test)]

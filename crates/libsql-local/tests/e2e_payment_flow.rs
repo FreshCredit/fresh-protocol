@@ -1,3 +1,4 @@
+// TAG: surface=database owner=data-team rule=DB-001
 //! End-to-end tests for payment flow
 //!
 //! Tests the complete payment journey:
@@ -42,6 +43,7 @@ async fn setup_test_user(client: &LocalClient) -> Result<TestUserData> {
         employment_status: None,
         annual_income: None,
         phone_number: None,
+        // TAG: surface=database owner=data-team rule=DB-001
         preferred_name: None,
         emergency_contact_name: None,
         emergency_contact_phone: None,
@@ -88,6 +90,7 @@ async fn test_ach_bank_account_linking() -> Result<()> {
     let client = LocalClient::new(":memory:").await?;
     client.initialize_schema().await?;
     let test_data = setup_test_user(&client).await?;
+    // TAG: surface=database owner=data-team rule=DB-001
 
     println!(
         "✅ Test database initialized with user: {}",
@@ -134,6 +137,7 @@ async fn test_ach_bank_account_linking() -> Result<()> {
         .await?;
     assert!(
         has_rows(&mut fs_rows).await,
+        // TAG: surface=database owner=data-team rule=DB-001
         "Funding source should be stored"
     );
     println!("✅ Funding source verified in database");
@@ -181,6 +185,8 @@ async fn test_payment_transaction_initiation() -> Result<()> {
 
     println!("🎉 Payment Transaction Initiation test passed!");
     Ok(())
+
+    // TAG: surface=database owner=data-team rule=DB-001
 }
 
 /// Test webhook handling and status updates
@@ -227,6 +233,7 @@ async fn test_webhook_status_updates() -> Result<()> {
     client.execute(
         "UPDATE webhook_events SET status = 'processed', processed_at = CURRENT_TIMESTAMP WHERE id = ?",
         vec![Value::Text(webhook_id.clone())]
+    // TAG: surface=database owner=data-team rule=DB-001
     ).await?;
     println!("✅ Webhook marked as processed");
 
@@ -273,6 +280,7 @@ async fn test_payment_status_tracking() -> Result<()> {
     let mut pending_payments = client
         .query(
             "SELECT id, status FROM payments WHERE status = 'pending'",
+            // TAG: surface=database owner=data-team rule=DB-001
             vec![],
         )
         .await?;
@@ -319,6 +327,7 @@ async fn test_complete_payment_flow() -> Result<()> {
         "INSERT INTO accounts (id, user_id, account_type, balance, currency, institution_name, created_at)
          VALUES (?, ?, 'checking', 10000.00, 'USD', 'Bank of America', CURRENT_TIMESTAMP)",
         vec![Value::Text(account_id.clone()), Value::Text(test_data.user_id.clone())]
+    // TAG: surface=database owner=data-team rule=DB-001
     ).await?;
     println!("✅ Step 2: Bank account linked");
 

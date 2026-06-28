@@ -3,6 +3,7 @@
 //! Tables in this module:
 //! - accounts: Linked financial accounts (Plaid integration) + `FreshCredit` tradelines
 //! - transactions: Financial transaction records
+// TAG: surface=database owner=platform-team rule=DB-001
 //!
 //! NOTE: balances table is in plaid.rs as it's part of Plaid Balance product
 //!
@@ -20,6 +21,7 @@ use libsql::Connection;
 use super::try_create_index;
 use tracing::info;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize financial tables
 ///
 /// Creates 2 tables: accounts, transactions
@@ -79,6 +81,7 @@ pub async fn initialize_financial_tables(conn: &Connection) -> Result<()> {
     .await?;
 
     // Create transactions table that matches production schema
+    // TAG: surface=database owner=platform-team rule=DB-001
     // Uses plaid_transaction_id UNIQUE constraint for deduplication
     conn.execute(
         "CREATE TABLE IF NOT EXISTS transactions (
@@ -122,6 +125,7 @@ pub async fn initialize_financial_tables(conn: &Connection) -> Result<()> {
     )
     .await?;
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     // Create indexes for accounts and transactions tables (using defensive helper for cloud schema compatibility)
     try_create_index(
         conn,

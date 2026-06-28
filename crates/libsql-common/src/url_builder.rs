@@ -1,8 +1,10 @@
+// TAG: surface=database owner=data-team rule=DB-001
 //! Turso URL builder for per-user database connections.
 //!
 //! This module provides a centralized, consistent way to construct
 //! per-user Turso database URLs with proper sanitization.
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Builder for constructing per-user Turso database URLs.
 ///
 /// Provides consistent URL construction with:
@@ -42,6 +44,7 @@ impl TursoUrlBuilder {
             organization: organization.into(),
             region: "aws-us-west-2".to_string(),
         }
+        // TAG: surface=database owner=platform-team rule=GENERAL-001
     }
 
     /// Create a new `TursoUrlBuilder` with custom organization and region.
@@ -52,6 +55,7 @@ impl TursoUrlBuilder {
         }
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Create a `TursoUrlBuilder` from environment variables.
     ///
     /// Uses `TURSO_ORGANIZATION` env var, defaulting to "devonshigaki".
@@ -86,6 +90,7 @@ impl TursoUrlBuilder {
     /// Format: `libsql://{db_name}-{organization}.{region}.turso.io`
     #[must_use]
     pub fn user_database_url(&self, user_id: &str) -> String {
+        // TAG: surface=database owner=data-team rule=DB-001
         let db_name = self.user_database_name(user_id);
         format!(
             "libsql://{}-{}.{}.turso.io",
@@ -93,6 +98,7 @@ impl TursoUrlBuilder {
         )
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Generate the HTTPS pipeline URL for a user's database.
     ///
     /// Format: `https://{db_name}-{organization}.{region}.turso.io/v2/pipeline`
@@ -130,7 +136,9 @@ impl TursoUrlBuilder {
             sanitized
         }
     }
+    // TAG: surface=database owner=platform-team rule=GENERAL-001
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Get the organization name.
     #[must_use]
     pub fn organization(&self) -> &str {
@@ -156,6 +164,7 @@ mod tests {
             url,
             "libsql://user-user-example-com-testorg.aws-us-west-2.turso.io"
         );
+        // TAG: surface=database owner=platform-team rule=GENERAL-001
     }
 
     #[test]
@@ -173,6 +182,7 @@ mod tests {
         let builder = TursoUrlBuilder::new("org");
         let db_name = builder.user_database_name("USER@EXAMPLE.COM");
         assert_eq!(db_name, "user-user-example-com");
+        // TAG: surface=database owner=data-team rule=DB-001
     }
 
     #[test]
@@ -182,6 +192,7 @@ mod tests {
         assert_eq!(db_name, "user-user-test----------");
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     #[test]
     fn test_with_region() {
         let builder = TursoUrlBuilder::with_region("myorg", "eu-west-1");

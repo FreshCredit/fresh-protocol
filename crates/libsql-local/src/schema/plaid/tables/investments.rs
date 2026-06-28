@@ -1,6 +1,7 @@
 use anyhow::Result;
 use libsql::Connection;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize Plaid investments tables
 /// # Errors
 ///
@@ -35,6 +36,7 @@ pub async fn initialize_plaid_investments_tables(conn: &Connection) -> Result<()
     .await?;
 
     conn.execute(
+        // TAG: surface=database owner=platform-team rule=DB-001
         "CREATE TABLE IF NOT EXISTS investments_securities (
             id TEXT PRIMARY KEY,
             security_id TEXT NOT NULL UNIQUE,
@@ -65,6 +67,7 @@ pub async fn initialize_plaid_investments_tables(conn: &Connection) -> Result<()
     )
     .await?;
 
+    // TAG: surface=database owner=data-team rule=DB-001
     conn.execute(
         "CREATE TABLE IF NOT EXISTS investments_transactions (
             id TEXT PRIMARY KEY,

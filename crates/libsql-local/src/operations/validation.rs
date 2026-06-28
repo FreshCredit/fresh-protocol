@@ -11,6 +11,7 @@ use tracing::info;
 
 use crate::{LocalClient, SchemaValidationResult};
 
+// TAG: surface=database owner=platform-team rule=DB-001
 impl LocalClient {
     /// Validate database schema integrity
     /// # Errors
@@ -37,6 +38,7 @@ impl LocalClient {
         })
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Validate data consistency
     ///
     /// Note: Uses `&mut Vec<String>` for issues/warnings to allow accumulation
@@ -83,6 +85,7 @@ impl LocalClient {
             )
             .await?;
 
+        // TAG: surface=database owner=platform-team rule=DB-001
         if let Some(row) = rows.next().await? {
             let invalid_amount_count: i64 = row.get(0)?;
             if invalid_amount_count > 0 {
@@ -114,6 +117,7 @@ impl LocalClient {
         Ok(())
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     async fn check_foreign_keys(&self, issues: &mut Vec<String>) -> Result<()> {
         let mut rows = self.connection.query("PRAGMA foreign_keys", ()).await?;
         if let Some(row) = rows.next().await? {
@@ -151,6 +155,7 @@ impl LocalClient {
                 "SELECT COUNT(*) FROM accounts a LEFT JOIN user_profile u ON a.user_id = u.platform_user_id WHERE u.platform_user_id IS NULL",
                 (),
             )
+// TAG: surface=database owner=platform-team rule=DB-001
             .await?;
         if let Some(row) = rows.next().await? {
             let count: i64 = row.get(0)?;

@@ -12,6 +12,7 @@ use anyhow::Result;
 use libsql::Connection;
 use tracing::info;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize platform tables
 /// # Errors
 ///
@@ -41,6 +42,7 @@ pub async fn initialize_platform_tables(conn: &Connection) -> Result<()> {
     )
     .await?;
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     // Referrals for rewards program
     conn.execute(
         "CREATE TABLE IF NOT EXISTS referrals (
@@ -76,6 +78,7 @@ pub async fn initialize_platform_tables(conn: &Connection) -> Result<()> {
     )
     .await?;
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     // Sales pipeline from HubSpot
     conn.execute(
         "CREATE TABLE IF NOT EXISTS sales_pipeline (

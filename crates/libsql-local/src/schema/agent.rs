@@ -3,6 +3,7 @@
 //! Tables (Active):
 //! - `agent_bindings`: User-agent identity binding (user-owned)
 //! - `agent_memories`: User-designated facts (user-owned)
+// TAG: surface=database owner=platform-team rule=DB-001
 //! - `agentfs_kv_store`: Agent state key-value store (agent-owned)
 //! - `agentfs_tool_calls`: Append-only tool call audit trail (agent-owned)
 //!
@@ -29,6 +30,7 @@ use anyhow::Result;
 use libsql::Connection;
 use tracing::{debug, info, warn};
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize agent tables
 /// # Errors
 ///
@@ -77,6 +79,7 @@ pub async fn initialize_agent_tables(conn: &Connection) -> Result<()> {
         .await;
     let _ = conn
         .execute(
+            // TAG: surface=database owner=platform-team rule=DB-001
             "ALTER TABLE agent_bindings ADD COLUMN last_verified_at DATETIME",
             (),
         )
@@ -117,6 +120,7 @@ pub async fn initialize_agent_tables(conn: &Connection) -> Result<()> {
     )
     .await?;
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     // =========================================================================
     // AGENTFS TABLES (Agent-Owned Data) - Phase 9.1
     // =========================================================================
@@ -157,6 +161,7 @@ pub async fn initialize_agent_tables(conn: &Connection) -> Result<()> {
     )
     .await?;
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     // =========================================================================
     // DEPRECATED TABLES - Keep for migration, no new writes
     // These tables are replaced by agentfs_tool_calls (Phase 9.1 consolidation)
@@ -200,6 +205,7 @@ pub async fn initialize_agent_tables(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize agent indexes
 /// # Errors
 ///
@@ -235,6 +241,7 @@ pub async fn initialize_agent_indexes(conn: &Connection) -> Result<()> {
     .await?;
     conn.execute("CREATE INDEX IF NOT EXISTS idx_agentfs_tool_calls_start_time ON agentfs_tool_calls(start_time)", ()).await?;
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     // DEPRECATED table indexes (kept for migration period)
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_agent_interactions_user_id ON agent_interactions(user_id)",
@@ -269,6 +276,7 @@ async fn validate_agent_bindings_schema(conn: &Connection) {
                 }
             }
 
+            // TAG: surface=database owner=platform-team rule=DB-001
             // Check for Phase 9 columns
             let phase9_columns = [
                 "entra_object_id",
@@ -309,6 +317,7 @@ async fn validate_agent_bindings_schema(conn: &Connection) {
     }
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// PR-P0-3: Public function to check if `agent_bindings` schema is valid
 ///
 /// Returns Ok(true) if all Phase 9 columns are present, Ok(false) if some are missing,

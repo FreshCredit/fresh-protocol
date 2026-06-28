@@ -14,6 +14,7 @@ use anyhow::Result;
 use libsql::Connection;
 use tracing::info;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize `LinkedIn` tables
 /// # Errors
 ///
@@ -45,6 +46,7 @@ pub async fn initialize_linkedin_tables(conn: &Connection) -> Result<()> {
     )
     .await?;
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     conn.execute(
         "CREATE TABLE IF NOT EXISTS linkedin_experiences (
             id TEXT PRIMARY KEY,
@@ -127,6 +129,7 @@ pub async fn initialize_linkedin_tables(conn: &Connection) -> Result<()> {
     )
     .await?;
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     conn.execute(
         "CREATE TABLE IF NOT EXISTS linkedin_languages (
             id TEXT PRIMARY KEY,

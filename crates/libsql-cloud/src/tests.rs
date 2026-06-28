@@ -2,6 +2,7 @@ use super::*;
 use chrono::Utc;
 use uuid::Uuid;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 impl CloudClient {
     async fn new_test() -> Self {
         let path = format!("/tmp/freshcredit_cloud_test_{}.db", uuid::Uuid::new_v4());
@@ -51,6 +52,7 @@ fn test_financial_report(user_id: &str) -> freshcredit_types::FinancialReport {
     freshcredit_types::FinancialReport {
         id: Uuid::new_v4(),
         user_id: user_id.to_string(),
+        // TAG: surface=database owner=platform-team rule=DB-001
         bureau_score: Some(750),
         accounts: vec![test_account(
             user_id,
@@ -77,13 +79,14 @@ fn test_user_profile_simple() -> freshcredit_libsql_local::UserProfile {
         job_title: Some("Developer".to_string()),
         street_address: Some("123 Main St".to_string()),
         city: Some("Anytown".to_string()),
+        // TAG: surface=database owner=platform-team rule=GENERAL-001
         state_province: Some("CA".to_string()),
         postal_code: Some("12345".to_string()),
         country_region: Some("USA".to_string()),
         date_of_birth: Some("1990-01-01".to_string()),
         ssn_last_four: Some("1234".to_string()),
         employment_status: Some("Employed".to_string()),
-        annual_income: Some(100000),
+        annual_income: Some(100_000),
         phone_number: Some("555-5678".to_string()),
         preferred_name: Some("Tester".to_string()),
         emergency_contact_name: Some("Emergency Contact".to_string()),
@@ -104,6 +107,7 @@ fn test_user_profile_simple() -> freshcredit_libsql_local::UserProfile {
     }
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 fn test_user_preferences() -> freshcredit_libsql_local::UserPreferences {
     freshcredit_libsql_local::UserPreferences {
         ai_agent_enabled: Some(true),
@@ -195,6 +199,7 @@ async fn insert_user_profile_raw(
                 object_id, verified_id_credential_id, verified_id_status,
                 verified_id_issued_at, created_at, updated_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+// TAG: surface=database owner=platform-team rule=DB-001
             libsql::params![
                 profile.id.clone(),
                 profile.platform_user_id.clone(),
@@ -243,6 +248,7 @@ async fn insert_account_raw(
     user_id: &str,
     account_type: &str,
     balance: f64,
+    // TAG: surface=database owner=platform-team rule=DB-001
     currency: &str,
     institution: &str,
     plaid_token: Option<&str>,
@@ -291,6 +297,7 @@ async fn insert_transaction_raw(
                 user_id.to_string(),
                 account_id.to_string(),
                 amount,
+                // TAG: surface=database owner=platform-team rule=DB-001
                 name.to_string(),
                 category.to_string(),
                 merchant.to_string(),
@@ -341,6 +348,7 @@ async fn test_initialize_schema_on_empty_database() {
     assert!(row.is_some(), "accounts table should exist");
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 #[tokio::test]
 async fn test_initialize_schema_is_idempotent() {
     let client = CloudClient::new_test().await;
@@ -365,6 +373,7 @@ async fn test_sync_and_get_financial_report() {
 
     let sync_result = client.sync_financial_report(&report).await;
     assert!(sync_result.is_ok(), "sync_financial_report should succeed");
+    // TAG: surface=database owner=platform-team rule=GENERAL-001
 
     let retrieved = client.get_financial_report(&user_id).await;
     assert!(retrieved.is_ok(), "get_financial_report should succeed");
@@ -392,6 +401,7 @@ async fn test_get_financial_report_not_found() {
     assert!(result.unwrap().is_none());
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 #[tokio::test]
 async fn test_sync_account() {
     let client = CloudClient::new_test().await;
@@ -439,6 +449,7 @@ async fn test_get_account_by_id_found() {
     );
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 #[tokio::test]
 async fn test_get_account_by_id_not_found() {
     let client = CloudClient::new_test().await;
@@ -463,6 +474,7 @@ async fn test_get_account_count() {
             "acc-1",
             freshcredit_types::AccountType::Checking,
         ))
+// TAG: surface=database owner=platform-team rule=GENERAL-001
         .await
         .unwrap();
     assert_eq!(client.get_account_count().await.unwrap(), 1);
@@ -492,6 +504,7 @@ async fn test_account_type_parsing() {
         (freshcredit_types::AccountType::Loan, "loan"),
     ];
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     for (i, (acc_type, _)) in types.iter().enumerate() {
         let acc = test_account(&user_id, &format!("acc-{i}"), acc_type.clone());
         client.sync_account(&acc).await.unwrap();
@@ -531,6 +544,7 @@ async fn test_sync_transaction_with_custom_table() {
     let client = CloudClient::new_test().await;
 
     client
+// TAG: surface=database owner=platform-team rule=DB-001
         .connection
         .execute(
             "CREATE TABLE transactions (
@@ -554,6 +568,7 @@ async fn test_sync_transaction_with_custom_table() {
         result.is_ok(),
         "sync_transaction should succeed with custom table"
     );
+    // TAG: surface=database owner=platform-team rule=GENERAL-001
 
     let mut rows = client
         .connection
@@ -578,12 +593,13 @@ async fn test_sync_transaction_with_custom_table() {
 
     assert_eq!(id, tx.id);
     assert_eq!(account_id, tx.account_id);
-    assert_eq!(amount, tx.amount);
+    assert!((amount - tx.amount).abs() < f64::EPSILON);
     assert_eq!(description, tx.description);
     assert_eq!(category, tx.category.unwrap());
     assert_eq!(merchant, tx.merchant_name.unwrap());
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 #[tokio::test]
 async fn test_get_transaction_count() {
     let client = CloudClient::new_test().await;
@@ -630,6 +646,7 @@ async fn test_get_user_transactions() {
     let client = CloudClient::new_test().await;
     init_full_schema(&client).await;
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     let user_id = test_user_id();
     let profile = test_user_profile_simple();
     insert_user_profile_raw(&client, &profile).await;
@@ -668,7 +685,7 @@ async fn test_get_user_transactions() {
 
     let tx1 = txs.iter().find(|t| t.id == "tx-1").unwrap();
     assert_eq!(tx1.account_id, "acc-1");
-    assert_eq!(tx1.amount, 50.0);
+    assert!((tx1.amount - 50.0).abs() < f64::EPSILON);
     assert_eq!(tx1.currency, "USD");
     assert_eq!(tx1.description, "Coffee");
     assert_eq!(tx1.category, Some("Food".to_string()));
@@ -680,6 +697,7 @@ async fn test_get_user_transactions_empty() {
     let client = CloudClient::new_test().await;
     client.initialize_schema().await.unwrap();
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     let user_id = test_user_id();
     let result = client.get_user_transactions(&user_id).await;
     assert!(result.is_ok());
@@ -728,6 +746,7 @@ async fn test_store_user_profile() {
     let client = CloudClient::new_test().await;
     init_full_schema(&client).await;
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     let profile = test_user_profile_simple();
     let result = client.store_user_profile(&profile).await;
     assert!(result.is_ok(), "store_user_profile should succeed");
@@ -772,6 +791,7 @@ async fn test_get_user_profile_found() {
     assert!(!retrieved.is_admin);
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 #[tokio::test]
 async fn test_get_user_profile_by_platform_user_id() {
     let client = CloudClient::new_test().await;
@@ -793,6 +813,7 @@ async fn test_get_user_profile_not_found() {
     init_full_schema(&client).await;
 
     let result = client.get_user_profile("nobody@example.com").await;
+    // TAG: surface=database owner=platform-team rule=GENERAL-001
     assert!(result.is_ok());
     assert!(result.unwrap().is_none());
 }
@@ -823,6 +844,7 @@ async fn test_get_user_profile_by_azure_id_not_found() {
     let client = CloudClient::new_test().await;
     init_full_schema(&client).await;
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     let result = client.get_user_profile_by_azure_id("nonexistent").await;
     assert!(result.is_ok());
     assert!(result.unwrap().is_none());
@@ -872,6 +894,7 @@ async fn test_get_user_preferences_not_found() {
     assert!(result.unwrap().is_none());
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 #[tokio::test]
 async fn test_get_plaid_access_token_found() {
     let client = CloudClient::new_test().await;
@@ -918,6 +941,7 @@ async fn test_get_plaid_access_token_not_found() {
     assert!(result.unwrap().is_none());
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 #[tokio::test]
 async fn test_get_plaid_access_token_for_account_found() {
     let client = CloudClient::new_test().await;

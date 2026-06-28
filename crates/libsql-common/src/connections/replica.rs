@@ -7,8 +7,10 @@ use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::RwLock;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 use crate::connection::{ConnectionHealth, ConnectionMode, DatabaseConnection};
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Embedded replica connection with background sync
 ///
 /// This connection type provides:
@@ -34,6 +36,7 @@ use crate::connection::{ConnectionHealth, ConnectionMode, DatabaseConnection};
 ///     Ok(())
 /// }
 /// ```
+// TAG: surface=database owner=platform-team rule=GENERAL-001
 #[derive(Debug)]
 pub struct ReplicaConnection {
     db: Arc<Database>,
@@ -60,6 +63,7 @@ impl ReplicaConnection {
         conn
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Create a new replica connection with all parameters
     /// # Errors
     ///
@@ -87,6 +91,7 @@ impl ReplicaConnection {
     /// Start background sync task
     /// # Errors
     ///
+    // TAG: surface=database owner=platform-team rule=GENERAL-001
     /// Returns an error if the operation fails.
     fn start_background_sync(&self, interval_secs: u64) {
         let db = self.db.clone();
@@ -116,6 +121,7 @@ impl ReplicaConnection {
         });
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Explicit sync on demand
     /// # Errors
     ///
@@ -137,6 +143,7 @@ impl ReplicaConnection {
         self.sync_interval_secs
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Get the underlying database (for advanced operations)
     #[must_use]
     pub fn database(&self) -> Arc<Database> {
@@ -165,6 +172,7 @@ impl DatabaseConnection for ReplicaConnection {
             *sync = Some(chrono::Utc::now());
         }
 
+        // TAG: surface=database owner=platform-team rule=GENERAL-001
         Ok(result)
     }
 
@@ -198,6 +206,7 @@ impl DatabaseConnection for ReplicaConnection {
                     latency_ms: latency,
                     is_healthy: true,
                     last_sync_at: last_sync,
+                    // TAG: surface=database owner=platform-team rule=DB-001
                     cache_hit_rate: Some(1.0), // Local reads = 100% cache hit
                 })
             }

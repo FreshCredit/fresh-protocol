@@ -13,18 +13,24 @@
 //! COMPLIANCE: §2 - Neutral matching only, no recommendations
 //! COMPLIANCE: §10 Unified Database Schema Architecture
 
+// TAG: surface=database owner=platform-team rule=DB-001
 use anyhow::Result;
 use libsql::Connection;
 use tracing::info;
 
+/// Offer analytics tables
 pub mod offer_analytics;
+/// Offer index tables
 pub mod offer_indexes;
+/// Provider tables
 pub mod provider;
+/// Verification tables
 pub mod verification;
 
 use offer_indexes::initialize_blockchain_proofs_table;
 use provider::seed_demo_provider_offers;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize reports and scoring tables
 /// # Errors
 ///
@@ -75,6 +81,7 @@ pub async fn initialize_reports_tables(conn: &Connection) -> Result<()> {
         )",
         (),
     )
+        // TAG: surface=database owner=data-team rule=DB-001
     .await?;
 
     // NOTE: FreshCredit matches offers, does not recommend them

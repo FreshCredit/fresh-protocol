@@ -1,3 +1,4 @@
+// TAG: surface=database owner=data-team rule=DB-001
 //! E2E Tests for `BlockID` Report Generation
 //!
 //! Tests the complete report generation flow including:
@@ -47,6 +48,7 @@ async fn setup_test_user_with_account(client: &LocalClient) -> Result<TestReport
 
     // Create linked account - note: 'id' is primary key, 'account_id' is separate UNIQUE column
     // The transactions table FK references accounts(account_id), so we must set account_id column
+    // TAG: surface=database owner=data-team rule=DB-001
     client.execute(
         "INSERT INTO accounts (id, user_id, account_id, account_type, balance, currency, institution_name, created_at)
          VALUES (?, ?, ?, 'checking', 5000.00, 'USD', 'Test Bank', CURRENT_TIMESTAMP)",
@@ -73,6 +75,7 @@ async fn setup_test_user_with_account(client: &LocalClient) -> Result<TestReport
 /// Test report creation and storage
 #[tokio::test]
 async fn test_report_creation() -> Result<()> {
+    // TAG: surface=database owner=data-team rule=DB-001
     println!("🧪 E2E Test: Report Creation");
 
     let client = LocalClient::new(":memory:").await?;
@@ -99,6 +102,7 @@ async fn test_report_creation() -> Result<()> {
         .query(
             "SELECT id, report_status FROM reports WHERE id = ?",
             vec![Value::Text(report_id.clone())],
+            // TAG: surface=database owner=data-team rule=DB-001
         )
         .await?;
     assert!(has_rows(&mut report).await, "Report should exist");
@@ -125,6 +129,7 @@ async fn test_data_aggregation() -> Result<()> {
         )
         .await?;
     assert!(has_rows(&mut accounts).await, "Should have accounts");
+    // TAG: surface=database owner=data-team rule=DB-001
     println!("✅ Accounts aggregated");
 
     // Query transactions for the user
@@ -151,6 +156,7 @@ async fn test_data_aggregation() -> Result<()> {
     println!("✅ Transaction totals calculated");
 
     println!("🎉 Data Aggregation test passed!");
+    // TAG: surface=database owner=data-team rule=DB-001
     Ok(())
 }
 
@@ -176,6 +182,7 @@ async fn test_blockchain_anchoring() -> Result<()> {
     let blockchain_hash = format!("0x{}", uuid::Uuid::new_v4().to_string().replace('-', ""));
     let blockchain_tx_id = format!("tx_{}", uuid::Uuid::new_v4());
     client.execute(
+        // TAG: surface=database owner=data-team rule=DB-001
         "UPDATE reports SET blockchain_hash = ?, blockchain_tx_id = ?, report_status = 'anchored' WHERE id = ?",
         vec![Value::Text(blockchain_hash.clone()), Value::Text(blockchain_tx_id.clone()), Value::Text(report_id.clone())]
     ).await?;
@@ -202,6 +209,7 @@ async fn test_blockchain_anchoring() -> Result<()> {
 #[tokio::test]
 async fn test_hash_verification() -> Result<()> {
     println!("🧪 E2E Test: Hash Verification");
+    // TAG: surface=database owner=data-team rule=DB-001
 
     let client = LocalClient::new(":memory:").await?;
     client.initialize_schema().await?;
@@ -227,6 +235,7 @@ async fn test_hash_verification() -> Result<()> {
     // Store report with hash
     let report_id = uuid::Uuid::new_v4().to_string();
     client.execute(
+            // TAG: surface=database owner=data-team rule=DB-001
         "INSERT INTO reports (id, user_id, report_type, report_name, report_status, blockchain_hash, report_data, raw_report_data, created_at)
          VALUES (?, ?, 'consumer_financial', 'Hash Test Report', 'verified', ?, ?, ?, CURRENT_TIMESTAMP)",
         vec![
@@ -254,6 +263,7 @@ async fn test_hash_verification() -> Result<()> {
 }
 
 /// Test report status transitions
+// TAG: surface=database owner=data-team rule=DB-001
 #[tokio::test]
 async fn test_report_status_transitions() -> Result<()> {
     println!("🧪 E2E Test: Report Status Transitions");
@@ -280,6 +290,7 @@ async fn test_report_status_transitions() -> Result<()> {
 
     // Transition to ready
     client.execute(
+        // TAG: surface=database owner=data-team rule=DB-001
         "UPDATE reports SET report_status = 'ready', generation_completed_at = CURRENT_TIMESTAMP WHERE id = ?",
         vec![Value::Text(report_id.clone())]
     ).await?;

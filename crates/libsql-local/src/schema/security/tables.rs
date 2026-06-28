@@ -4,6 +4,7 @@ use anyhow::Result;
 use libsql::Connection;
 use tracing::info;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize security monitoring tables
 /// # Errors
 ///
@@ -43,6 +44,7 @@ pub async fn initialize_security_tables(conn: &Connection) -> Result<()> {
     )
     .await?;
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     // Rate limit events table
     conn.execute(
         "CREATE TABLE IF NOT EXISTS rate_limit_events (
@@ -96,6 +98,7 @@ pub async fn initialize_security_tables(conn: &Connection) -> Result<()> {
     )
     .await?;
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     // Compliance digests table for weekly reports
     conn.execute(
         "CREATE TABLE IF NOT EXISTS compliance_digests (

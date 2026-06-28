@@ -1,4 +1,3 @@
-#![allow(missing_docs)]
 //! Versioned database migration system for `FreshCredit`
 //!
 //! This module provides a migration runner that:
@@ -20,22 +19,33 @@ use std::path::Path;
 use tokio::fs;
 use tracing::info;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Represents a migration to be applied
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Migration {
+    /// Migration version number
     pub version: i64,
+    /// Human-readable migration name
     pub name: String,
+    /// Forward migration SQL
     pub up_sql: String,
+    /// Rollback migration SQL (optional)
     pub down_sql: Option<String>,
+    /// SHA-256 checksum of `up_sql`
     pub checksum: String,
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Represents an applied migration record
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppliedMigration {
+    /// Migration version number
     pub version: i64,
+    /// Human-readable migration name
     pub name: String,
+    /// SHA-256 checksum of the applied migration SQL
     pub checksum: String,
+    /// Timestamp when the migration was applied
     pub applied_at: DateTime<Utc>,
 }
 
@@ -55,6 +65,7 @@ impl MigrationRunner {
             migrations: BTreeMap::new(),
         }
     }
+    // TAG: surface=database owner=platform-team rule=GENERAL-001
 
     /// Load migrations from a directory
     /// P0-FIX: Now async using `tokio::fs` to avoid blocking I/O
@@ -85,6 +96,7 @@ impl MigrationRunner {
         }
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Loads migrations from a directory.
     ///
     /// # Errors
@@ -114,6 +126,7 @@ impl MigrationRunner {
             }
         }
 
+        // TAG: surface=database owner=platform-team rule=DB-001
         for (version, (name, up_sql)) in up_migrations {
             let checksum = compute_checksum(&up_sql);
             let down_sql = down_migrations.get(&version).cloned();
@@ -132,6 +145,7 @@ impl MigrationRunner {
         Ok(())
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Ensure the `schema_migrations` table exists
     /// # Errors
     ///
@@ -178,6 +192,7 @@ impl MigrationRunner {
         Ok(applied)
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Run all pending migrations
     /// # Errors
     ///
@@ -207,6 +222,7 @@ impl MigrationRunner {
     /// Returns an error if the operation fails.
     async fn apply_migration(&self, migration: &Migration) -> Result<()> {
         // Begin transaction for atomic migration application
+        // TAG: surface=database owner=platform-team rule=GENERAL-001
         let tx = self.connection.transaction().await?;
 
         // Execute the up SQL (may contain multiple statements)
@@ -238,6 +254,7 @@ impl MigrationRunner {
         Ok(())
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Rollback a specific migration version with transaction safety
     /// # Errors
     ///
@@ -280,6 +297,7 @@ impl MigrationRunner {
         Ok(())
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Check for checksum mismatches (modified migrations)
     /// # Errors
     ///
@@ -307,6 +325,7 @@ impl MigrationRunner {
 /// Parse migration filename to extract version and name
 #[allow(clippy::literal_string_with_formatting_args)] // double braces are intentional literal output
 fn parse_migration_filename(filename: &str) -> Result<(i64, String)> {
+    // TAG: surface=database owner=platform-team rule=DB-001
     let parts: Vec<&str> = filename.splitn(2, '_').collect();
     if parts.len() != 2 {
         return Err(anyhow::anyhow!(
@@ -348,6 +367,7 @@ mod tests {
         let checksum = compute_checksum(sql);
         assert_eq!(checksum.len(), 64); // SHA-256 hex is 64 chars
 
+        // TAG: surface=database owner=platform-team rule=DB-001
         // Same SQL should produce same checksum
         let checksum2 = compute_checksum(sql);
         assert_eq!(checksum, checksum2);
@@ -394,6 +414,7 @@ mod async_tests {
         assert!(result.is_err());
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     #[tokio::test]
     async fn test_load_migrations_from_dir_success() {
         let temp_dir = std::env::temp_dir().join(format!("test_migrations_{}", std::process::id()));
@@ -426,6 +447,7 @@ mod async_tests {
         std::fs::remove_dir_all(&temp_dir).unwrap();
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     #[tokio::test]
     async fn test_apply_and_get_applied_migration() {
         let runner = in_memory_runner().await.unwrap();
@@ -468,6 +490,7 @@ mod async_tests {
         assert_eq!(applied.len(), 2);
         assert_eq!(applied, vec![1, 2]);
 
+        // TAG: surface=database owner=platform-team rule=DB-001
         // Running again should apply nothing
         let applied2 = runner.run_pending_migrations().await.unwrap();
         assert!(applied2.is_empty());
@@ -505,6 +528,7 @@ mod async_tests {
         let runner = in_memory_runner().await.unwrap();
         runner.ensure_migrations_table().await.unwrap();
 
+        // TAG: surface=database owner=platform-team rule=DB-001
         let migration = Migration {
             version: 1,
             name: "initial".to_string(),
@@ -545,6 +569,7 @@ mod async_tests {
         };
         runner.migrations.insert(1, tampered_migration);
 
+        // TAG: surface=database owner=platform-team rule=DB-001
         let mismatches = runner.check_checksum_mismatches().await.unwrap();
         assert_eq!(mismatches.len(), 1);
         assert_eq!(mismatches[0].0, 1);

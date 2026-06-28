@@ -11,6 +11,7 @@ use anyhow::Result;
 use libsql::Connection;
 use tracing::info;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize correlation engine tables
 /// # Errors
 ///
@@ -51,6 +52,7 @@ pub async fn initialize_correlation_tables(conn: &Connection) -> Result<()> {
     )
     .await?;
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     conn.execute(
         "CREATE TABLE IF NOT EXISTS correlation_metrics (
             id TEXT PRIMARY KEY,

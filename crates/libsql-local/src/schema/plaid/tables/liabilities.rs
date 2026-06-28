@@ -1,6 +1,7 @@
 use anyhow::Result;
 use libsql::Connection;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize Plaid liabilities and layer tables
 /// # Errors
 ///

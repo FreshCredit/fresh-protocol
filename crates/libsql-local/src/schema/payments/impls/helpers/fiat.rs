@@ -1,6 +1,7 @@
 use anyhow::Result;
 use libsql::Connection;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize fiat payment tables: customers, `funding_sources`, payments,
 /// `stripe_plaid_payments`, and `virtual_accounts`.
 #[allow(clippy::too_many_lines)]
@@ -26,6 +27,7 @@ pub async fn create_fiat_tables(conn: &Connection) -> Result<()> {
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
         (),
+        // TAG: surface=database
     )
     .await?;
 
@@ -54,6 +56,7 @@ pub async fn create_fiat_tables(conn: &Connection) -> Result<()> {
         )",
         (),
     )
+            // TAG: surface=database owner=data-team rule=DB-001
     .await?;
 
     conn.execute(
@@ -79,6 +82,7 @@ pub async fn create_fiat_tables(conn: &Connection) -> Result<()> {
             FOREIGN KEY (customer_id) REFERENCES customers (id) ON DELETE CASCADE,
             FOREIGN KEY (funding_source_id) REFERENCES funding_sources (id) ON DELETE SET NULL
         )",
+        // TAG: surface=database
         (),
     )
     .await?;
@@ -109,6 +113,7 @@ pub async fn create_fiat_tables(conn: &Connection) -> Result<()> {
     )
     .await?;
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     conn.execute(
         "CREATE TABLE IF NOT EXISTS virtual_accounts (
             id TEXT PRIMARY KEY,

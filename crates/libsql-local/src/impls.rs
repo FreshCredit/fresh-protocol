@@ -1,6 +1,7 @@
 use anyhow::Result;
 use tracing::info;
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Local `LibSQL` database client
 #[derive(Debug)]
 pub struct LocalClient {
@@ -22,6 +23,7 @@ impl LocalClient {
         Ok(Self { connection })
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Create a new in-memory client for testing
     ///
     /// This is useful for unit tests that don't need persistent storage.
@@ -46,6 +48,7 @@ impl LocalClient {
         &self.connection
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Initialize database schema using modular schema definitions
     ///
     /// This function delegates to the schema module for table creation.

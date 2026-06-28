@@ -5,7 +5,6 @@
 //! Cloud databases are per-user Turso instances with identical schema to local.
 
 #![allow(clippy::wildcard_imports)]
-#![allow(missing_docs)]
 
 use anyhow::Result;
 use freshcredit_types::{Account, FinancialReport, FreshCreditResult, Transaction, UserId};
@@ -16,12 +15,14 @@ use tracing::info;
 /// Source: `migrations/unified_schema.sql`
 const UNIFIED_SCHEMA_SQL: &str = include_str!("../../../../../migrations/unified_schema.sql");
 
+// TAG: surface=database owner=platform-team rule=DB-001
 /// Cloud `LibSQL` database client for Turso
 #[derive(Debug)]
 pub struct CloudClient {
     connection: libsql::Connection,
 }
 
+// TAG: surface=database owner=platform-team rule=DB-001
 impl CloudClient {
     /// Create a new cloud client
     /// # Errors
@@ -55,6 +56,7 @@ impl CloudClient {
                 .connection
                 .query(
                     "SELECT name FROM sqlite_master WHERE type='table' AND name = ?",
+                    // TAG: surface=database owner=platform-team rule=GENERAL-001
                     libsql::params![table],
                 )
                 .await?;
@@ -89,6 +91,7 @@ impl CloudClient {
             .execute("PRAGMA foreign_keys = ON", ())
             .await?;
 
+        // TAG: surface=database owner=platform-team rule=DB-001
         // Remove comment lines before splitting by semicolon to avoid
         // breaking statements when semicolons appear inside comments.
         let sql_without_comments: String = UNIFIED_SCHEMA_SQL
@@ -116,6 +119,7 @@ impl CloudClient {
         Ok(())
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Sync financial report to cloud (uses reports table - `BlockID`)
     /// # Errors
     ///
@@ -145,6 +149,7 @@ impl CloudClient {
         Ok(())
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Get financial report from cloud
     /// # Errors
     ///
@@ -183,6 +188,7 @@ impl CloudClient {
     // Note: blockchain_audit_trails table removed - blockchain hashes are stored
     // directly in reports, scores, and offers tables per unified schema design.
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Sync account data to cloud
     /// # Errors
     ///
@@ -211,6 +217,7 @@ impl CloudClient {
         Ok(())
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Sync transaction data to cloud
     /// # Errors
     ///
@@ -244,6 +251,7 @@ impl CloudClient {
     /// # Errors
     ///
     /// Returns an error if the operation fails.
+    // TAG: surface=database owner=platform-team rule=GENERAL-001
     pub async fn sync_user_profile(
         &self,
         profile: &freshcredit_libsql_local::UserProfile,
@@ -279,6 +287,7 @@ impl CloudClient {
         Ok(())
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Store user profile to cloud (full profile with all fields)
     ///
     /// ARCHITECTURE: This is used during onboarding when browser DB doesn't exist yet.
@@ -308,6 +317,7 @@ impl CloudClient {
                 libsql::params![
                     profile.id.clone(),
                     profile.platform_user_id.clone(),
+// TAG: surface=database owner=platform-team rule=DB-001
                     profile.azure_id.clone(),
                     profile.email.clone(),
                     profile.display_name.clone(),
@@ -341,6 +351,7 @@ impl CloudClient {
         Ok(())
     }
 
+    // TAG: surface=database owner=platform-team rule=DB-001
     /// Get user profile from cloud
     /// # Errors
     ///
@@ -363,11 +374,11 @@ impl CloudClient {
             .await
             .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?;
 
-        if let Some(row) = rows
+        (rows
             .next()
             .await
-            .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?
-        {
+            .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?)
+        .map_or(Ok(None), |row| {
             Ok(Some(freshcredit_libsql_local::UserProfile {
                 id: uuid::Uuid::new_v4().to_string(),
                 platform_user_id: row.get::<String>(0).unwrap_or_default(),
@@ -384,6 +395,7 @@ impl CloudClient {
                 state_province: None,
                 postal_code: None,
                 country_region: None,
+                // TAG: surface=database owner=platform-team rule=DB-001
                 date_of_birth: None,
                 ssn_last_four: None,
                 employment_status: None,
@@ -408,9 +420,7 @@ impl CloudClient {
                 created_at: row.get::<String>(9).unwrap_or_default(),
                 updated_at: row.get::<String>(10).unwrap_or_default(),
             }))
-        } else {
-            Ok(None)
-        }
+        })
     }
 }
 
