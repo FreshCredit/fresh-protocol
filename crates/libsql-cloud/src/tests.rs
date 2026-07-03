@@ -315,16 +315,6 @@ async fn test_cloud_client_can_be_created() {
     drop(client);
 }
 
-#[test]
-fn test_unified_schema_sql_not_empty() {
-    assert_ne!(UNIFIED_SCHEMA_SQL.len(), 0);
-    assert!(UNIFIED_SCHEMA_SQL.contains("CREATE TABLE"));
-    assert!(UNIFIED_SCHEMA_SQL.contains("user_profile"));
-    assert!(UNIFIED_SCHEMA_SQL.contains("accounts"));
-    assert!(UNIFIED_SCHEMA_SQL.contains("transactions"));
-    assert!(UNIFIED_SCHEMA_SQL.contains("reports"));
-}
-
 #[tokio::test]
 async fn test_initialize_schema_on_empty_database() {
     let client = CloudClient::new_test().await;

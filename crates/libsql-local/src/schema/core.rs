@@ -36,8 +36,8 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS user_profile (
             id TEXT PRIMARY KEY,
-            platform_user_id TEXT NOT NULL,
-            azure_id TEXT NOT NULL,
+            platform_user_id TEXT NOT NULL DEFAULT '',
+            azure_id TEXT NOT NULL DEFAULT '',
             email TEXT NOT NULL,
             display_name TEXT NOT NULL,
             given_name TEXT,
@@ -64,8 +64,8 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
             provider_onboarding_complete BOOLEAN DEFAULT FALSE,
             mfa_enabled BOOLEAN DEFAULT FALSE,
             mfa_verified_at TEXT,
-            tenant_id TEXT NOT NULL,
-            object_id TEXT NOT NULL,
+            tenant_id TEXT NOT NULL DEFAULT '',
+            object_id TEXT NOT NULL DEFAULT '',
             verified_id_credential_id TEXT,
             verified_id_status TEXT DEFAULT 'pending',
             verified_id_issued_at TEXT,

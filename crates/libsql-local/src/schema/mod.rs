@@ -121,7 +121,7 @@ pub use payments::initialize_payment_tables;
 pub use plaid::initialize_all_plaid_tables;
 pub use platform::initialize_platform_tables;
 pub use publications::initialize_publication_tables;
-pub use reports::initialize_all_reports_tables;
+pub use reports::{initialize_all_reports_tables, initialize_all_reports_tables_with_seed};
 pub use security::initialize_security_tables;
 pub use teams::{initialize_teams_indexes, initialize_teams_tables};
 pub use ticketing::initialize_ticketing_tables;
@@ -139,7 +139,9 @@ mod helpers;
 pub use helpers::try_create_index;
 
 mod impls;
-pub use impls::{initialize_all_schema_tables, initialize_extracted_tables};
+pub use impls::{
+    initialize_all_schema_tables, initialize_all_schema_tables_no_seed, initialize_extracted_tables,
+};
 
 #[cfg(test)]
 mod tests;

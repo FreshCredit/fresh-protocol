@@ -72,17 +72,6 @@ pub async fn initialize_webhook_tables(conn: &Connection) -> Result<()> {
         "CREATE INDEX IF NOT EXISTS idx_webhook_events_provider ON webhook_events(provider)",
     )
     .await?;
-    try_create_index(
-        conn,
-        "CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id)",
-    )
-    .await?;
-    try_create_index(
-        conn,
-        "CREATE INDEX IF NOT EXISTS idx_notifications_read_status ON notifications(read_status)",
-    )
-    .await?;
-
     Ok(())
 }
 

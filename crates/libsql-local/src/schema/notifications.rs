@@ -48,6 +48,7 @@ pub async fn initialize_notification_tables(conn: &Connection) -> Result<()> {
             action_url TEXT,
             metadata TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             expires_at DATETIME,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",

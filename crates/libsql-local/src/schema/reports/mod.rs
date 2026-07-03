@@ -119,20 +119,48 @@ pub async fn initialize_reports_tables(conn: &Connection) -> Result<()> {
     )
     .await?;
 
+    // Browser-facing scoring models table (mirrors IndexedDB fallback schema)
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS models (
+            id TEXT PRIMARY KEY,
+            user_id TEXT,
+            name TEXT,
+            description TEXT,
+            model_data TEXT,
+            attribute_count INTEGER DEFAULT 0,
+            is_active INTEGER DEFAULT 0,
+            blockchain_hash TEXT,
+            block_number INTEGER,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )",
+        (),
+    )
+    .await?;
+
     Ok(())
 }
 
-/// Initialize all reports and provider tables
+/// Initialize all reports and provider tables (without demo seeding)
 /// # Errors
 ///
 /// Returns an error if the operation fails.
 pub async fn initialize_all_reports_tables(conn: &Connection) -> Result<()> {
     initialize_reports_tables(conn).await?;
     provider::initialize_provider_tables(conn).await?;
-    seed_demo_provider_offers(conn).await?;
     verification::initialize_verification_tables(conn).await?;
     offer_analytics::initialize_offer_analytics_tables(conn).await?;
     offer_indexes::initialize_offer_analytics_indexes(conn).await?;
     initialize_blockchain_proofs_table(conn).await?;
+    Ok(())
+}
+
+/// Initialize all reports and provider tables and seed demo provider offers
+/// # Errors
+///
+/// Returns an error if the operation fails.
+pub async fn initialize_all_reports_tables_with_seed(conn: &Connection) -> Result<()> {
+    initialize_all_reports_tables(conn).await?;
+    seed_demo_provider_offers(conn).await?;
     Ok(())
 }

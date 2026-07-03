@@ -49,7 +49,7 @@ async fn test_schema_table_count() {
     // UCP: 3 tables (ucp_checkout_sessions, ucp_orders, ucp_identity_links)
     // Agent: 6 tables (agent_bindings, agent_memories, agent_interactions, agent_audit_events, agentfs_kv_store, agentfs_tool_calls)
     // Governance: 6 tables (governance_proposals, governance_votes, governance_delegations, governance_treasury, governance_treasury_transactions, governance_stewards)
-    assert_eq!(count, 136, "Schema should contain exactly 136 tables");
+    assert_eq!(count, 137, "Schema should contain exactly 137 tables");
 }
 
 // TAG: surface=database owner=platform-team rule=DB-001
@@ -65,6 +65,7 @@ async fn test_critical_tables_exist() {
         "transactions",
         "balances",
         "reports",
+        "models",
         "identity_verification",
         "workflows",
         "scores",

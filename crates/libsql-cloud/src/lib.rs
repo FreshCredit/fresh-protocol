@@ -10,11 +10,6 @@ use anyhow::Result;
 use freshcredit_types::{Account, FinancialReport, FreshCreditResult, Transaction, UserId};
 use tracing::info;
 
-/// Unified schema SQL embedded at compile time
-/// // `HARDCODED_SCHEMA`: 105 tables (verified 2026-01-05)
-/// Source: `migrations/unified_schema.sql`
-const UNIFIED_SCHEMA_SQL: &str = include_str!("../../../../../migrations/unified_schema.sql");
-
 // TAG: surface=database owner=platform-team rule=DB-001
 /// Cloud `LibSQL` database client for Turso
 #[derive(Debug)]
@@ -73,49 +68,13 @@ impl CloudClient {
             info!("Cloud database schema already initialized");
         } else {
             info!("Creating unified schema in cloud database");
-            let r = self.execute_unified_schema().await;
-            r?;
-        }
-
-        info!("Cloud database schema initialization completed (44 tables)");
-        Ok(())
-    }
-
-    /// Execute the unified schema SQL statements
-    /// # Errors
-    ///
-    /// Returns an error if the operation fails.
-    async fn execute_unified_schema(&self) -> Result<()> {
-        // Enable foreign key constraints first
-        self.connection
-            .execute("PRAGMA foreign_keys = ON", ())
+            freshcredit_libsql_local::schema::initialize_all_schema_tables_no_seed(
+                &self.connection,
+            )
             .await?;
-
-        // TAG: surface=database owner=platform-team rule=DB-001
-        // Remove comment lines before splitting by semicolon to avoid
-        // breaking statements when semicolons appear inside comments.
-        let sql_without_comments: String = UNIFIED_SCHEMA_SQL
-            .lines()
-            .filter(|line| !line.trim().starts_with("--"))
-            .collect::<Vec<_>>()
-            .join("\n");
-
-        for statement in sql_without_comments.split(';') {
-            let trimmed = statement.trim();
-            if trimmed.is_empty() {
-                continue;
-            }
-
-            if let Err(e) = self.connection.execute(trimmed, ()).await {
-                tracing::warn!(
-                    "Schema statement warning: {} - Statement: {}...",
-                    e,
-                    &trimmed.chars().take(50).collect::<String>()
-                );
-            }
         }
 
-        info!("Unified schema executed in cloud database");
+        info!("Cloud database schema initialization completed");
         Ok(())
     }
 

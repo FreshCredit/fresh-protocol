@@ -104,7 +104,7 @@ async fn init_business_group(
     });
     info!("[ARCH-007] Schema category initialized: payments");
 
-    initialize_all_reports_tables(conn).await?;
+    initialize_all_reports_tables_with_seed(conn).await?;
     validations.push(SchemaValidation {
         category: "reports",
         tables_initialized: true,
@@ -259,6 +259,84 @@ async fn init_platform_group(
         tables_initialized: true,
     });
     info!("[ARCH-007] Schema category initialized: indexes");
+
+    Ok(())
+}
+
+/// Initialize all schema tables without demo seeding.
+/// Use this for per-user cloud databases where the browser will populate data.
+/// # Errors
+///
+/// Returns an error if the operation fails.
+pub async fn initialize_all_schema_tables_no_seed(conn: &Connection) -> Result<()> {
+    use tracing::info;
+
+    // Disable foreign key constraints during schema initialization
+    conn.execute("PRAGMA foreign_keys = OFF", ()).await?;
+
+    let mut validations = Vec::new();
+
+    init_core_group(conn, &mut validations).await?;
+    // Business group uses DDL-only reports initialization
+    init_business_group_no_seed(conn, &mut validations).await?;
+    init_data_source_group(conn, &mut validations).await?;
+    init_platform_group(conn, &mut validations).await?;
+
+    info!(
+        "[ARCH-007] Schema initialization complete (no seed): {} categories validated",
+        validations.len()
+    );
+
+    Ok(())
+}
+
+async fn init_business_group_no_seed(
+    conn: &Connection,
+    validations: &mut Vec<SchemaValidation>,
+) -> Result<()> {
+    use tracing::info;
+
+    initialize_all_plaid_tables(conn).await?;
+    validations.push(SchemaValidation {
+        category: "plaid",
+        tables_initialized: true,
+    });
+    info!("[ARCH-007] Schema category initialized: plaid");
+
+    initialize_payment_tables(conn).await?;
+    validations.push(SchemaValidation {
+        category: "payments",
+        tables_initialized: true,
+    });
+    info!("[ARCH-007] Schema category initialized: payments");
+
+    initialize_all_reports_tables(conn).await?;
+    validations.push(SchemaValidation {
+        category: "reports",
+        tables_initialized: true,
+    });
+    info!("[ARCH-007] Schema category initialized: reports");
+
+    initialize_ticketing_tables(conn).await?;
+    validations.push(SchemaValidation {
+        category: "ticketing",
+        tables_initialized: true,
+    });
+    info!("[ARCH-007] Schema category initialized: ticketing");
+
+    initialize_compliance_tables(conn).await?;
+    validations.push(SchemaValidation {
+        category: "compliance",
+        tables_initialized: true,
+    });
+    info!("[ARCH-007] Schema category initialized: compliance");
+
+    initialize_notification_tables(conn).await?;
+    validations.push(SchemaValidation {
+        category: "notifications",
+        tables_initialized: true,
+    });
+    info!("[ARCH-007] Schema category initialized: notifications");
 
     Ok(())
 }
