@@ -119,19 +119,35 @@ impl TursoUrlBuilder {
     /// - Converts to lowercase
     /// - Truncates to `MAX_USER_ID_LENGTH` (28) characters
     fn sanitize_user_id(user_id: &str) -> String {
-        let sanitized: String = user_id
-            .chars()
-            .map(|c| {
-                if c.is_alphanumeric() {
-                    c.to_ascii_lowercase()
-                } else {
-                    '-'
-                }
-            })
-            .collect();
+        // Replace non-alphanumeric runs with a single hyphen and lowercase the result.
+        let mut sanitized = String::with_capacity(user_id.len());
+        let mut prev_was_dash = true; // treat leading non-alphanumeric as a dash, then trim later
+        for c in user_id.chars() {
+            if c.is_alphanumeric() {
+                sanitized.push(c.to_ascii_lowercase());
+                prev_was_dash = false;
+            } else if !prev_was_dash {
+                sanitized.push('-');
+                prev_was_dash = true;
+            }
+        }
 
+        // Trim trailing dashes introduced by special chars or truncation.
+        while sanitized.ends_with('-') {
+            sanitized.pop();
+        }
+
+        // Truncate to the allowed length, then trim any trailing dash left by the cut.
         if sanitized.len() > Self::MAX_USER_ID_LENGTH {
-            sanitized[..Self::MAX_USER_ID_LENGTH].to_string()
+            let mut truncated = sanitized[..Self::MAX_USER_ID_LENGTH].to_string();
+            while truncated.ends_with('-') {
+                truncated.pop();
+            }
+            sanitized = truncated;
+        }
+
+        if sanitized.is_empty() {
+            "unknown".to_string()
         } else {
             sanitized
         }
@@ -189,7 +205,7 @@ mod tests {
     fn test_special_chars() {
         let builder = TursoUrlBuilder::new("org");
         let db_name = builder.user_database_name("user+test!@#$%^&*()");
-        assert_eq!(db_name, "user-user-test----------");
+        assert_eq!(db_name, "user-user-test");
     }
 
     // TAG: surface=database owner=platform-team rule=DB-001
@@ -220,5 +236,41 @@ mod tests {
     fn test_region() {
         let builder = TursoUrlBuilder::with_region("org", "ap-south-1");
         assert_eq!(builder.region(), "ap-south-1");
+    }
+
+    #[test]
+    fn test_demo_user_id_does_not_end_with_dash() {
+        let builder = TursoUrlBuilder::new("org");
+        let db_name =
+            builder.user_database_name("demo-consumer-123e4567-e89b-12d3-a456-426614174000");
+        assert!(
+            !db_name.ends_with('-'),
+            "db_name {} ends with dash",
+            db_name
+        );
+        assert!(
+            !db_name.contains("--"),
+            "db_name {} contains double dash",
+            db_name
+        );
+        assert!(db_name.starts_with("user-"));
+    }
+
+    #[test]
+    fn test_uuid_boundary_trailing_dash_removed() {
+        let builder = TursoUrlBuilder::new("org");
+        // 28-char truncation cuts right after a hyphen; ensure we trim it.
+        let db_name =
+            builder.user_database_name("demo-provider-123e4567-e89b-12d3-a456-426614174000");
+        assert!(
+            !db_name.ends_with('-'),
+            "db_name {} ends with dash",
+            db_name
+        );
+        assert!(
+            !db_name.contains("--"),
+            "db_name {} contains double dash",
+            db_name
+        );
     }
 }
