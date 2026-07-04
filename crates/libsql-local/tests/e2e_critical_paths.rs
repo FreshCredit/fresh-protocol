@@ -69,8 +69,8 @@ fn skip_external() -> bool {
 async fn test_auth_oauth_url_generation() -> Result<()> {
     println!("\n🧪 Test: OAuth Authorization URL Generation");
 
-    let tenant_id = std::env::var("FRESHCREDIT_ENTRA__TENANT_ID").unwrap_or("test_tenant".into());
-    let client_id = std::env::var("FRESHCREDIT_ENTRA__CLIENT_ID").unwrap_or("test_client".into());
+    let tenant_id = std::env::var("ENTRA_AUTH_TENANT_ID").unwrap_or("test_tenant".into());
+    let client_id = std::env::var("ENTRA_AUTH_CLIENT_ID").unwrap_or("test_client".into());
     let redirect_uri = "http://localhost:3002/auth/callback";
     let scope = "openid profile email";
     let state = "test_state_12345";

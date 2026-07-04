@@ -198,23 +198,151 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
     conn.execute(
         "CREATE TABLE IF NOT EXISTS api_keys (
             id TEXT PRIMARY KEY,
-            user_id TEXT NOT NULL,
-            key_name TEXT NOT NULL,
+            user_email TEXT NOT NULL,
+            name TEXT NOT NULL,
             key_hash TEXT NOT NULL,
             key_prefix TEXT NOT NULL,
             permissions TEXT NOT NULL DEFAULT 'read',
-            rate_limit INTEGER DEFAULT 1000,
-            is_active BOOLEAN DEFAULT TRUE,
             last_used_at DATETIME,
             expires_at DATETIME,
             is_revoked BOOLEAN DEFAULT FALSE,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
+            revoked_at DATETIME,
+            revoked_reason TEXT,
+            rotated_at DATETIME
         )",
         (),
     )
     .await?;
+
+    // Migration: rebuild api_keys if it was created with the old schema
+    // (user_id/key_name instead of user_email/name).
+    let api_keys_exists = {
+        let mut rows = conn
+            .query(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='api_keys'",
+                (),
+            )
+            .await?;
+        let exists = rows.next().await?.is_some();
+        // Drain remaining rows so the connection can be reused.
+        while rows.next().await?.is_some() {}
+        exists
+    };
+    if api_keys_exists {
+        let mut rows = conn
+            .query(
+                "SELECT COUNT(*) FROM pragma_table_info('api_keys') WHERE name = 'user_email'",
+                (),
+            )
+            .await?;
+        let has_user_email: i64 = if let Some(row) = rows.next().await? {
+            let v: i64 = row.get(0)?;
+            while rows.next().await?.is_some() {}
+            v
+        } else {
+            0
+        };
+        if has_user_email == 0 {
+            conn.execute("ALTER TABLE api_keys RENAME TO api_keys_old", ())
+                .await?;
+            // Backfill any columns that may be missing on very old tables before copying.
+            let _ = conn
+                .execute(
+                    "ALTER TABLE api_keys_old ADD COLUMN permissions TEXT DEFAULT 'read'",
+                    (),
+                )
+                .await;
+            let _ = conn
+                .execute(
+                    "ALTER TABLE api_keys_old ADD COLUMN is_revoked BOOLEAN DEFAULT FALSE",
+                    (),
+                )
+                .await;
+            let _ = conn
+                .execute(
+                    "ALTER TABLE api_keys_old ADD COLUMN last_used_at DATETIME",
+                    (),
+                )
+                .await;
+            let _ = conn
+                .execute(
+                    "ALTER TABLE api_keys_old ADD COLUMN expires_at DATETIME",
+                    (),
+                )
+                .await;
+            let _ = conn
+                .execute(
+                    "ALTER TABLE api_keys_old ADD COLUMN updated_at DATETIME",
+                    (),
+                )
+                .await;
+            conn.execute(
+                "CREATE TABLE api_keys (
+                    id TEXT PRIMARY KEY,
+                    user_email TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    key_hash TEXT NOT NULL,
+                    key_prefix TEXT NOT NULL,
+                    permissions TEXT NOT NULL DEFAULT 'read',
+                    last_used_at DATETIME,
+                    expires_at DATETIME,
+                    is_revoked BOOLEAN DEFAULT FALSE,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    revoked_at DATETIME,
+                    revoked_reason TEXT,
+                    rotated_at DATETIME
+                )",
+                (),
+            )
+            .await?;
+            conn.execute(
+                "INSERT INTO api_keys (id, user_email, name, key_hash, key_prefix, permissions, last_used_at, expires_at, is_revoked, created_at, updated_at)
+                 SELECT id, user_id, key_name, key_hash, key_prefix,
+                        COALESCE(permissions, 'read'),
+                        last_used_at, expires_at,
+                        COALESCE(is_revoked, FALSE),
+                        COALESCE(created_at, CURRENT_TIMESTAMP),
+                        COALESCE(updated_at, created_at, CURRENT_TIMESTAMP)
+                 FROM api_keys_old",
+                (),
+            )
+            .await?;
+            conn.execute("DROP TABLE api_keys_old", ()).await?;
+        }
+    }
+
+    // Ensure all columns exist for tables that may have been created with an
+    // older version of the correct schema.
+    let _ = conn
+        .execute(
+            "ALTER TABLE api_keys ADD COLUMN is_revoked BOOLEAN DEFAULT FALSE",
+            (),
+        )
+        .await;
+    let _ = conn
+        .execute("ALTER TABLE api_keys ADD COLUMN last_used_at DATETIME", ())
+        .await;
+    let _ = conn
+        .execute("ALTER TABLE api_keys ADD COLUMN expires_at DATETIME", ())
+        .await;
+    let _ = conn
+        .execute(
+            "ALTER TABLE api_keys ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP",
+            (),
+        )
+        .await;
+    let _ = conn
+        .execute("ALTER TABLE api_keys ADD COLUMN revoked_at DATETIME", ())
+        .await;
+    let _ = conn
+        .execute("ALTER TABLE api_keys ADD COLUMN revoked_reason TEXT", ())
+        .await;
+    let _ = conn
+        .execute("ALTER TABLE api_keys ADD COLUMN rotated_at DATETIME", ())
+        .await;
 
     // Create webauthn_credentials table for FIDO2/passkey biometric authentication
     conn.execute(
@@ -282,7 +410,7 @@ pub async fn initialize_core_indexes(conn: &Connection) -> Result<()> {
     .await?;
     try_create_index(
         conn,
-        "CREATE INDEX IF NOT EXISTS idx_api_keys_user_id ON api_keys(user_id)",
+        "CREATE INDEX IF NOT EXISTS idx_api_keys_user_email ON api_keys(user_email)",
     )
     .await?;
     try_create_index(
