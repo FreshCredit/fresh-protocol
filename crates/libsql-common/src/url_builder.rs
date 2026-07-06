@@ -245,13 +245,11 @@ mod tests {
             builder.user_database_name("demo-consumer-123e4567-e89b-12d3-a456-426614174000");
         assert!(
             !db_name.ends_with('-'),
-            "db_name {} ends with dash",
-            db_name
+            "db_name {db_name} ends with dash"
         );
         assert!(
             !db_name.contains("--"),
-            "db_name {} contains double dash",
-            db_name
+            "db_name {db_name} contains double dash"
         );
         assert!(db_name.starts_with("user-"));
     }
@@ -264,13 +262,11 @@ mod tests {
             builder.user_database_name("demo-provider-123e4567-e89b-12d3-a456-426614174000");
         assert!(
             !db_name.ends_with('-'),
-            "db_name {} ends with dash",
-            db_name
+            "db_name {db_name} ends with dash"
         );
         assert!(
             !db_name.contains("--"),
-            "db_name {} contains double dash",
-            db_name
+            "db_name {db_name} contains double dash"
         );
     }
 }

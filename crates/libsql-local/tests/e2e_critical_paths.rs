@@ -26,6 +26,7 @@
 #![allow(dead_code)]
 
 use anyhow::Result;
+use base64::Engine;
 use sha2::{Digest, Sha256};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -69,8 +70,10 @@ fn skip_external() -> bool {
 async fn test_auth_oauth_url_generation() -> Result<()> {
     println!("\n🧪 Test: OAuth Authorization URL Generation");
 
-    let tenant_id = std::env::var("FRESHCREDIT_ENTRA__TENANT_ID").unwrap_or("test_tenant".into());
-    let client_id = std::env::var("FRESHCREDIT_ENTRA__CLIENT_ID").unwrap_or("test_client".into());
+    let tenant_id = std::env::var("ENTRA_AUTH_TENANT_ID")
+        .unwrap_or_else(|_| "test_tenant".to_string());
+    let client_id = std::env::var("ENTRA_AUTH_CLIENT_ID")
+        .unwrap_or_else(|_| "test_client".to_string());
     let redirect_uri = "http://localhost:3002/auth/callback";
     let scope = "openid profile email";
     let state = "test_state_12345";
@@ -103,7 +106,6 @@ async fn test_auth_oauth_url_generation() -> Result<()> {
 async fn test_auth_jwt_structure() -> Result<()> {
     println!("\n🧪 Test: JWT Token Structure");
 
-    use base64::Engine;
     let header =
         base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(r#"{"alg":"HS256","typ":"JWT"}"#);
     let payload = base64::engine::general_purpose::URL_SAFE_NO_PAD
@@ -111,9 +113,8 @@ async fn test_auth_jwt_structure() -> Result<()> {
     let signature = "test_signature";
 
     let token = format!("{header}.{payload}.{signature}");
-    let parts: Vec<&str> = token.split('.').collect();
 
-    assert_eq!(parts.len(), 3);
+    assert_eq!(token.split('.').count(), 3);
     println!("  ✅ JWT has 3 parts (header.payload.signature)");
 
     Ok(())
@@ -128,8 +129,10 @@ async fn test_auth_jwt_structure() -> Result<()> {
 async fn test_plaid_config() -> Result<()> {
     println!("\n🧪 Test: Plaid Configuration");
 
-    let client_id = std::env::var("FRESHCREDIT_PLAID__CLIENT_ID").unwrap_or("not_set".into());
-    let env = std::env::var("FRESHCREDIT_PLAID__ENVIRONMENT").unwrap_or("sandbox".into());
+    let client_id = std::env::var("FRESHCREDIT_PLAID__CLIENT_ID")
+        .unwrap_or_else(|_| "not_set".to_string());
+    let env = std::env::var("FRESHCREDIT_PLAID__ENVIRONMENT")
+        .unwrap_or_else(|_| "sandbox".to_string());
 
     if client_id == "not_set" {
         println!("  ⏭️  Plaid client ID not configured (skipping API tests)");
@@ -385,8 +388,10 @@ async fn test_blockchain_hash_verification() -> Result<()> {
 async fn test_payments_stripe_config() -> Result<()> {
     println!("\n🧪 Test: Stripe Configuration");
 
-    let secret = std::env::var("FRESHCREDIT_STRIPE__SECRET_KEY").unwrap_or("not_set".into());
-    let pubkey = std::env::var("FRESHCREDIT_STRIPE__PUBLISHABLE_KEY").unwrap_or("not_set".into());
+    let secret = std::env::var("FRESHCREDIT_STRIPE__SECRET_KEY")
+        .unwrap_or_else(|_| "not_set".to_string());
+    let pubkey = std::env::var("FRESHCREDIT_STRIPE__PUBLISHABLE_KEY")
+        .unwrap_or_else(|_| "not_set".to_string());
 
     if secret.starts_with("sk_test_") {
         println!("  ✅ Stripe secret key is test mode");
@@ -410,10 +415,10 @@ async fn test_payments_stripe_config() -> Result<()> {
 /// Test platform fee calculation
 #[tokio::test]
 async fn test_payments_platform_fee() -> Result<()> {
+    const PLATFORM_FEE_PERCENT: i64 = 5;
+
     // TAG: surface=database owner=data-team rule=DB-001
     println!("\n🧪 Test: Platform Fee Calculation");
-
-    const PLATFORM_FEE_PERCENT: f64 = 5.0;
 
     let test_cases = [
         (1000, 50),   // $10.00 → $0.50 fee
@@ -422,12 +427,12 @@ async fn test_payments_platform_fee() -> Result<()> {
     ];
 
     for (amount, expected_fee) in test_cases {
-        let fee = (f64::from(amount) * (PLATFORM_FEE_PERCENT / 100.0)).round() as i64;
+        let fee = i64::from(amount) * PLATFORM_FEE_PERCENT / 100;
         assert_eq!(fee, expected_fee);
         println!(
             "  ✅ ${:.2} → ${:.2} fee",
             f64::from(amount) / 100.0,
-            fee as f64 / 100.0
+            f64::from(i32::try_from(fee).unwrap_or(0)) / 100.0
         );
     }
 

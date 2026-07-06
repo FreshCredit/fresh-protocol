@@ -20,6 +20,8 @@ pub async fn initialize_offer_analytics_tables(conn: &Connection) -> Result<()> 
             applications INTEGER DEFAULT 0,
             conversions INTEGER DEFAULT 0,
             revenue_cents INTEGER DEFAULT 0,
+            click_through_rate REAL DEFAULT 0.0,
+            conversion_rate REAL DEFAULT 0.0,
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
             updated_at TEXT NOT NULL DEFAULT (datetime('now')),
             FOREIGN KEY (offer_id) REFERENCES provider_offers (id) ON DELETE CASCADE,
