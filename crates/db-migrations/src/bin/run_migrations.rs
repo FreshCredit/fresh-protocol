@@ -19,7 +19,7 @@ async fn main() -> Result<()> {
 
     let args = parse_args()?;
     let mig_dir = find_migrations_dir(args.migrations_dir)?;
-    println!("📁 Migrations directory: {mig_dir:?}");
+    println!("📁 Migrations directory: {}", mig_dir.display());
 
     let conn = connect_database(args.local_path, args.cloud_url, args.auth_token).await?;
 
