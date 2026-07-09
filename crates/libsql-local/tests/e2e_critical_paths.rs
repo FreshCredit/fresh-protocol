@@ -70,10 +70,10 @@ fn skip_external() -> bool {
 async fn test_auth_oauth_url_generation() -> Result<()> {
     println!("\n🧪 Test: OAuth Authorization URL Generation");
 
-    let tenant_id = std::env::var("ENTRA_AUTH_TENANT_ID")
-        .unwrap_or_else(|_| "test_tenant".to_string());
-    let client_id = std::env::var("ENTRA_AUTH_CLIENT_ID")
-        .unwrap_or_else(|_| "test_client".to_string());
+    let tenant_id =
+        std::env::var("ENTRA_AUTH_TENANT_ID").unwrap_or_else(|_| "test_tenant".to_string());
+    let client_id =
+        std::env::var("ENTRA_AUTH_CLIENT_ID").unwrap_or_else(|_| "test_client".to_string());
     let redirect_uri = "http://localhost:3002/auth/callback";
     let scope = "openid profile email";
     let state = "test_state_12345";
@@ -129,10 +129,10 @@ async fn test_auth_jwt_structure() -> Result<()> {
 async fn test_plaid_config() -> Result<()> {
     println!("\n🧪 Test: Plaid Configuration");
 
-    let client_id = std::env::var("FRESHCREDIT_PLAID__CLIENT_ID")
-        .unwrap_or_else(|_| "not_set".to_string());
-    let env = std::env::var("FRESHCREDIT_PLAID__ENVIRONMENT")
-        .unwrap_or_else(|_| "sandbox".to_string());
+    let client_id =
+        std::env::var("FRESHCREDIT_PLAID__CLIENT_ID").unwrap_or_else(|_| "not_set".to_string());
+    let env =
+        std::env::var("FRESHCREDIT_PLAID__ENVIRONMENT").unwrap_or_else(|_| "sandbox".to_string());
 
     if client_id == "not_set" {
         println!("  ⏭️  Plaid client ID not configured (skipping API tests)");
@@ -388,8 +388,8 @@ async fn test_blockchain_hash_verification() -> Result<()> {
 async fn test_payments_stripe_config() -> Result<()> {
     println!("\n🧪 Test: Stripe Configuration");
 
-    let secret = std::env::var("FRESHCREDIT_STRIPE__SECRET_KEY")
-        .unwrap_or_else(|_| "not_set".to_string());
+    let secret =
+        std::env::var("FRESHCREDIT_STRIPE__SECRET_KEY").unwrap_or_else(|_| "not_set".to_string());
     let pubkey = std::env::var("FRESHCREDIT_STRIPE__PUBLISHABLE_KEY")
         .unwrap_or_else(|_| "not_set".to_string());
 

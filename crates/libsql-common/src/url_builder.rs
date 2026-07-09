@@ -243,10 +243,7 @@ mod tests {
         let builder = TursoUrlBuilder::new("org");
         let db_name =
             builder.user_database_name("demo-consumer-123e4567-e89b-12d3-a456-426614174000");
-        assert!(
-            !db_name.ends_with('-'),
-            "db_name {db_name} ends with dash"
-        );
+        assert!(!db_name.ends_with('-'), "db_name {db_name} ends with dash");
         assert!(
             !db_name.contains("--"),
             "db_name {db_name} contains double dash"
@@ -260,10 +257,7 @@ mod tests {
         // 28-char truncation cuts right after a hyphen; ensure we trim it.
         let db_name =
             builder.user_database_name("demo-provider-123e4567-e89b-12d3-a456-426614174000");
-        assert!(
-            !db_name.ends_with('-'),
-            "db_name {db_name} ends with dash"
-        );
+        assert!(!db_name.ends_with('-'), "db_name {db_name} ends with dash");
         assert!(
             !db_name.contains("--"),
             "db_name {db_name} contains double dash"
