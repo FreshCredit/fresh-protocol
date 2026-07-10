@@ -77,6 +77,35 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
     )
     .await?;
 
+    // Linked sign-in identities (see schema_manager core.rs): provider subject ->
+    // owning profile, enabling verified-email account linking across providers.
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS user_identities (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            provider TEXT NOT NULL,
+            subject TEXT NOT NULL,
+            email TEXT,
+            email_verified BOOLEAN DEFAULT FALSE,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(provider, subject)
+        )",
+        (),
+    )
+    .await?;
+    let _ = conn
+        .execute(
+            "CREATE INDEX IF NOT EXISTS idx_user_identities_user_id ON user_identities(user_id)",
+            (),
+        )
+        .await;
+    let _ = conn
+        .execute(
+            "CREATE INDEX IF NOT EXISTS idx_user_identities_email ON user_identities(email)",
+            (),
+        )
+        .await;
+
     // Migrations for existing databases
     // CHATBOT-FIX: platform_user_id is required by RBAC middleware queries
     // This column was added to the schema but existing databases may not have it
