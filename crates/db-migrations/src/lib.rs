@@ -166,10 +166,15 @@ impl MigrationRunner {
     }
 
     /// Get list of applied migrations
+    ///
+    /// Ensures the `schema_migrations` bookkeeping table exists first so callers
+    /// (e.g. `check_checksum_mismatches`) can safely run before any migration
+    /// has been applied. The ensure step is idempotent (`CREATE TABLE IF NOT EXISTS`).
     /// # Errors
     ///
     /// Returns an error if the operation fails.
     pub async fn get_applied_migrations(&self) -> Result<Vec<AppliedMigration>> {
+        self.ensure_migrations_table().await?;
         let mut applied = Vec::new();
         let mut rows = self.connection
             .query("SELECT version, name, checksum, applied_at FROM schema_migrations ORDER BY version", ())
