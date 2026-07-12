@@ -230,8 +230,12 @@ impl MigrationRunner {
         // TAG: surface=database owner=platform-team rule=GENERAL-001
         let tx = self.connection.transaction().await?;
 
-        // Execute the up SQL (may contain multiple statements)
-        for statement in migration.up_sql.split(';') {
+        // Execute the up SQL (may contain multiple statements).
+        // Full-line `--` comments are removed BEFORE splitting on `;`:
+        // libsql rejects comment-only chunks ("no SQL statement provided")
+        // and comments may themselves contain semicolons.
+        let up_sql = remove_comment_lines(&migration.up_sql);
+        for statement in up_sql.split(';') {
             let statement = statement.trim();
             if !statement.is_empty() {
                 tx.execute(statement, ()).await?;
@@ -280,8 +284,9 @@ impl MigrationRunner {
         // Begin transaction for atomic rollback
         let tx = self.connection.transaction().await?;
 
-        // Execute the down SQL
-        for statement in down_sql.split(';') {
+        // Execute the down SQL (same comment handling as apply_migration)
+        let down_sql_clean = remove_comment_lines(down_sql);
+        for statement in down_sql_clean.split(';') {
             let statement = statement.trim();
             if !statement.is_empty() {
                 tx.execute(statement, ()).await?;
@@ -349,6 +354,24 @@ fn compute_checksum(sql: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(sql.as_bytes());
     hex::encode(hasher.finalize())
+}
+
+/// Remove full-line `--` comments (and blank lines) from SQL content.
+///
+/// Done before splitting on `;` because (a) libsql rejects chunks that
+/// contain only comments with "no SQL statement provided" and (b) comment
+/// text may itself contain semicolons, which would otherwise split a
+/// comment into an executable-looking fragment. Only whole lines whose
+/// first non-whitespace characters are `--` are removed; SQL lines with
+/// trailing inline content are kept intact.
+fn remove_comment_lines(sql: &str) -> String {
+    sql.lines()
+        .filter(|line| {
+            let trimmed = line.trim();
+            !trimmed.is_empty() && !trimmed.starts_with("--")
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 #[cfg(test)]
@@ -472,6 +495,54 @@ mod async_tests {
         assert_eq!(applied.len(), 1);
         assert_eq!(applied[0].version, 1);
         assert_eq!(applied[0].name, "initial");
+    }
+
+    #[tokio::test]
+    async fn test_apply_migration_with_leading_comment_block() {
+        // Regression: libsql rejects chunks containing only `--` comments
+        // ("no SQL statement provided"). Migration files may start with a
+        // comment header; the runner must strip it before executing.
+        let mut runner = in_memory_runner().await.unwrap();
+        runner.ensure_migrations_table().await.unwrap();
+
+        // Note: comment text deliberately contains a semicolon ("user; it")
+        // — the exact pattern that broke migration 002 in production.
+        let up = "-- header comment line one\n-- scoped to a single user; it is stored once\n\
+                  CREATE TABLE comment_test (id INTEGER PRIMARY KEY);\n\
+                  -- trailing comment after final semicolon\n";
+        let migration = Migration {
+            version: 1,
+            name: "commented".to_string(),
+            up_sql: up.to_string(),
+            down_sql: Some("-- drop it\nDROP TABLE comment_test;".to_string()),
+            checksum: compute_checksum(up),
+        };
+
+        runner.apply_migration(&migration).await.unwrap();
+        let applied = runner.get_applied_migrations().await.unwrap();
+        assert_eq!(applied.len(), 1);
+
+        // Rollback path uses the same stripping
+        runner.migrations.insert(1, migration);
+        runner.rollback_migration(1).await.unwrap();
+        let applied = runner.get_applied_migrations().await.unwrap();
+        assert!(applied.is_empty());
+    }
+
+    #[test]
+    fn test_remove_comment_lines() {
+        assert_eq!(remove_comment_lines("-- only a comment"), "");
+        assert_eq!(remove_comment_lines("\n-- c1\n-- c2\n"), "");
+        assert_eq!(
+            remove_comment_lines("-- header\nCREATE TABLE t (id INT);"),
+            "CREATE TABLE t (id INT);"
+        );
+        assert_eq!(remove_comment_lines("\n\n  -- indented\nSELECT 1"), "SELECT 1");
+        assert_eq!(remove_comment_lines("SELECT 1"), "SELECT 1");
+        // Semicolons inside comment lines must not survive to statement splitting
+        let cleaned = remove_comment_lines("-- scoped to one user; it is stored\nCREATE TABLE t (id INT);");
+        let stmts: Vec<&str> = cleaned.split(';').map(str::trim).filter(|s| !s.is_empty()).collect();
+        assert_eq!(stmts, vec!["CREATE TABLE t (id INT)"]);
     }
 
     #[tokio::test]
