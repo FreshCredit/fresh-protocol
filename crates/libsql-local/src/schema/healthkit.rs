@@ -59,6 +59,7 @@ pub async fn initialize_healthkit_tables(conn: &Connection) -> Result<()> {
             metadata TEXT,
             raw_record_data TEXT NOT NULL,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
             FOREIGN KEY (healthkit_profile_id) REFERENCES healthkit_profiles (id) ON DELETE CASCADE
         )",
@@ -87,6 +88,7 @@ pub async fn initialize_healthkit_tables(conn: &Connection) -> Result<()> {
             metadata TEXT,
             raw_workout_data TEXT NOT NULL,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
             FOREIGN KEY (healthkit_profile_id) REFERENCES healthkit_profiles (id) ON DELETE CASCADE
         )",
@@ -111,6 +113,7 @@ pub async fn initialize_healthkit_tables(conn: &Connection) -> Result<()> {
             apple_stand_hours_goal REAL,
             raw_summary_data TEXT NOT NULL,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
             FOREIGN KEY (healthkit_profile_id) REFERENCES healthkit_profiles (id) ON DELETE CASCADE
         )",
