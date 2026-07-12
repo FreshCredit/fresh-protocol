@@ -87,6 +87,7 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
             subject TEXT NOT NULL,
             email TEXT,
             email_verified BOOLEAN DEFAULT FALSE,
+            is_primary BOOLEAN DEFAULT FALSE,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(provider, subject)
         )",
@@ -102,6 +103,27 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
     let _ = conn
         .execute(
             "CREATE INDEX IF NOT EXISTS idx_user_identities_email ON user_identities(email)",
+            (),
+        )
+        .await;
+    // Existing databases: add the primary sign-in flag and backfill the
+    // earliest identity per user (mirrors
+    // migrations/2026-07-12-user-identities-primary.sql). Both statements are
+    // idempotent: the ALTER errors out harmlessly once the column exists, and
+    // the backfill skips users that already have a primary row.
+    let _ = conn
+        .execute(
+            "ALTER TABLE user_identities ADD COLUMN is_primary BOOLEAN DEFAULT FALSE",
+            (),
+        )
+        .await;
+    let _ = conn
+        .execute(
+            "UPDATE user_identities SET is_primary = TRUE WHERE rowid IN (\
+             SELECT ui.rowid FROM user_identities ui \
+             WHERE ui.rowid = (SELECT ui2.rowid FROM user_identities ui2 \
+             WHERE ui2.user_id = ui.user_id ORDER BY ui2.created_at ASC, ui2.rowid ASC LIMIT 1) \
+             AND NOT EXISTS (SELECT 1 FROM user_identities p WHERE p.user_id = ui.user_id AND p.is_primary))",
             (),
         )
         .await;
