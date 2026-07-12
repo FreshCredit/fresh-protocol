@@ -435,6 +435,24 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
     )
     .await?;
 
+    // White-labeled consumer credit enrollment state (per-user; mirrors
+    // migration 004_revery_consumers; consumer token AES-256-GCM encrypted,
+    // no SSN or full reports ever persisted)
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS revery_consumers (
+            user_id TEXT PRIMARY KEY,
+            revery_consumer_id TEXT,
+            consumer_token_enc TEXT,
+            identity_status TEXT NOT NULL DEFAULT 'pending',
+            service_plan TEXT,
+            device_verified_at TEXT,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        )",
+        (),
+    )
+    .await?;
+
     Ok(())
 }
 
