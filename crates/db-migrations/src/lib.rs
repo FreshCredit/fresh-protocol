@@ -537,11 +537,19 @@ mod async_tests {
             remove_comment_lines("-- header\nCREATE TABLE t (id INT);"),
             "CREATE TABLE t (id INT);"
         );
-        assert_eq!(remove_comment_lines("\n\n  -- indented\nSELECT 1"), "SELECT 1");
+        assert_eq!(
+            remove_comment_lines("\n\n  -- indented\nSELECT 1"),
+            "SELECT 1"
+        );
         assert_eq!(remove_comment_lines("SELECT 1"), "SELECT 1");
         // Semicolons inside comment lines must not survive to statement splitting
-        let cleaned = remove_comment_lines("-- scoped to one user; it is stored\nCREATE TABLE t (id INT);");
-        let stmts: Vec<&str> = cleaned.split(';').map(str::trim).filter(|s| !s.is_empty()).collect();
+        let cleaned =
+            remove_comment_lines("-- scoped to one user; it is stored\nCREATE TABLE t (id INT);");
+        let stmts: Vec<&str> = cleaned
+            .split(';')
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .collect();
         assert_eq!(stmts, vec!["CREATE TABLE t (id INT)"]);
     }
 
