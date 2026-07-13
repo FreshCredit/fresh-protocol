@@ -453,6 +453,26 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
     )
     .await?;
 
+    // Verified ID presentation/verification sessions (mirrors migration
+    // 005_verified_id_verifications; correlated by `state`, outcome written
+    // by the asynchronous Microsoft Request Service callback)
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS verified_id_verifications (
+            id TEXT PRIMARY KEY,
+            state TEXT UNIQUE NOT NULL,
+            user_id TEXT,
+            request_id TEXT,
+            status TEXT NOT NULL DEFAULT 'pending',
+            presented_claims TEXT,
+            subject_did TEXT,
+            error TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            expires_at DATETIME
+        )",
+        (),
+    )
+    .await?;
+
     Ok(())
 }
 
