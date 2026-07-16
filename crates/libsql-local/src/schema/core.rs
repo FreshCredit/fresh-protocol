@@ -180,6 +180,45 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
         .execute("ALTER TABLE user_profile ADD COLUMN employer_name TEXT", ())
         .await;
 
+    // Per-side Verified ID issuance tracking: a single user may hold one
+    // consumer credential and one provider credential, issued independently.
+    let _ = conn
+        .execute(
+            "ALTER TABLE user_profile ADD COLUMN consumer_verified_id_credential_id TEXT",
+            (),
+        )
+        .await;
+    let _ = conn
+        .execute(
+            "ALTER TABLE user_profile ADD COLUMN consumer_verified_id_status TEXT DEFAULT 'pending'",
+            (),
+        )
+        .await;
+    let _ = conn
+        .execute(
+            "ALTER TABLE user_profile ADD COLUMN consumer_verified_id_issued_at TEXT",
+            (),
+        )
+        .await;
+    let _ = conn
+        .execute(
+            "ALTER TABLE user_profile ADD COLUMN provider_verified_id_credential_id TEXT",
+            (),
+        )
+        .await;
+    let _ = conn
+        .execute(
+            "ALTER TABLE user_profile ADD COLUMN provider_verified_id_status TEXT DEFAULT 'pending'",
+            (),
+        )
+        .await;
+    let _ = conn
+        .execute(
+            "ALTER TABLE user_profile ADD COLUMN provider_verified_id_issued_at TEXT",
+            (),
+        )
+        .await;
+
     // TAG: surface=database owner=platform-team rule=DB-001
     // Create user_preferences table (matches production Turso schema)
     // P0g: Includes onboarding dismissal fields for §27.3 onboarding flow rules
@@ -472,6 +511,37 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
         (),
     )
     .await?;
+
+    // Plaid-linked items: one row per institution so users can connect
+    // multiple banks. The access token is encrypted at rest.
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS plaid_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT NOT NULL,
+            item_id TEXT NOT NULL UNIQUE,
+            access_token TEXT NOT NULL,
+            institution_id TEXT NOT NULL,
+            institution_name TEXT NOT NULL,
+            account_ids TEXT NOT NULL DEFAULT '[]',
+            status TEXT NOT NULL DEFAULT 'Active',
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        )",
+        (),
+    )
+    .await?;
+    let _ = conn
+        .execute(
+            "CREATE INDEX IF NOT EXISTS idx_plaid_items_user_id ON plaid_items(user_id)",
+            (),
+        )
+        .await;
+    let _ = conn
+        .execute(
+            "CREATE INDEX IF NOT EXISTS idx_plaid_items_user_status ON plaid_items(user_id, status)",
+            (),
+        )
+        .await;
 
     Ok(())
 }

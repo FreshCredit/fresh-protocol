@@ -79,8 +79,11 @@ impl LocalClient {
                 surname, mobile_phone, job_title, street_address, city, state_province,
                 postal_code, country_region, date_of_birth, ssn_last_four, employment_status,
                 annual_income, role, is_admin, provider_onboarding_complete, mfa_enabled, mfa_verified_at, tenant_id, object_id,
-                verified_id_credential_id, verified_id_status, verified_id_issued_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))",
+                verified_id_credential_id, verified_id_status, verified_id_issued_at,
+                consumer_verified_id_credential_id, consumer_verified_id_status, consumer_verified_id_issued_at,
+                provider_verified_id_credential_id, provider_verified_id_status, provider_verified_id_issued_at,
+                updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))",
             libsql::params![
                 profile.id.clone(),
                 profile.platform_user_id.clone(),
@@ -112,6 +115,12 @@ impl LocalClient {
                 profile.verified_id_credential_id.clone().unwrap_or_default(),
                 profile.verified_id_status.clone(),
                 profile.verified_id_issued_at.clone().unwrap_or_default(),
+                profile.consumer_verified_id_credential_id.clone().unwrap_or_default(),
+                profile.consumer_verified_id_status.clone(),
+                profile.consumer_verified_id_issued_at.clone().unwrap_or_default(),
+                profile.provider_verified_id_credential_id.clone().unwrap_or_default(),
+                profile.provider_verified_id_status.clone(),
+                profile.provider_verified_id_issued_at.clone().unwrap_or_default(),
             ],
         ).await?;
 
@@ -191,7 +200,7 @@ impl LocalClient {
                 emergency_contact_phone: row.get::<Option<String>>(22).unwrap_or(None),
                 // TAG: surface=database owner=platform-team rule=DB-001
                 employer_name: row.get::<Option<String>>(23).unwrap_or(None),
-                // Remaining columns (shifted by 5)
+                // Remaining columns
                 role: row.get(24).unwrap_or_else(|_| "consumer".to_string()),
                 is_admin: row.get::<i64>(25).unwrap_or(0) != 0,
                 provider_onboarding_complete: row.get::<i64>(26).unwrap_or(0) != 0,
@@ -202,8 +211,15 @@ impl LocalClient {
                 verified_id_credential_id: row.get::<Option<String>>(31).unwrap_or(None),
                 verified_id_status: row.get(32).unwrap_or_else(|_| "pending".to_string()),
                 verified_id_issued_at: row.get::<Option<String>>(33).unwrap_or(None),
-                created_at: row.get(34).unwrap_or_default(),
-                updated_at: row.get(35).unwrap_or_default(),
+                // last_report_date is intentionally not mapped (column 34)
+                created_at: row.get(35).unwrap_or_default(),
+                updated_at: row.get(36).unwrap_or_default(),
+                consumer_verified_id_credential_id: row.get::<Option<String>>(37).unwrap_or(None),
+                consumer_verified_id_status: row.get(38).unwrap_or_else(|_| "pending".to_string()),
+                consumer_verified_id_issued_at: row.get::<Option<String>>(39).unwrap_or(None),
+                provider_verified_id_credential_id: row.get::<Option<String>>(40).unwrap_or(None),
+                provider_verified_id_status: row.get(41).unwrap_or_else(|_| "pending".to_string()),
+                provider_verified_id_issued_at: row.get::<Option<String>>(42).unwrap_or(None),
             };
 
             Ok(Some(profile))

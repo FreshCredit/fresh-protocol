@@ -102,6 +102,12 @@ fn test_user_profile_simple() -> freshcredit_libsql_local::UserProfile {
         verified_id_credential_id: Some("vid-1".to_string()),
         verified_id_status: "verified".to_string(),
         verified_id_issued_at: Some("2024-01-01".to_string()),
+        consumer_verified_id_credential_id: Some("vid-1".to_string()),
+        consumer_verified_id_status: "verified".to_string(),
+        consumer_verified_id_issued_at: Some("2024-01-01".to_string()),
+        provider_verified_id_credential_id: None,
+        provider_verified_id_status: "pending".to_string(),
+        provider_verified_id_issued_at: None,
         created_at: Utc::now().to_rfc3339(),
         updated_at: Utc::now().to_rfc3339(),
     }
@@ -172,6 +178,12 @@ async fn init_full_schema(client: &CloudClient) {
             verified_id_credential_id TEXT,
             verified_id_status TEXT DEFAULT 'pending',
             verified_id_issued_at TEXT,
+            consumer_verified_id_credential_id TEXT,
+            consumer_verified_id_status TEXT DEFAULT 'pending',
+            consumer_verified_id_issued_at TEXT,
+            provider_verified_id_credential_id TEXT,
+            provider_verified_id_status TEXT DEFAULT 'pending',
+            provider_verified_id_issued_at TEXT,
             last_report_date DATETIME,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT DEFAULT CURRENT_TIMESTAMP
@@ -197,8 +209,11 @@ async fn insert_user_profile_raw(
                 phone_number, preferred_name, emergency_contact_name, emergency_contact_phone,
                 employer_name, role, is_admin, provider_onboarding_complete, tenant_id,
                 object_id, verified_id_credential_id, verified_id_status,
-                verified_id_issued_at, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                verified_id_issued_at,
+                consumer_verified_id_credential_id, consumer_verified_id_status, consumer_verified_id_issued_at,
+                provider_verified_id_credential_id, provider_verified_id_status, provider_verified_id_issued_at,
+                created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 // TAG: surface=database owner=platform-team rule=DB-001
             libsql::params![
                 profile.id.clone(),
@@ -233,6 +248,12 @@ async fn insert_user_profile_raw(
                 profile.verified_id_credential_id.clone(),
                 profile.verified_id_status.clone(),
                 profile.verified_id_issued_at.clone(),
+                profile.consumer_verified_id_credential_id.clone(),
+                profile.consumer_verified_id_status.clone(),
+                profile.consumer_verified_id_issued_at.clone(),
+                profile.provider_verified_id_credential_id.clone(),
+                profile.provider_verified_id_status.clone(),
+                profile.provider_verified_id_issued_at.clone(),
                 profile.created_at.clone(),
                 profile.updated_at.clone(),
             ],

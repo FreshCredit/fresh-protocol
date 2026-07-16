@@ -148,6 +148,20 @@ pub struct UserProfile {
     pub verified_id_status: String,
     /// Timestamp when Verified ID was issued
     pub verified_id_issued_at: Option<String>,
+    /// Consumer side Verified ID credential identifier
+    pub consumer_verified_id_credential_id: Option<String>,
+    /// Consumer side Verified ID verification status
+    #[serde(default)]
+    pub consumer_verified_id_status: String,
+    /// Timestamp when consumer side Verified ID was issued
+    pub consumer_verified_id_issued_at: Option<String>,
+    /// Provider side Verified ID credential identifier
+    pub provider_verified_id_credential_id: Option<String>,
+    /// Provider side Verified ID verification status
+    #[serde(default)]
+    pub provider_verified_id_status: String,
+    /// Timestamp when provider side Verified ID was issued
+    pub provider_verified_id_issued_at: Option<String>,
     /// Record creation timestamp
     pub created_at: String,
     /// Record last update timestamp

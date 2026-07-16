@@ -155,7 +155,10 @@ impl CloudClient {
                         emergency_contact_phone, employer_name, role, is_admin,
                         provider_onboarding_complete, tenant_id, object_id,
                         verified_id_credential_id, verified_id_status,
-                        verified_id_issued_at, created_at, updated_at
+                        verified_id_issued_at,
+                        consumer_verified_id_credential_id, consumer_verified_id_status, consumer_verified_id_issued_at,
+                        provider_verified_id_credential_id, provider_verified_id_status, provider_verified_id_issued_at,
+                        created_at, updated_at
                  FROM user_profile WHERE azure_id = ? OR object_id = ?",
                 libsql::params![azure_id.to_string(), azure_id.to_string()],
             )
@@ -206,8 +209,14 @@ impl CloudClient {
                 verified_id_credential_id: row.get(29).ok(),
                 verified_id_status: row.get(30).unwrap_or_else(|_| "pending".to_string()),
                 verified_id_issued_at: row.get(31).ok(),
-                created_at: row.get(32).unwrap_or_default(),
-                updated_at: row.get(33).unwrap_or_default(),
+                consumer_verified_id_credential_id: row.get(32).ok(),
+                consumer_verified_id_status: row.get(33).unwrap_or_else(|_| "pending".to_string()),
+                consumer_verified_id_issued_at: row.get(34).ok(),
+                provider_verified_id_credential_id: row.get(35).ok(),
+                provider_verified_id_status: row.get(36).unwrap_or_else(|_| "pending".to_string()),
+                provider_verified_id_issued_at: row.get(37).ok(),
+                created_at: row.get(38).unwrap_or_default(),
+                updated_at: row.get(39).unwrap_or_default(),
             }))
         })
     }

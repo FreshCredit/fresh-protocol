@@ -222,8 +222,11 @@ impl CloudClient {
                 "INSERT OR REPLACE INTO user_profile (
                 platform_user_id, azure_id, email, display_name, given_name, surname,
                 tenant_id, object_id, verified_id_credential_id, verified_id_status,
-                verified_id_issued_at, created_at, updated_at
-             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                verified_id_issued_at,
+                consumer_verified_id_credential_id, consumer_verified_id_status, consumer_verified_id_issued_at,
+                provider_verified_id_credential_id, provider_verified_id_status, provider_verified_id_issued_at,
+                created_at, updated_at
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 libsql::params![
                     profile.platform_user_id.clone(),
                     profile.azure_id.clone(),
@@ -236,6 +239,12 @@ impl CloudClient {
                     profile.verified_id_credential_id.clone(),
                     profile.verified_id_status.clone(),
                     profile.verified_id_issued_at.clone(),
+                    profile.consumer_verified_id_credential_id.clone(),
+                    profile.consumer_verified_id_status.clone(),
+                    profile.consumer_verified_id_issued_at.clone(),
+                    profile.provider_verified_id_credential_id.clone(),
+                    profile.provider_verified_id_status.clone(),
+                    profile.provider_verified_id_issued_at.clone(),
                     profile.created_at.clone(),
                     profile.updated_at.clone(),
                 ],
@@ -271,8 +280,11 @@ impl CloudClient {
                     street_address, city, state_province, postal_code, country_region,
                     date_of_birth, ssn_last_four, employment_status, annual_income,
                     role, tenant_id, object_id, verified_id_credential_id,
-                    verified_id_status, verified_id_issued_at, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    verified_id_status, verified_id_issued_at,
+                    consumer_verified_id_credential_id, consumer_verified_id_status, consumer_verified_id_issued_at,
+                    provider_verified_id_credential_id, provider_verified_id_status, provider_verified_id_issued_at,
+                    created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 libsql::params![
                     profile.id.clone(),
                     profile.platform_user_id.clone(),
@@ -300,6 +312,12 @@ impl CloudClient {
                     profile.verified_id_credential_id.clone(),
                     profile.verified_id_status.clone(),
                     profile.verified_id_issued_at.clone(),
+                    profile.consumer_verified_id_credential_id.clone(),
+                    profile.consumer_verified_id_status.clone(),
+                    profile.consumer_verified_id_issued_at.clone(),
+                    profile.provider_verified_id_credential_id.clone(),
+                    profile.provider_verified_id_status.clone(),
+                    profile.provider_verified_id_issued_at.clone(),
                     profile.created_at.clone(),
                     profile.updated_at.clone(),
                 ],
@@ -376,6 +394,12 @@ impl CloudClient {
                     .get::<String>(7)
                     .unwrap_or_else(|_| "pending".to_string()),
                 verified_id_issued_at: row.get::<String>(8).ok(),
+                consumer_verified_id_credential_id: None,
+                consumer_verified_id_status: "pending".to_string(),
+                consumer_verified_id_issued_at: None,
+                provider_verified_id_credential_id: None,
+                provider_verified_id_status: "pending".to_string(),
+                provider_verified_id_issued_at: None,
                 created_at: row.get::<String>(9).unwrap_or_default(),
                 updated_at: row.get::<String>(10).unwrap_or_default(),
             }))

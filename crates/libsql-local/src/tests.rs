@@ -50,7 +50,8 @@ async fn test_schema_table_count() {
     // Agent: 6 tables (agent_bindings, agent_memories, agent_interactions, agent_audit_events, agentfs_kv_store, agentfs_tool_calls)
     // Governance: 6 tables (governance_proposals, governance_votes, governance_delegations, governance_treasury, governance_treasury_transactions, governance_stewards)
     // +3 tables from 2026-07 migrations (share canonical hash, share turso db, user-identities primary)
-    assert_eq!(count, 140, "Schema should contain exactly 140 tables");
+    // +1 table for multi-institution Plaid items (plaid_items)
+    assert_eq!(count, 141, "Schema should contain exactly 141 tables");
 }
 
 // TAG: surface=database owner=platform-team rule=DB-001
@@ -161,6 +162,12 @@ async fn test_user_profile_crud() {
         verified_id_credential_id: None,
         verified_id_status: "pending".to_string(),
         verified_id_issued_at: None,
+        consumer_verified_id_credential_id: None,
+        consumer_verified_id_status: "pending".to_string(),
+        consumer_verified_id_issued_at: None,
+        provider_verified_id_credential_id: None,
+        provider_verified_id_status: "pending".to_string(),
+        provider_verified_id_issued_at: None,
         created_at: now.clone(),
         updated_at: now,
     };
@@ -290,6 +297,12 @@ async fn test_user_profile_update() {
         verified_id_credential_id: None,
         verified_id_status: "pending".to_string(),
         verified_id_issued_at: None,
+        consumer_verified_id_credential_id: None,
+        consumer_verified_id_status: "pending".to_string(),
+        consumer_verified_id_issued_at: None,
+        provider_verified_id_credential_id: None,
+        provider_verified_id_status: "pending".to_string(),
+        provider_verified_id_issued_at: None,
         created_at: now.clone(),
         updated_at: now.clone(),
     };
