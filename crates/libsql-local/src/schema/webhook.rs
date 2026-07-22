@@ -36,7 +36,11 @@ pub async fn initialize_webhook_tables(conn: &Connection) -> Result<()> {
     .await?;
 
     // TAG: surface=database owner=platform-team rule=DB-001
-    // Create notifications table
+    // Create notifications table. This initializer runs before
+    // initialize_notification_tables (core group precedes business group), so
+    // this definition MUST stay identical to notifications.rs — otherwise the
+    // IF NOT EXISTS here wins and per-user cloud databases end up missing
+    // metadata/updated_at, breaking the browser sync push.
     conn.execute(
         "CREATE TABLE IF NOT EXISTS notifications (
             id TEXT PRIMARY KEY,
@@ -44,10 +48,11 @@ pub async fn initialize_webhook_tables(conn: &Connection) -> Result<()> {
             notification_type TEXT NOT NULL,
             title TEXT NOT NULL,
             message TEXT,
+            read_status INTEGER DEFAULT 0,
             action_url TEXT,
-            read_status BOOLEAN DEFAULT FALSE,
-            read_at DATETIME,
+            metadata TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             expires_at DATETIME,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
