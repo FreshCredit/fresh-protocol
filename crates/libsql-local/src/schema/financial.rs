@@ -83,6 +83,12 @@ pub async fn initialize_financial_tables(conn: &Connection) -> Result<()> {
     // Create transactions table that matches production schema
     // TAG: surface=database owner=platform-team rule=DB-001
     // Uses plaid_transaction_id UNIQUE constraint for deduplication
+    // The account_id FK references accounts(id), matching every other
+    // account_id FK in the canonical schema (plaid/payments tables) and the
+    // browser vault lane, which stores the accounts.id primary key in
+    // transactions.account_id. It previously referenced accounts(account_id),
+    // so every browser transaction push failed FK enforcement on per-user
+    // cloud databases.
     conn.execute(
         "CREATE TABLE IF NOT EXISTS transactions (
             id TEXT PRIMARY KEY,
@@ -119,7 +125,7 @@ pub async fn initialize_financial_tables(conn: &Connection) -> Result<()> {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
-            FOREIGN KEY (account_id) REFERENCES accounts (account_id) ON DELETE CASCADE
+            FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE
         )",
         (),
     )

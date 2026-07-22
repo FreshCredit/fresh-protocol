@@ -51,7 +51,8 @@ async fn test_schema_table_count() {
     // Governance: 6 tables (governance_proposals, governance_votes, governance_delegations, governance_treasury, governance_treasury_transactions, governance_stewards)
     // +3 tables from 2026-07 migrations (share canonical hash, share turso db, user-identities primary)
     // +1 table for multi-institution Plaid items (plaid_items)
-    assert_eq!(count, 141, "Schema should contain exactly 141 tables");
+    // +1 table for browser-first payment methods (payment_methods)
+    assert_eq!(count, 142, "Schema should contain exactly 142 tables");
 }
 
 // TAG: surface=database owner=platform-team rule=DB-001

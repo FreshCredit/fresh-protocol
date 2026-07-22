@@ -136,5 +136,37 @@ pub async fn create_fiat_tables(conn: &Connection) -> Result<()> {
     )
     .await?;
 
+    // Browser-first payment methods (Stripe/Circle/Plaid processor tokens).
+    // Must exist in per-user cloud databases: the browser vault lane pushes
+    // this table and has no fallback when the table is missing. Definition
+    // mirrors the client-side self-heal CREATE in libsql-browser-indexeddb.js.
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS payment_methods (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            method_ref TEXT UNIQUE NOT NULL,
+            processor TEXT NOT NULL CHECK (processor IN ('Stripe', 'Circle', 'Plaid')),
+            method_type TEXT NOT NULL CHECK (method_type IN ('Card', 'BankAccount', 'CryptoWallet')),
+            encrypted_token TEXT NOT NULL,
+            hash_anchor TEXT NOT NULL,
+            display_name TEXT,
+            last_four TEXT,
+            brand TEXT,
+            expiry_month INTEGER,
+            expiry_year INTEGER,
+            is_default INTEGER DEFAULT 0,
+            is_active INTEGER DEFAULT 1,
+            verified_at DATETIME,
+            billing_name TEXT,
+            billing_email TEXT,
+            billing_address TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
+        )",
+        (),
+    )
+    .await?;
+
     Ok(())
 }
