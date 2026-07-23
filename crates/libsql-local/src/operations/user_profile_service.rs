@@ -171,7 +171,22 @@ impl LocalClient {
     }
 
     /// Parse a profile row from query results
+    ///
+    /// Typed reads go through `tolerant_i64`/`tolerant_i32`: libsql's typed
+    /// `row.get::<N>()` PANICS on unexpected column types (e.g. TEXT written by
+    /// a browser-side writer), which aborts the process. Default instead.
     async fn parse_profile_row(&self, rows: &mut libsql::Rows) -> Result<Option<UserProfile>> {
+        fn tolerant_i64(row: &libsql::Row, idx: i32) -> Option<i64> {
+            match row.get_value(idx) {
+                Ok(libsql::Value::Integer(i)) => Some(i),
+                Ok(libsql::Value::Text(s)) => s.parse::<i64>().ok(),
+                Ok(libsql::Value::Real(f)) => Some(f as i64),
+                _ => None,
+            }
+        }
+        fn tolerant_i32(row: &libsql::Row, idx: i32) -> Option<i32> {
+            tolerant_i64(row, idx).and_then(|i| i32::try_from(i).ok())
+        }
         if let Some(row) = rows.next().await? {
             let profile = UserProfile {
                 id: row.get(0)?,
@@ -192,7 +207,7 @@ impl LocalClient {
                 date_of_birth: row.get::<Option<String>>(15).unwrap_or(None),
                 ssn_last_four: row.get::<Option<String>>(16).unwrap_or(None),
                 employment_status: row.get::<Option<String>>(17).unwrap_or(None),
-                annual_income: row.get::<Option<i32>>(18).unwrap_or(None),
+                annual_income: tolerant_i32(&row, 18),
                 // ARCH-P2-001: Extended profile fields (columns 19-23)
                 phone_number: row.get::<Option<String>>(19).unwrap_or(None),
                 preferred_name: row.get::<Option<String>>(20).unwrap_or(None),
@@ -202,9 +217,9 @@ impl LocalClient {
                 employer_name: row.get::<Option<String>>(23).unwrap_or(None),
                 // Remaining columns
                 role: row.get(24).unwrap_or_else(|_| "consumer".to_string()),
-                is_admin: row.get::<i64>(25).unwrap_or(0) != 0,
-                provider_onboarding_complete: row.get::<i64>(26).unwrap_or(0) != 0,
-                mfa_enabled: row.get::<i64>(27).unwrap_or(0) != 0,
+                is_admin: tolerant_i64(&row, 25).unwrap_or(0) != 0,
+                provider_onboarding_complete: tolerant_i64(&row, 26).unwrap_or(0) != 0,
+                mfa_enabled: tolerant_i64(&row, 27).unwrap_or(0) != 0,
                 mfa_verified_at: row.get::<Option<String>>(28).unwrap_or(None),
                 tenant_id: row.get(29)?,
                 object_id: row.get(30)?,
