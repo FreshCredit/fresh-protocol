@@ -300,7 +300,10 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             revoked_at DATETIME,
             revoked_reason TEXT,
-            rotated_at DATETIME
+            rotated_at DATETIME,
+            encrypted_value TEXT,
+            service TEXT,
+            environment TEXT
         )",
         (),
     )
@@ -432,6 +435,18 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
         .await;
     let _ = conn
         .execute("ALTER TABLE api_keys ADD COLUMN rotated_at DATETIME", ())
+        .await;
+    // Credential-vault columns for retrievable service credentials
+    // (encrypted_value holds AES-256-GCM ciphertext; NULL for legacy
+    // hash-only API keys).
+    let _ = conn
+        .execute("ALTER TABLE api_keys ADD COLUMN encrypted_value TEXT", ())
+        .await;
+    let _ = conn
+        .execute("ALTER TABLE api_keys ADD COLUMN service TEXT", ())
+        .await;
+    let _ = conn
+        .execute("ALTER TABLE api_keys ADD COLUMN environment TEXT", ())
         .await;
 
     // Create webauthn_credentials table for FIDO2/passkey biometric authentication
