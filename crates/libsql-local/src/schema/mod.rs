@@ -127,7 +127,7 @@ pub use teams::{initialize_teams_indexes, initialize_teams_tables};
 pub use ticketing::initialize_ticketing_tables;
 pub use ucp::initialize_ucp_tables;
 pub use webhook::initialize_webhook_tables;
-pub use workflow::initialize_workflow_tables;
+pub use workflow::{ensure_workflow_columns, initialize_workflow_tables};
 
 pub mod category;
 pub use category::SchemaCategory;

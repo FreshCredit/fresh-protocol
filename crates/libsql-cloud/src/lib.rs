@@ -74,6 +74,13 @@ impl CloudClient {
             .await?;
         }
 
+        // Existing databases may carry the legacy Rust-shaped workflows table
+        // (status/raw_workflow_data instead of the canonical
+        // workflow_status/workflow_data/is_active/next_run_at). This runs the
+        // idempotent CREATE IF NOT EXISTS + column migrations so both fresh
+        // and legacy databases converge on the canonical shape.
+        freshcredit_libsql_local::schema::initialize_workflow_tables(&self.connection).await?;
+
         info!("Cloud database schema initialization completed");
         Ok(())
     }
