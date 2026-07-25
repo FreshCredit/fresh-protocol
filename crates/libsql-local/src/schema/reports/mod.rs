@@ -37,6 +37,9 @@ use provider::seed_demo_provider_offers;
 /// Returns an error if the operation fails.
 pub async fn initialize_reports_tables(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing reports tables");
+    // DB ownership: local per-user DB carries the rich report shape; the
+    // shared DB defines a minimal same-named `reports` table
+    // (schema_manager/tables/impls/core.rs) — different tables, same name.
     conn.execute(
         "CREATE TABLE IF NOT EXISTS reports (
             id TEXT PRIMARY KEY,
@@ -85,6 +88,9 @@ pub async fn initialize_reports_tables(conn: &Connection) -> Result<()> {
     .await?;
 
     // NOTE: FreshCredit matches offers, does not recommend them
+    // DB ownership: local per-user DB matched-offer view; the shared DB
+    // owns the offer lifecycle table of the same name
+    // (schema_manager/tables/impls/consumer_activity.rs).
     conn.execute(
         "CREATE TABLE IF NOT EXISTS offers (
             id TEXT PRIMARY KEY,
