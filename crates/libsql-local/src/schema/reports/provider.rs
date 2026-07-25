@@ -44,6 +44,9 @@ pub async fn initialize_provider_tables(conn: &Connection) -> Result<()> {
     .await?;
 
     // TAG: surface=database owner=platform-team rule=DB-001
+    // DB ownership: local per-user DB report-data disputes; the shared DB
+    // owns the payment-dispute table of the same name
+    // (schema_manager/tables/impls/payments.rs).
     conn.execute(
         "CREATE TABLE IF NOT EXISTS disputes (
             id TEXT PRIMARY KEY,

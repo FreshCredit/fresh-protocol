@@ -60,6 +60,9 @@ pub async fn create_fiat_tables(conn: &Connection) -> Result<()> {
     .await?;
 
     conn.execute(
+        // DB ownership: local per-user DB fiat payments; the shared DB owns
+        // the fee/settlement table of the same name
+        // (schema_manager/tables/impls/payments.rs).
         "CREATE TABLE IF NOT EXISTS payments (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,

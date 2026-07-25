@@ -47,6 +47,13 @@ pub async fn initialize_verification_tables(conn: &Connection) -> Result<()> {
     .await?;
 
     // TAG: surface=database owner=platform-team rule=DB-001
+    // CANONICAL DEFINITION of `verified_credentials`.
+    // This table is also defined in `schema/identity.rs` (which adds
+    // `blockchain_hash`/`block_number`); whichever module runs first creates
+    // it. This module is the canonical owner: the idempotent ALTERs below
+    // converge any existing database (either creation order) to the union of
+    // both column sets. Do not change column sets without updating both
+    // sites (see schema inventory §6).
     conn.execute(
         "CREATE TABLE IF NOT EXISTS verified_credentials (
             id TEXT PRIMARY KEY,
@@ -69,6 +76,34 @@ pub async fn initialize_verification_tables(conn: &Connection) -> Result<()> {
         (),
     )
     .await?;
+
+    // Convergence ALTERs (idempotent — duplicate-column errors are ignored):
+    // if `identity.rs` created the table first, add the columns this canonical
+    // definition carries that it lacks, and vice versa.
+    let _ = conn
+        .execute(
+            "ALTER TABLE verified_credentials ADD COLUMN revocation_id TEXT",
+            (),
+        )
+        .await;
+    let _ = conn
+        .execute(
+            "ALTER TABLE verified_credentials ADD COLUMN credential_data TEXT",
+            (),
+        )
+        .await;
+    let _ = conn
+        .execute(
+            "ALTER TABLE verified_credentials ADD COLUMN blockchain_hash TEXT",
+            (),
+        )
+        .await;
+    let _ = conn
+        .execute(
+            "ALTER TABLE verified_credentials ADD COLUMN block_number INTEGER",
+            (),
+        )
+        .await;
 
     Ok(())
 }

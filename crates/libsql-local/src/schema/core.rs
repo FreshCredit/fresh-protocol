@@ -69,6 +69,12 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
             verified_id_credential_id TEXT,
             verified_id_status TEXT DEFAULT 'pending',
             verified_id_issued_at TEXT,
+            consumer_verified_id_credential_id TEXT,
+            consumer_verified_id_status TEXT DEFAULT 'pending',
+            consumer_verified_id_issued_at TEXT,
+            provider_verified_id_credential_id TEXT,
+            provider_verified_id_status TEXT DEFAULT 'pending',
+            provider_verified_id_issued_at TEXT,
             last_report_date DATETIME,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT DEFAULT CURRENT_TIMESTAMP
@@ -182,6 +188,11 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
 
     // Per-side Verified ID issuance tracking: a single user may hold one
     // consumer credential and one provider credential, issued independently.
+    // NOTE: these columns are also in the CREATE TABLE above (fresh DBs);
+    // these ALTERs cover databases created before they were added.
+    // Aligns the local per-user schema with the shared/cloud DDL
+    // (schema_manager impls/core.rs, libsql/cloud), which already carries
+    // the role-scoped verified-ID columns.
     let _ = conn
         .execute(
             "ALTER TABLE user_profile ADD COLUMN consumer_verified_id_credential_id TEXT",

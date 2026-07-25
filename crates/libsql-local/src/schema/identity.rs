@@ -51,6 +51,12 @@ pub async fn initialize_identity_tables(conn: &Connection) -> Result<()> {
     .await?;
 
     // Create verified_credentials table for Entra Verified ID / KILT DID credentials
+    // NOTE: `verified_credentials` is defined here AND in
+    // `schema/reports/verification.rs`; whichever runs first creates it.
+    // The canonical definition lives in `reports/verification.rs`, whose
+    // idempotent ALTERs converge either creation order to the union of both
+    // column sets (this site's extras: `blockchain_hash`, `block_number`;
+    // that site's extras: `revocation_id`, `credential_data`).
     conn.execute(
         "CREATE TABLE IF NOT EXISTS verified_credentials (
             id TEXT PRIMARY KEY,
