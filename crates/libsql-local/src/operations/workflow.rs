@@ -11,6 +11,7 @@
 use anyhow::Result;
 use tracing::info;
 
+use crate::helpers::delete_with_tombstone;
 use crate::{LocalClient, ScoringModelRecord, WorkflowRecord};
 
 macro_rules! workflow_sql {
@@ -175,10 +176,9 @@ impl LocalClient {
     pub async fn delete_scoring_model(&self, model_id: &str) -> Result<bool> {
         info!("Deleting scoring model: {}", model_id);
 
-        let affected = self
-            .connection
-            .execute("DELETE FROM scores WHERE id = ?", libsql::params![model_id])
-            .await?;
+        // Slice C1: delete + tombstone in one transaction so the deletion
+        // propagates to browser/cloud copies over HTTP sync.
+        let affected = delete_with_tombstone(&self.connection, "scores", model_id).await?;
 
         Ok(affected > 0)
     }
@@ -281,13 +281,9 @@ impl LocalClient {
         info!("Deleting workflow: {}", workflow_id);
 
         // TAG: surface=database owner=platform-team rule=GENERAL-001
-        let affected = self
-            .connection
-            .execute(
-                "DELETE FROM workflows WHERE id = ?",
-                libsql::params![workflow_id],
-            )
-            .await?;
+        // Slice C1: delete + tombstone in one transaction so the deletion
+        // propagates to browser/cloud copies over HTTP sync.
+        let affected = delete_with_tombstone(&self.connection, "workflows", workflow_id).await?;
 
         Ok(affected > 0)
     }
