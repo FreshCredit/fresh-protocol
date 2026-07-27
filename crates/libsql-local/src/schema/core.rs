@@ -591,6 +591,29 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
         )
         .await;
 
+    // Deletion propagation ledger (slice C1): every hard delete records a
+    // tombstone here in the same transaction, and the browser HTTP sync
+    // replays it in both directions. Mirrors the browser OPFS schema in
+    // apps/app/static/js/libsql-browser-opfs.js. No user_id column: this is
+    // a per-user database.
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS sync_deletions (
+            id TEXT PRIMARY KEY,
+            table_name TEXT NOT NULL,
+            row_id TEXT NOT NULL,
+            deleted_at TEXT NOT NULL DEFAULT (datetime('now')),
+            UNIQUE(table_name, row_id)
+        )",
+        (),
+    )
+    .await?;
+    let _ = conn
+        .execute(
+            "CREATE INDEX IF NOT EXISTS idx_sync_deletions_deleted_at ON sync_deletions(deleted_at)",
+            (),
+        )
+        .await;
+
     Ok(())
 }
 

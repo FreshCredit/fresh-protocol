@@ -52,7 +52,8 @@ async fn test_schema_table_count() {
     // +3 tables from 2026-07 migrations (share canonical hash, share turso db, user-identities primary)
     // +1 table for multi-institution Plaid items (plaid_items)
     // +1 table for browser-first payment methods (payment_methods)
-    assert_eq!(count, 142, "Schema should contain exactly 142 tables");
+    // +1 table for deletion propagation tombstone ledger (sync_deletions, slice C1)
+    assert_eq!(count, 143, "Schema should contain exactly 143 tables");
 }
 
 // TAG: surface=database owner=platform-team rule=DB-001
@@ -100,6 +101,8 @@ async fn test_critical_tables_exist() {
         "apple_music_playlists",
         "apple_music_recently_played",
         "apple_music_genre_stats",
+        // Deletion propagation tombstone ledger (slice C1)
+        "sync_deletions",
     ];
 
     for table in critical_tables {
