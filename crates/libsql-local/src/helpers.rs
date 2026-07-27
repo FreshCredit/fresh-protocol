@@ -137,6 +137,60 @@ pub async fn delete_rows_with_tombstones(
     Ok(deleted)
 }
 
+/// Hard-delete rows across several tables and record all tombstones in a
+/// single transaction (one ACID unit per store).
+///
+/// Used by account-level deletion (slice C2): the per-account cascade
+/// (child tables first, then the `accounts` row) must commit together so a
+/// crash can never leave a half-deleted account in the cloud copy. Each
+/// entry is `(table_name, row_ids)`; empty id lists are skipped.
+///
+/// # Errors
+///
+/// Returns an error if any table name is invalid or the transaction fails
+/// (the whole cascade rolls back).
+pub async fn delete_tables_with_tombstones(
+    conn: &Connection,
+    deletions: &[(&str, Vec<String>)],
+) -> Result<u64> {
+    for (table_name, _) in deletions {
+        if !is_valid_sync_table_name(table_name) {
+            bail!("delete_tables_with_tombstones: invalid table name: {table_name}");
+        }
+    }
+    if deletions.iter().all(|(_, ids)| ids.is_empty()) {
+        return Ok(0);
+    }
+    ensure_sync_deletions_table(conn).await?;
+
+    // BEGIN IMMEDIATE ... COMMIT: the whole multi-table cascade + tombstones
+    // are one atomic unit.
+    let tx = conn.transaction().await?;
+    let mut deleted = 0_u64;
+    for (table_name, row_ids) in deletions {
+        for row_id in row_ids {
+            // Table name validated above (cannot be parameterized).
+            deleted += tx
+                .execute(
+                    &format!("DELETE FROM {table_name} WHERE id = ?1"),
+                    libsql::params![row_id.as_str()],
+                )
+                .await?;
+            tx.execute(
+                SYNC_DELETIONS_UPSERT_SQL,
+                libsql::params![
+                    uuid::Uuid::new_v4().to_string(),
+                    *table_name,
+                    row_id.as_str()
+                ],
+            )
+            .await?;
+        }
+    }
+    tx.commit().await?;
+    Ok(deleted)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -324,6 +378,130 @@ mod tests {
         assert!(delete_with_tombstone(&conn, "Widgets", "w-1")
             .await
             .is_err());
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[tokio::test]
+    async fn delete_tables_with_tombstones_cascades_atomically() {
+        let (db, path) = test_db().await;
+        let conn = db.connect().unwrap();
+        conn.execute(
+            "CREATE TABLE gadget_rows (id TEXT PRIMARY KEY, widget_id TEXT NOT NULL)",
+            (),
+        )
+        .await
+        .unwrap();
+        conn.execute(
+            "INSERT INTO widgets (id, user_id) VALUES ('w-1', 'u-1'), ('w-2', 'u-1')",
+            (),
+        )
+        .await
+        .unwrap();
+        conn.execute(
+            "INSERT INTO gadget_rows (id, widget_id) VALUES ('g-1', 'w-1'), ('g-2', 'w-2')",
+            (),
+        )
+        .await
+        .unwrap();
+
+        let deleted = delete_tables_with_tombstones(
+            &conn,
+            &[
+                ("gadget_rows", vec!["g-1".to_string()]),
+                ("widgets", vec!["w-1".to_string()]),
+            ],
+        )
+        .await
+        .unwrap();
+        assert_eq!(deleted, 2);
+
+        let mut rows = conn
+            .query(
+                "SELECT (SELECT COUNT(*) FROM widgets), (SELECT COUNT(*) FROM gadget_rows), (SELECT COUNT(*) FROM sync_deletions)",
+                (),
+            )
+            .await
+            .unwrap();
+        let row = rows.next().await.unwrap().unwrap();
+        assert_eq!(row.get::<i64>(0).unwrap(), 1, "w-2 survives");
+        assert_eq!(row.get::<i64>(1).unwrap(), 1, "g-2 survives");
+        assert_eq!(row.get::<i64>(2).unwrap(), 2, "two tombstones");
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[tokio::test]
+    async fn delete_tables_with_tombstones_rolls_back_all_tables_on_failure() {
+        let (db, path) = test_db().await;
+        let conn = db.connect().unwrap();
+        conn.execute(
+            "CREATE TABLE gadget_rows (id TEXT PRIMARY KEY, widget_id TEXT NOT NULL)",
+            (),
+        )
+        .await
+        .unwrap();
+        conn.execute(
+            "INSERT INTO widgets (id, user_id) VALUES ('w-1', 'u-1')",
+            (),
+        )
+        .await
+        .unwrap();
+        conn.execute(
+            "INSERT INTO gadget_rows (id, widget_id) VALUES ('g-1', 'w-1')",
+            (),
+        )
+        .await
+        .unwrap();
+        // Abort every tombstone insert after the first so the gadget_rows
+        // delete + tombstone succeed, then the widgets tombstone fails: the
+        // entire multi-table transaction must roll back.
+        conn.execute(
+            "CREATE TRIGGER fail_second_tombstone BEFORE INSERT ON sync_deletions
+             WHEN (SELECT COUNT(*) FROM sync_deletions) >= 1
+             BEGIN SELECT RAISE(ABORT, 'injected failure'); END",
+            (),
+        )
+        .await
+        .unwrap();
+
+        let result = delete_tables_with_tombstones(
+            &conn,
+            &[
+                ("gadget_rows", vec!["g-1".to_string()]),
+                ("widgets", vec!["w-1".to_string()]),
+            ],
+        )
+        .await;
+        assert!(result.is_err());
+
+        let mut rows = conn
+            .query(
+                "SELECT (SELECT COUNT(*) FROM widgets), (SELECT COUNT(*) FROM gadget_rows), (SELECT COUNT(*) FROM sync_deletions)",
+                (),
+            )
+            .await
+            .unwrap();
+        let row = rows.next().await.unwrap().unwrap();
+        assert_eq!(row.get::<i64>(0).unwrap(), 1, "widget delete rolled back");
+        assert_eq!(row.get::<i64>(1).unwrap(), 1, "gadget delete rolled back");
+        assert_eq!(row.get::<i64>(2).unwrap(), 0, "no tombstones committed");
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[tokio::test]
+    async fn delete_tables_with_tombstones_validates_and_skips_empty() {
+        let (db, path) = test_db().await;
+        let conn = db.connect().unwrap();
+        assert!(
+            delete_tables_with_tombstones(&conn, &[("Bad Table", vec!["x".to_string()])])
+                .await
+                .is_err()
+        );
+        assert_eq!(
+            delete_tables_with_tombstones(&conn, &[("widgets", vec![])])
+                .await
+                .unwrap(),
+            0
+        );
         let _ = std::fs::remove_file(&path);
     }
 }
