@@ -459,6 +459,28 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
     let _ = conn
         .execute("ALTER TABLE api_keys ADD COLUMN environment TEXT", ())
         .await;
+    // Union-schema columns from the shared (production) api_keys shape.
+    // The adapter writes the union column set so the same INSERT works on
+    // both schemas; these idempotent ALTERs bring the local table up to the
+    // union without a table rebuild.
+    let _ = conn
+        .execute("ALTER TABLE api_keys ADD COLUMN user_id TEXT", ())
+        .await;
+    let _ = conn
+        .execute("ALTER TABLE api_keys ADD COLUMN key_name TEXT", ())
+        .await;
+    let _ = conn
+        .execute(
+            "ALTER TABLE api_keys ADD COLUMN rate_limit INTEGER DEFAULT 1000",
+            (),
+        )
+        .await;
+    let _ = conn
+        .execute(
+            "ALTER TABLE api_keys ADD COLUMN is_active BOOLEAN DEFAULT TRUE",
+            (),
+        )
+        .await;
 
     // Create webauthn_credentials table for FIDO2/passkey biometric authentication
     conn.execute(
