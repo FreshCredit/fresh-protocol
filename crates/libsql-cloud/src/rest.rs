@@ -47,6 +47,28 @@ impl CloudClient {
         })
     }
 
+    /// Lazily add the onboarding security-step columns to an existing
+    /// per-user cloud `user_preferences` table.
+    ///
+    /// New cloud databases get these columns from the local-crate schema at
+    /// provisioning time, but `initialize_schema` only runs at creation — so
+    /// databases provisioned before the columns existed are upgraded here, on
+    /// first preference access. Idempotent; duplicate-column errors are
+    /// swallowed exactly like the schema migrations in the local crate.
+    async fn ensure_security_preference_columns(&self) {
+        let _ = self.connection.execute(
+            "ALTER TABLE user_preferences ADD COLUMN vault_key_acknowledged BOOLEAN DEFAULT FALSE",
+            (),
+        ).await;
+        let _ = self
+            .connection
+            .execute(
+                "ALTER TABLE user_preferences ADD COLUMN backup_sync_chosen BOOLEAN DEFAULT FALSE",
+                (),
+            )
+            .await;
+    }
+
     /// Get user preferences from cloud
     /// # Errors
     // TAG: surface=database owner=platform-team rule=GENERAL-001
@@ -57,11 +79,14 @@ impl CloudClient {
         user_id: &str,
     ) -> FreshCreditResult<Option<freshcredit_libsql_local::UserPreferences>> {
         info!("Getting user preferences from cloud for: {}", user_id);
+        self.ensure_security_preference_columns().await;
 
         let mut rows = self.connection.query(
             "SELECT ai_agent_enabled, ai_feedback_enabled, ai_offers_enabled, ai_lenders_enabled,
                     cloud_sync_enabled, blockchain_enabled, email_notifications_enabled,
-                    kilt_did_enabled, ai_mode, COALESCE(mock_data_enabled, 0) as mock_data_enabled
+                    kilt_did_enabled, ai_mode, COALESCE(mock_data_enabled, 0) as mock_data_enabled,
+                    COALESCE(vault_key_acknowledged, 0) as vault_key_acknowledged,
+                    COALESCE(backup_sync_chosen, 0) as backup_sync_chosen
              FROM user_preferences WHERE user_id = ?",
             libsql::params![user_id.to_string()],
         ).await
@@ -84,11 +109,13 @@ impl CloudClient {
                 kilt_did_enabled: row.get::<bool>(7).ok(),
                 ai_mode: row.get::<String>(8).ok(),
                 mock_data_enabled: row.get::<bool>(9).ok(),
-                onboarding_completed: row.get::<bool>(10).ok(),
-                onboarding_permanently_dismissed: row.get::<bool>(11).ok(),
-                onboarding_reminder_dismissed_until: row.get::<String>(12).ok(),
-                plaid_connection_skipped: row.get::<bool>(13).ok(),
-                plaid_reminder_dismissed_until: row.get::<String>(14).ok(),
+                onboarding_completed: None,
+                onboarding_permanently_dismissed: None,
+                onboarding_reminder_dismissed_until: None,
+                plaid_connection_skipped: None,
+                plaid_reminder_dismissed_until: None,
+                vault_key_acknowledged: row.get::<bool>(10).ok(),
+                backup_sync_chosen: row.get::<bool>(11).ok(),
             }))
         })
     }
@@ -104,29 +131,35 @@ impl CloudClient {
         prefs: &freshcredit_libsql_local::UserPreferences,
     ) -> FreshCreditResult<()> {
         info!("Saving user preferences to cloud for: {}", user_id);
+        self.ensure_security_preference_columns().await;
 
-        self.connection.execute(
-            "INSERT OR REPLACE INTO user_preferences (
+        self.connection
+            .execute(
+                "INSERT OR REPLACE INTO user_preferences (
                 user_id, ai_agent_enabled, ai_feedback_enabled, ai_offers_enabled,
                 ai_lenders_enabled, cloud_sync_enabled, blockchain_enabled,
-                email_notifications_enabled, kilt_did_enabled, ai_mode, mock_data_enabled, updated_at
-             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            libsql::params![
-                user_id.to_string(),
-                prefs.ai_agent_enabled.unwrap_or(false),
-                prefs.ai_feedback_enabled.unwrap_or(false),
-                prefs.ai_offers_enabled.unwrap_or(false),
-                prefs.ai_lenders_enabled.unwrap_or(false),
-                prefs.cloud_sync_enabled.unwrap_or(true),
-                prefs.blockchain_enabled.unwrap_or(true),
-                prefs.email_notifications_enabled.unwrap_or(true),
-                prefs.kilt_did_enabled.unwrap_or(false),
-                prefs.ai_mode.clone().unwrap_or_else(|| "auto".to_string()),
-                prefs.mock_data_enabled.unwrap_or(false),
-                chrono::Utc::now().to_rfc3339(),
-            ],
-        ).await
-        .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?;
+                email_notifications_enabled, kilt_did_enabled, ai_mode, mock_data_enabled,
+                vault_key_acknowledged, backup_sync_chosen, updated_at
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                libsql::params![
+                    user_id.to_string(),
+                    prefs.ai_agent_enabled.unwrap_or(false),
+                    prefs.ai_feedback_enabled.unwrap_or(false),
+                    prefs.ai_offers_enabled.unwrap_or(false),
+                    prefs.ai_lenders_enabled.unwrap_or(false),
+                    prefs.cloud_sync_enabled.unwrap_or(true),
+                    prefs.blockchain_enabled.unwrap_or(true),
+                    prefs.email_notifications_enabled.unwrap_or(true),
+                    prefs.kilt_did_enabled.unwrap_or(false),
+                    prefs.ai_mode.clone().unwrap_or_else(|| "auto".to_string()),
+                    prefs.mock_data_enabled.unwrap_or(false),
+                    prefs.vault_key_acknowledged.unwrap_or(false),
+                    prefs.backup_sync_chosen.unwrap_or(false),
+                    chrono::Utc::now().to_rfc3339(),
+                ],
+            )
+            .await
+            .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?;
 
         Ok(())
     }

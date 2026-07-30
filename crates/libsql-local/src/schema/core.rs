@@ -252,6 +252,8 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
             onboarding_reminder_dismissed_until DATETIME,
             plaid_connection_skipped BOOLEAN DEFAULT FALSE,
             plaid_reminder_dismissed_until DATETIME,
+            vault_key_acknowledged BOOLEAN DEFAULT FALSE,
+            backup_sync_chosen BOOLEAN DEFAULT FALSE,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
@@ -291,6 +293,18 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
     let _ = conn
         .execute(
             "ALTER TABLE user_preferences ADD COLUMN plaid_reminder_dismissed_until DATETIME",
+            (),
+        )
+        .await;
+    let _ = conn
+        .execute(
+            "ALTER TABLE user_preferences ADD COLUMN vault_key_acknowledged BOOLEAN DEFAULT FALSE",
+            (),
+        )
+        .await;
+    let _ = conn
+        .execute(
+            "ALTER TABLE user_preferences ADD COLUMN backup_sync_chosen BOOLEAN DEFAULT FALSE",
             (),
         )
         .await;

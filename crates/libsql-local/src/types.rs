@@ -224,6 +224,15 @@ pub struct UserPreferences {
     /// P0g: Plaid reminder dismissal timestamp (§27.3)
     #[serde(default)]
     pub plaid_reminder_dismissed_until: Option<String>,
+    /// Whether the user acknowledged the auto-derived vault encryption key
+    /// during onboarding (secure → key → backup → connect flow)
+    #[serde(default)]
+    pub vault_key_acknowledged: Option<bool>,
+    /// Whether the user made an explicit cloud-backup (sync) choice during
+    /// onboarding — distinct from `cloud_sync_enabled`, which defaults ON and
+    /// therefore cannot record that a choice happened at all
+    #[serde(default)]
+    pub backup_sync_chosen: Option<bool>,
 }
 
 // ============================================================================

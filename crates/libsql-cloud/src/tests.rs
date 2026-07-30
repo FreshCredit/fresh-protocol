@@ -131,6 +131,8 @@ fn test_user_preferences() -> freshcredit_libsql_local::UserPreferences {
         onboarding_reminder_dismissed_until: None,
         plaid_connection_skipped: Some(false),
         plaid_reminder_dismissed_until: None,
+        vault_key_acknowledged: Some(false),
+        backup_sync_chosen: Some(false),
     }
 }
 
