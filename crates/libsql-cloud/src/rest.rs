@@ -69,6 +69,26 @@ impl CloudClient {
             .await;
     }
 
+    /// Lazily add the assistant preference columns (widget consent + model
+    /// picker) to an existing per-user cloud `user_preferences` table.
+    /// Idempotent, same pattern as `ensure_security_preference_columns`.
+    async fn ensure_assistant_preference_columns(&self) {
+        let _ = self
+            .connection
+            .execute(
+                "ALTER TABLE user_preferences ADD COLUMN assistant_data_consent BOOLEAN DEFAULT FALSE",
+                (),
+            )
+            .await;
+        let _ = self
+            .connection
+            .execute(
+                "ALTER TABLE user_preferences ADD COLUMN assistant_model TEXT",
+                (),
+            )
+            .await;
+    }
+
     /// Get user preferences from cloud
     /// # Errors
     // TAG: surface=database owner=platform-team rule=GENERAL-001
@@ -80,13 +100,16 @@ impl CloudClient {
     ) -> FreshCreditResult<Option<freshcredit_libsql_local::UserPreferences>> {
         info!("Getting user preferences from cloud for: {}", user_id);
         self.ensure_security_preference_columns().await;
+        self.ensure_assistant_preference_columns().await;
 
         let mut rows = self.connection.query(
             "SELECT ai_agent_enabled, ai_feedback_enabled, ai_offers_enabled, ai_lenders_enabled,
                     cloud_sync_enabled, blockchain_enabled, email_notifications_enabled,
                     kilt_did_enabled, ai_mode, COALESCE(mock_data_enabled, 0) as mock_data_enabled,
                     COALESCE(vault_key_acknowledged, 0) as vault_key_acknowledged,
-                    COALESCE(backup_sync_chosen, 0) as backup_sync_chosen
+                    COALESCE(backup_sync_chosen, 0) as backup_sync_chosen,
+                    COALESCE(assistant_data_consent, 0) as assistant_data_consent,
+                    assistant_model
              FROM user_preferences WHERE user_id = ?",
             libsql::params![user_id.to_string()],
         ).await
@@ -116,6 +139,8 @@ impl CloudClient {
                 plaid_reminder_dismissed_until: None,
                 vault_key_acknowledged: row.get::<bool>(10).ok(),
                 backup_sync_chosen: row.get::<bool>(11).ok(),
+                assistant_data_consent: row.get::<bool>(12).ok(),
+                assistant_model: row.get::<Option<String>>(13).unwrap_or(None),
             }))
         })
     }
@@ -132,6 +157,7 @@ impl CloudClient {
     ) -> FreshCreditResult<()> {
         info!("Saving user preferences to cloud for: {}", user_id);
         self.ensure_security_preference_columns().await;
+        self.ensure_assistant_preference_columns().await;
 
         self.connection
             .execute(
@@ -139,8 +165,9 @@ impl CloudClient {
                 user_id, ai_agent_enabled, ai_feedback_enabled, ai_offers_enabled,
                 ai_lenders_enabled, cloud_sync_enabled, blockchain_enabled,
                 email_notifications_enabled, kilt_did_enabled, ai_mode, mock_data_enabled,
-                vault_key_acknowledged, backup_sync_chosen, updated_at
-             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                vault_key_acknowledged, backup_sync_chosen,
+                assistant_data_consent, assistant_model, updated_at
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 libsql::params![
                     user_id.to_string(),
                     prefs.ai_agent_enabled.unwrap_or(false),
@@ -155,6 +182,8 @@ impl CloudClient {
                     prefs.mock_data_enabled.unwrap_or(false),
                     prefs.vault_key_acknowledged.unwrap_or(false),
                     prefs.backup_sync_chosen.unwrap_or(false),
+                    prefs.assistant_data_consent.unwrap_or(false),
+                    prefs.assistant_model.clone(),
                     chrono::Utc::now().to_rfc3339(),
                 ],
             )

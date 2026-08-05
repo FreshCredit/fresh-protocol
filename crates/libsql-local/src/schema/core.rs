@@ -254,6 +254,8 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
             plaid_reminder_dismissed_until DATETIME,
             vault_key_acknowledged BOOLEAN DEFAULT FALSE,
             backup_sync_chosen BOOLEAN DEFAULT FALSE,
+            assistant_data_consent BOOLEAN DEFAULT FALSE,
+            assistant_model TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
@@ -305,6 +307,18 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
     let _ = conn
         .execute(
             "ALTER TABLE user_preferences ADD COLUMN backup_sync_chosen BOOLEAN DEFAULT FALSE",
+            (),
+        )
+        .await;
+    let _ = conn
+        .execute(
+            "ALTER TABLE user_preferences ADD COLUMN assistant_data_consent BOOLEAN DEFAULT FALSE",
+            (),
+        )
+        .await;
+    let _ = conn
+        .execute(
+            "ALTER TABLE user_preferences ADD COLUMN assistant_model TEXT",
             (),
         )
         .await;

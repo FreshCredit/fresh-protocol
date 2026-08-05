@@ -233,6 +233,15 @@ pub struct UserPreferences {
     /// therefore cannot record that a choice happened at all
     #[serde(default)]
     pub backup_sync_chosen: Option<bool>,
+    /// Whether the assistant may read the user's vault data (agent widget
+    /// "Let the assistant read my vault data" + settings "Assistant data
+    /// access" toggle). Default OFF.
+    #[serde(default)]
+    pub assistant_data_consent: Option<bool>,
+    /// Preferred assistant model (server-whitelisted); None = default
+    /// (gemini-2.5-flash)
+    #[serde(default)]
+    pub assistant_model: Option<String>,
 }
 
 // ============================================================================

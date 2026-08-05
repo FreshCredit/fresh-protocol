@@ -49,6 +49,8 @@ impl LocalClient {
             plaid_reminder_dismissed_until: row.get::<Option<String>>(14).unwrap_or(None),
             vault_key_acknowledged: Self::get_bool_pref(row, 15)?,
             backup_sync_chosen: Self::get_bool_pref(row, 16)?,
+            assistant_data_consent: Self::get_bool_pref(row, 17)?,
+            assistant_model: row.get::<Option<String>>(18).unwrap_or(None),
         })
     }
 
@@ -71,7 +73,9 @@ impl LocalClient {
                     COALESCE(plaid_connection_skipped, 0) as plaid_connection_skipped,
                     plaid_reminder_dismissed_until,
                     COALESCE(vault_key_acknowledged, 0) as vault_key_acknowledged,
-                    COALESCE(backup_sync_chosen, 0) as backup_sync_chosen
+                    COALESCE(backup_sync_chosen, 0) as backup_sync_chosen,
+                    COALESCE(assistant_data_consent, 0) as assistant_data_consent,
+                    assistant_model
              FROM user_preferences WHERE user_id = ?",
             libsql::params![user_id],
         ).await?;
@@ -106,8 +110,9 @@ impl LocalClient {
                 email_notifications_enabled, kilt_did_enabled, ai_mode, mock_data_enabled,
                 onboarding_completed, onboarding_permanently_dismissed, onboarding_reminder_dismissed_until,
                 plaid_connection_skipped, plaid_reminder_dismissed_until,
-                vault_key_acknowledged, backup_sync_chosen, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                vault_key_acknowledged, backup_sync_chosen,
+                assistant_data_consent, assistant_model, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT(user_id) DO UPDATE SET
                 ai_agent_enabled = excluded.ai_agent_enabled,
                 ai_feedback_enabled = excluded.ai_feedback_enabled,
@@ -126,6 +131,8 @@ impl LocalClient {
                 plaid_reminder_dismissed_until = excluded.plaid_reminder_dismissed_until,
                 vault_key_acknowledged = excluded.vault_key_acknowledged,
                 backup_sync_chosen = excluded.backup_sync_chosen,
+                assistant_data_consent = excluded.assistant_data_consent,
+                assistant_model = excluded.assistant_model,
                 updated_at = excluded.updated_at",
                 // TASK 4 FIX: AI agent defaults to TRUE (enabled)
                 libsql::params![
@@ -148,6 +155,8 @@ impl LocalClient {
                     prefs.plaid_reminder_dismissed_until.clone(),
                     i64::from(prefs.vault_key_acknowledged.unwrap_or(false)),
                     i64::from(prefs.backup_sync_chosen.unwrap_or(false)),
+                    i64::from(prefs.assistant_data_consent.unwrap_or(false)),
+                    prefs.assistant_model.clone(),
                     now.clone(),
                     now
                 ],

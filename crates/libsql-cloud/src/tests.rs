@@ -133,6 +133,8 @@ fn test_user_preferences() -> freshcredit_libsql_local::UserPreferences {
         plaid_reminder_dismissed_until: None,
         vault_key_acknowledged: Some(false),
         backup_sync_chosen: Some(false),
+        assistant_data_consent: Some(false),
+        assistant_model: None,
     }
 }
 
