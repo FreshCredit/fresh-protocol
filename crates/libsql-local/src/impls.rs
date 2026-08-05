@@ -23,6 +23,19 @@ impl LocalClient {
         Ok(Self { connection })
     }
 
+    /// Create a client wrapping an existing shared `libsql` database
+    ///
+    /// Used to place agent state (bindings, memories, `AgentFS`, controls) on
+    /// the shared platform database — remote Turso in production, local file
+    /// in development — instead of a separate per-instance local file.
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
+    pub fn from_database(db: &libsql::Database) -> Result<Self> {
+        let connection = db.connect()?;
+        Ok(Self { connection })
+    }
+
     // TAG: surface=database owner=platform-team rule=DB-001
     /// Create a new in-memory client for testing
     ///
