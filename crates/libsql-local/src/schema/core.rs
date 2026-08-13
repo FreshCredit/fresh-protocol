@@ -619,6 +619,23 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
         )
         .await;
 
+    // V2 consumer connection toggles (per-user app connect/disconnect state).
+    // Mirrors the shared_db table of the same name (schema_manager
+    // impls/core.rs): the server upserts it on every connect/disconnect and
+    // mirrors each write into the per-user vault (vault-as-source-of-truth,
+    // phase 2), from which the browser syncs.
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS user_connections (
+            user_id TEXT NOT NULL,
+            connection_id TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'disconnected',
+            connected_at TEXT,
+            PRIMARY KEY (user_id, connection_id)
+        )",
+        (),
+    )
+    .await?;
+
     // Deletion propagation ledger (slice C1): every hard delete records a
     // tombstone here in the same transaction, and the browser HTTP sync
     // replays it in both directions. Mirrors the browser OPFS schema in
