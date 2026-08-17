@@ -11,7 +11,10 @@ impl CloudClient {
             .await
             .expect("Failed to build test database");
         let connection = db.connect().expect("Failed to connect to test database");
-        Self { connection }
+        Self {
+            connection: Mutex::new(connection),
+            database: Arc::new(db),
+        }
     }
 }
 
@@ -147,7 +150,7 @@ async fn init_full_schema(client: &CloudClient) {
     // a semicolon inside a comment in unified_schema.sql that breaks the
     // naive split-by-semicolon logic in execute_unified_schema.
     client
-        .connection
+        .connection()
         .execute(
             "CREATE TABLE IF NOT EXISTS user_profile (
             id TEXT PRIMARY KEY,
@@ -203,7 +206,7 @@ async fn insert_user_profile_raw(
     profile: &freshcredit_libsql_local::UserProfile,
 ) {
     client
-        .connection
+        .connection()
         .execute(
             "INSERT OR REPLACE INTO user_profile (
                 id, platform_user_id, azure_id, email, display_name,
@@ -279,7 +282,7 @@ async fn insert_account_raw(
     plaid_token: Option<&str>,
 ) {
     client
-        .connection
+        .connection()
         .execute(
             "INSERT OR REPLACE INTO accounts (
                 id, user_id, account_id, account_type, balance, currency, institution_name, plaid_access_token, created_at
@@ -312,7 +315,7 @@ async fn insert_transaction_raw(
     merchant: &str,
 ) {
     client
-        .connection
+        .connection()
         .execute(
             "INSERT OR REPLACE INTO transactions (
                 id, user_id, account_id, amount, name, category, merchant_name, date, created_at
@@ -351,7 +354,7 @@ async fn test_initialize_schema_on_empty_database() {
 
     // Verify a key table exists (user_profile is missing due to production bug)
     let mut rows = client
-        .connection
+        .connection()
         .query(
             "SELECT name FROM sqlite_master WHERE type='table' AND name='accounts'",
             libsql::params![],
@@ -560,7 +563,7 @@ async fn test_sync_transaction_with_custom_table() {
 
     client
 // TAG: surface=database owner=platform-team rule=DB-001
-        .connection
+        .connection()
         .execute(
             "CREATE TABLE transactions (
                 id TEXT PRIMARY KEY,
@@ -586,7 +589,7 @@ async fn test_sync_transaction_with_custom_table() {
     // TAG: surface=database owner=platform-team rule=GENERAL-001
 
     let mut rows = client
-        .connection
+        .connection()
         .query(
             "SELECT id, account_id, amount, description, category, merchant_name FROM transactions WHERE id = ?",
             libsql::params![tx.id.clone()],
@@ -743,7 +746,7 @@ async fn test_sync_user_profile() {
     assert!(result.is_ok(), "sync_user_profile should succeed");
 
     let mut rows = client
-        .connection
+        .connection()
         .query(
             "SELECT platform_user_id, email, display_name FROM user_profile WHERE platform_user_id = ?",
             libsql::params![profile.platform_user_id.clone()],
@@ -767,7 +770,7 @@ async fn test_store_user_profile() {
     assert!(result.is_ok(), "store_user_profile should succeed");
 
     let mut rows = client
-        .connection
+        .connection()
         .query(
             "SELECT id, platform_user_id, email, role, tenant_id FROM user_profile WHERE platform_user_id = ?",
             libsql::params![profile.platform_user_id.clone()],

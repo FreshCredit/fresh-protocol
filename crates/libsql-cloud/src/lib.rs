@@ -8,13 +8,31 @@
 
 use anyhow::Result;
 use freshcredit_types::{Account, FinancialReport, FreshCreditResult, Transaction, UserId};
-use tracing::info;
+use std::sync::{Arc, Mutex};
+use tracing::{info, warn};
+
+/// Build a `Vec<libsql::Value>` from heterogeneous parameter expressions.
+///
+/// Each expression must implement `Into<libsql::Value>` (same constraint as the
+/// upstream `cloud_params!` macro). Using `Vec<libsql::Value>` lets the cloud
+/// client's retry wrappers clone parameters for Hrana stream reconnection.
+#[macro_export]
+macro_rules! cloud_params {
+    ($($value:expr),* $(,)?) => {
+        vec![$(libsql::Value::from($value)),*]
+    };
+}
 
 // TAG: surface=database owner=platform-team rule=DB-001
 /// Cloud `LibSQL` database client for Turso
+///
+/// Wraps a `libsql::Connection` and keeps a handle to the parent
+/// `libsql::Database` so it can reconnect after transient Hrana stream
+/// errors (e.g. idle timeout on remote Turso).
 #[derive(Debug)]
 pub struct CloudClient {
-    connection: libsql::Connection,
+    connection: Mutex<libsql::Connection>,
+    database: Arc<libsql::Database>,
 }
 
 // TAG: surface=database owner=platform-team rule=DB-001
@@ -31,7 +49,77 @@ impl CloudClient {
             .await?;
         let connection = db.connect()?;
 
-        Ok(Self { connection })
+        Ok(Self {
+            connection: Mutex::new(connection),
+            database: Arc::new(db),
+        })
+    }
+
+    /// Get a clone of the current connection.
+    #[must_use]
+    fn connection(&self) -> libsql::Connection {
+        self.connection
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .clone()
+    }
+
+    /// Execute a raw SQL query and return rows.
+    ///
+    /// Retries once on Hrana stream errors after reconnecting.
+    async fn query(&self, sql: &str, params: Vec<libsql::Value>) -> Result<libsql::Rows> {
+        let conn = self.connection();
+        match conn.query(sql, params.clone()).await {
+            Ok(rows) => Ok(rows),
+            Err(e) if Self::is_reconnectable(&e) => {
+                warn!("Hrana stream lost on cloud query; reconnecting: {}", e);
+                let new_conn = self.reconnect()?;
+                new_conn
+                    .query(sql, params)
+                    .await
+                    .map_err(|e| anyhow::anyhow!("{e}"))
+            }
+            Err(e) => Err(anyhow::anyhow!("{e}")),
+        }
+    }
+
+    /// Execute a raw SQL statement and return affected rows count.
+    ///
+    /// Retries once on Hrana stream errors after reconnecting.
+    async fn execute(&self, sql: &str, params: Vec<libsql::Value>) -> Result<u64> {
+        let conn = self.connection();
+        match conn.execute(sql, params.clone()).await {
+            Ok(rows) => Ok(rows),
+            Err(e) if Self::is_reconnectable(&e) => {
+                warn!("Hrana stream lost on cloud execute; reconnecting: {}", e);
+                let new_conn = self.reconnect()?;
+                new_conn
+                    .execute(sql, params)
+                    .await
+                    .map_err(|e| anyhow::anyhow!("{e}"))
+            }
+            Err(e) => Err(anyhow::anyhow!("{e}")),
+        }
+    }
+
+    /// Recreate the underlying connection from the parent database.
+    fn reconnect(&self) -> Result<libsql::Connection> {
+        let new_conn = self.database.connect()?;
+        let mut guard = self
+            .connection
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        *guard = new_conn.clone();
+        Ok(new_conn)
+    }
+
+    /// Detect transient Hrana stream errors that are safe to retry after a
+    /// reconnect.
+    fn is_reconnectable(e: &libsql::Error) -> bool {
+        let msg = e.to_string().to_lowercase();
+        msg.contains("stream not found")
+            || msg.contains("stream closed")
+            || msg.contains("hrana")
     }
 
     /// Initialize cloud database schema using unified schema
@@ -48,11 +136,10 @@ impl CloudClient {
 
         for table in &key_tables {
             let mut rows = self
-                .connection
                 .query(
                     "SELECT name FROM sqlite_master WHERE type='table' AND name = ?",
                     // TAG: surface=database owner=platform-team rule=GENERAL-001
-                    libsql::params![table],
+                    cloud_params![table.to_string()],
                 )
                 .await?;
 
@@ -69,7 +156,7 @@ impl CloudClient {
         } else {
             info!("Creating unified schema in cloud database");
             freshcredit_libsql_local::schema::initialize_all_schema_tables_no_seed(
-                &self.connection,
+                &self.connection(),
             )
             .await?;
         }
@@ -79,7 +166,7 @@ impl CloudClient {
         // workflow_status/workflow_data/is_active/next_run_at). This runs the
         // idempotent CREATE IF NOT EXISTS + column migrations so both fresh
         // and legacy databases converge on the canonical shape.
-        freshcredit_libsql_local::schema::initialize_workflow_tables(&self.connection).await?;
+        freshcredit_libsql_local::schema::initialize_workflow_tables(&self.connection()).await?;
 
         info!("Cloud database schema initialization completed");
         Ok(())
@@ -99,10 +186,10 @@ impl CloudClient {
         let data = serde_json::to_string(report)
             .map_err(|e| freshcredit_types::FreshCreditError::InternalError(e.to_string()))?;
 
-        self.connection.execute(
+        self.execute(
             "INSERT OR REPLACE INTO reports (id, user_id, report_type, report_status, report_data, raw_report_data, blockchain_hash, created_at, updated_at)
              VALUES (?, ?, 'financial', 'ready', ?, ?, ?, datetime('now'), datetime('now'))",
-            libsql::params![
+            cloud_params![
                 report.id.to_string(),
                 report.user_id.clone(),
                 data.clone(),
@@ -129,9 +216,9 @@ impl CloudClient {
             user_id
         );
 
-        let mut rows = self.connection.query(
+        let mut rows = self.query(
             "SELECT report_data FROM reports WHERE user_id = ? ORDER BY created_at DESC LIMIT 1",
-            libsql::params![user_id.clone()],
+            cloud_params![user_id.clone()],
         ).await
         .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?;
 
@@ -165,10 +252,10 @@ impl CloudClient {
             account.id, account.user_id
         );
 
-        self.connection.execute(
+        self.execute(
             "INSERT OR REPLACE INTO accounts (id, user_id, account_type, balance, currency, institution_name, created_at)
              VALUES (?, ?, ?, ?, ?, ?, ?)",
-            libsql::params![
+            cloud_params![
                 account.id.clone(),
                 account.user_id.clone(),
                 format!("{:?}", account.account_type), // Convert enum to string
@@ -194,10 +281,10 @@ impl CloudClient {
             transaction.id, transaction.account_id
         );
 
-        self.connection.execute(
+        self.execute(
             "INSERT OR REPLACE INTO transactions (id, account_id, amount, currency, description, category, date, merchant_name)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            libsql::params![
+            cloud_params![
                 transaction.id.clone(),
                 transaction.account_id.clone(),
                 transaction.amount,
@@ -224,7 +311,7 @@ impl CloudClient {
     ) -> FreshCreditResult<()> {
         info!("Syncing user profile {} to cloud", profile.platform_user_id);
 
-        self.connection
+        self
             .execute(
                 "INSERT OR REPLACE INTO user_profile (
                 platform_user_id, azure_id, email, display_name, given_name, surname,
@@ -234,7 +321,7 @@ impl CloudClient {
                 provider_verified_id_credential_id, provider_verified_id_status, provider_verified_id_issued_at,
                 created_at, updated_at
              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                libsql::params![
+                cloud_params![
                     profile.platform_user_id.clone(),
                     profile.azure_id.clone(),
                     profile.email.clone(),
@@ -279,7 +366,7 @@ impl CloudClient {
             profile.platform_user_id
         );
 
-        self.connection
+        self
             .execute(
                 "INSERT OR REPLACE INTO user_profile (
                     id, platform_user_id, azure_id, email, display_name,
@@ -292,7 +379,7 @@ impl CloudClient {
                     provider_verified_id_credential_id, provider_verified_id_status, provider_verified_id_issued_at,
                     created_at, updated_at
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                libsql::params![
+                cloud_params![
                     profile.id.clone(),
                     profile.platform_user_id.clone(),
 // TAG: surface=database owner=platform-team rule=DB-001
@@ -347,13 +434,12 @@ impl CloudClient {
         info!("Getting user profile from cloud for: {}", user_email);
 
         let mut rows = self
-            .connection
             .query(
                 "SELECT platform_user_id, email, display_name, given_name, surname,
                     object_id, verified_id_credential_id, verified_id_status,
                     verified_id_issued_at, created_at, updated_at
              FROM user_profile WHERE email = ? OR platform_user_id = ?",
-                libsql::params![user_email.to_string(), user_email.to_string()],
+                cloud_params![user_email.to_string(), user_email.to_string()],
             )
             .await
             .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?;

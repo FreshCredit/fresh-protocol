@@ -10,8 +10,7 @@ impl CloudClient {
         info!("Getting account count from cloud");
 
         let mut rows = self
-            .connection
-            .query("SELECT COUNT(*) FROM accounts", libsql::params![])
+            .query("SELECT COUNT(*) FROM accounts", cloud_params![])
             .await
             .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?;
 
@@ -33,8 +32,7 @@ impl CloudClient {
         info!("Getting transaction count from cloud");
 
         let mut rows = self
-            .connection
-            .query("SELECT COUNT(*) FROM transactions", libsql::params![])
+            .query("SELECT COUNT(*) FROM transactions", cloud_params![])
             .await
             .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?;
 
@@ -56,15 +54,14 @@ impl CloudClient {
     /// first preference access. Idempotent; duplicate-column errors are
     /// swallowed exactly like the schema migrations in the local crate.
     async fn ensure_security_preference_columns(&self) {
-        let _ = self.connection.execute(
+        let _ = self.execute(
             "ALTER TABLE user_preferences ADD COLUMN vault_key_acknowledged BOOLEAN DEFAULT FALSE",
-            (),
+            cloud_params![],
         ).await;
         let _ = self
-            .connection
             .execute(
                 "ALTER TABLE user_preferences ADD COLUMN backup_sync_chosen BOOLEAN DEFAULT FALSE",
-                (),
+                cloud_params![],
             )
             .await;
     }
@@ -74,17 +71,15 @@ impl CloudClient {
     /// Idempotent, same pattern as `ensure_security_preference_columns`.
     async fn ensure_assistant_preference_columns(&self) {
         let _ = self
-            .connection
             .execute(
                 "ALTER TABLE user_preferences ADD COLUMN assistant_data_consent BOOLEAN DEFAULT FALSE",
-                (),
+                cloud_params![],
             )
             .await;
         let _ = self
-            .connection
             .execute(
                 "ALTER TABLE user_preferences ADD COLUMN assistant_model TEXT",
-                (),
+                cloud_params![],
             )
             .await;
     }
@@ -102,7 +97,7 @@ impl CloudClient {
         self.ensure_security_preference_columns().await;
         self.ensure_assistant_preference_columns().await;
 
-        let mut rows = self.connection.query(
+        let mut rows = self.query(
             "SELECT ai_agent_enabled, ai_feedback_enabled, ai_offers_enabled, ai_lenders_enabled,
                     cloud_sync_enabled, blockchain_enabled, email_notifications_enabled,
                     kilt_did_enabled, ai_mode, COALESCE(mock_data_enabled, 0) as mock_data_enabled,
@@ -111,7 +106,7 @@ impl CloudClient {
                     COALESCE(assistant_data_consent, 0) as assistant_data_consent,
                     assistant_model
              FROM user_preferences WHERE user_id = ?",
-            libsql::params![user_id.to_string()],
+            cloud_params![user_id.to_string()],
         ).await
         .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?;
 
@@ -159,7 +154,7 @@ impl CloudClient {
         self.ensure_security_preference_columns().await;
         self.ensure_assistant_preference_columns().await;
 
-        self.connection
+        self
             .execute(
                 "INSERT OR REPLACE INTO user_preferences (
                 user_id, ai_agent_enabled, ai_feedback_enabled, ai_offers_enabled,
@@ -168,7 +163,7 @@ impl CloudClient {
                 vault_key_acknowledged, backup_sync_chosen,
                 assistant_data_consent, assistant_model, updated_at
              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                libsql::params![
+                cloud_params![
                     user_id.to_string(),
                     prefs.ai_agent_enabled.unwrap_or(false),
                     prefs.ai_feedback_enabled.unwrap_or(false),
@@ -207,7 +202,6 @@ impl CloudClient {
         info!("Getting user profile from cloud by azure_id: {}", azure_id);
 
         let mut rows = self
-            .connection
             .query(
                 "SELECT id, platform_user_id, azure_id, email, display_name,
                         given_name, family_name, surname, mobile_phone, job_title,
@@ -222,7 +216,7 @@ impl CloudClient {
                         provider_verified_id_credential_id, provider_verified_id_status, provider_verified_id_issued_at,
                         created_at, updated_at
                  FROM user_profile WHERE azure_id = ? OR object_id = ?",
-                libsql::params![azure_id.to_string(), azure_id.to_string()],
+                cloud_params![azure_id.to_string(), azure_id.to_string()],
             )
 // TAG: surface=database owner=platform-team rule=GENERAL-001
             .await
@@ -297,11 +291,10 @@ impl CloudClient {
         info!("Getting accounts from cloud for user: {}", user_id);
 
         let mut rows = self
-            .connection
             .query(
                 "SELECT id, user_id, account_type, balance, currency, institution_name, created_at
                  FROM accounts WHERE user_id = ? ORDER BY created_at DESC",
-                libsql::params![user_id.to_string()],
+                cloud_params![user_id.to_string()],
             )
             .await
             .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?;
@@ -354,7 +347,6 @@ impl CloudClient {
         info!("Getting transactions from cloud for user: {}", user_id);
 
         let mut rows = self
-            .connection
             .query(
                 "SELECT t.id, t.account_id, t.amount, COALESCE(t.iso_currency_code, 'USD'),
                         t.name, t.category, t.date, t.merchant_name
@@ -362,7 +354,7 @@ impl CloudClient {
                  JOIN accounts a ON t.account_id = a.id
                  WHERE a.user_id = ?
                  ORDER BY t.date DESC",
-                libsql::params![user_id.to_string()],
+                cloud_params![user_id.to_string()],
             )
             .await
             .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?;
@@ -407,10 +399,9 @@ impl CloudClient {
         info!("Getting Plaid access token for user: {}", user_id);
 
         let mut rows = self
-            .connection
             .query(
                 "SELECT plaid_access_token FROM accounts WHERE user_id = ? AND plaid_access_token IS NOT NULL LIMIT 1",
-                libsql::params![user_id.to_string()],
+                cloud_params![user_id.to_string()],
             )
             .await
             .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?;
@@ -442,10 +433,9 @@ impl CloudClient {
         info!("Getting Plaid access token for account: {}", account_id);
 
         let mut rows = self
-            .connection
             .query(
                 "SELECT plaid_access_token FROM accounts WHERE id = ? AND plaid_access_token IS NOT NULL LIMIT 1",
-                libsql::params![account_id.to_string()],
+                cloud_params![account_id.to_string()],
             )
             .await
             .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?;
@@ -477,11 +467,10 @@ impl CloudClient {
         info!("Getting account by ID: {}", account_id);
 
         let mut rows = self
-            .connection
             .query(
                 "SELECT id, user_id, account_type, balance, currency, institution_name, created_at
                  FROM accounts WHERE id = ? LIMIT 1",
-                libsql::params![account_id.to_string()],
+                cloud_params![account_id.to_string()],
             )
             .await
             .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?;
