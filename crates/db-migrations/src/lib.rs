@@ -238,7 +238,7 @@ impl MigrationRunner {
         for statement in up_sql.split(';') {
             let statement = statement.trim();
             if !statement.is_empty() {
-                tx.execute(statement, ()).await?;
+                Self::execute_statement_idempotent(&tx, statement).await?;
             }
         }
 
@@ -260,6 +260,33 @@ impl MigrationRunner {
             "✅ Applied migration {}: {}",
             migration.version, migration.name
         );
+        Ok(())
+    }
+
+    /// Execute a single migration statement, making `ALTER TABLE ... ADD COLUMN`
+    /// idempotent by skipping the statement when the target column already exists.
+    ///
+    /// SQLite/libsql do not support `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`,
+    /// and migrations that add columns to long-lived tables must be replayable
+    /// against databases that already received those columns from an earlier
+    /// schema path or manual change.
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
+    async fn execute_statement_idempotent(
+        tx: &libsql::Transaction,
+        statement: &str,
+    ) -> Result<()> {
+        if let Some((table, column)) = parse_alter_add_column(statement) {
+            if column_exists(tx, &table, &column).await? {
+                info!(
+                    "Skipping idempotent ALTER TABLE: column {}.{} already exists",
+                    table, column
+                );
+                return Ok(());
+            }
+        }
+        tx.execute(statement, ()).await?;
         Ok(())
     }
 
@@ -330,6 +357,113 @@ impl MigrationRunner {
 
         Ok(mismatches)
     }
+}
+
+/// If `statement` is `ALTER TABLE <table> ADD [COLUMN] <column> ...`,
+/// return the table and column names. Handles unquoted, double-quoted,
+/// backtick-quoted, and bracketed identifiers, and is case-insensitive.
+fn parse_alter_add_column(statement: &str) -> Option<(String, String)> {
+    let tokens = tokenize_sql(statement);
+    if tokens.len() < 5 {
+        return None;
+    }
+    if !tokens[0].eq_ignore_ascii_case("ALTER") || !tokens[1].eq_ignore_ascii_case("TABLE") {
+        return None;
+    }
+    let table = strip_quotes(tokens[2]);
+    if !tokens[3].eq_ignore_ascii_case("ADD") {
+        return None;
+    }
+    let column_idx = if tokens
+        .get(4)
+        .is_some_and(|t| t.eq_ignore_ascii_case("COLUMN"))
+    {
+        5
+    } else {
+        4
+    };
+    let column = strip_quotes(tokens.get(column_idx)?);
+    if table.is_empty() || column.is_empty() {
+        return None;
+    }
+    Some((table.to_string(), column.to_string()))
+}
+
+/// Tokenize a simple SQL statement, preserving quoted identifiers that may
+/// contain whitespace. Used only for `ALTER TABLE ... ADD COLUMN` detection.
+fn tokenize_sql(sql: &str) -> Vec<&str> {
+    let mut tokens = Vec::new();
+    let mut start: Option<usize> = None;
+    let mut quote: Option<char> = None;
+    for (i, c) in sql.char_indices() {
+        match quote {
+            Some(q) => {
+                if c == q {
+                    tokens.push(&sql[start.unwrap()..=i]);
+                    quote = None;
+                    start = None;
+                }
+            }
+            None => {
+                if c.is_whitespace() {
+                    if let Some(s) = start {
+                        tokens.push(&sql[s..i]);
+                        start = None;
+                    }
+                } else if c == '"' || c == '\'' || c == '[' {
+                    if let Some(s) = start {
+                        tokens.push(&sql[s..i]);
+                    }
+                    quote = Some(c);
+                    start = Some(i);
+                } else {
+                    start.get_or_insert(i);
+                }
+            }
+        }
+    }
+    if let Some(s) = start {
+        tokens.push(&sql[s..]);
+    }
+    tokens
+}
+
+/// Strip optional surrounding quotes from an identifier.
+fn strip_quotes(ident: &str) -> &str {
+    ident
+        .strip_prefix('"')
+        .and_then(|s| s.strip_suffix('"'))
+        .or_else(|| {
+            ident
+                .strip_prefix('`')
+                .and_then(|s| s.strip_suffix('`'))
+        })
+        .or_else(|| {
+            ident
+                .strip_prefix('[')
+                .and_then(|s| s.strip_suffix(']'))
+        })
+        .unwrap_or(ident)
+}
+
+/// Query `PRAGMA table_info(table_name)` to determine whether `column_name`
+/// already exists on `table_name`.
+async fn column_exists(
+    tx: &libsql::Transaction,
+    table_name: &str,
+    column_name: &str,
+) -> Result<bool> {
+    let mut rows = tx
+        .query(
+            "SELECT COUNT(*) FROM pragma_table_info(?) WHERE name = ?",
+            libsql::params![table_name, column_name],
+        )
+        .await?;
+    if let Some(row) = rows.next().await? {
+        let count: i64 = row.get(0)?;
+        return Ok(count > 0);
+    }
+    Ok(false)
 }
 
 /// Parse migration filename to extract version and name
@@ -404,6 +538,29 @@ mod tests {
         let different_sql = "CREATE TABLE test2 (id INTEGER PRIMARY KEY);";
         let checksum3 = compute_checksum(different_sql);
         assert_ne!(checksum, checksum3);
+    }
+
+    #[test]
+    fn test_parse_alter_add_column() {
+        assert_eq!(
+            parse_alter_add_column("ALTER TABLE report_shares ADD COLUMN share_ciphertext TEXT"),
+            Some(("report_shares".to_string(), "share_ciphertext".to_string()))
+        );
+        assert_eq!(
+            parse_alter_add_column(
+                "ALTER TABLE `report_shares` ADD share_key_wrap TEXT"
+            ),
+            Some(("report_shares".to_string(), "share_key_wrap".to_string()))
+        );
+        assert_eq!(
+            parse_alter_add_column(
+                "ALTER TABLE \"Report Shares\" ADD COLUMN \"shareKey\" TEXT"
+            ),
+            Some(("Report Shares".to_string(), "shareKey".to_string()))
+        );
+        // Non-ALTER statements return None.
+        assert!(parse_alter_add_column("CREATE TABLE t (id INT)").is_none());
+        assert!(parse_alter_add_column("ALTER TABLE t DROP COLUMN c").is_none());
     }
 }
 
@@ -495,6 +652,37 @@ mod async_tests {
         assert_eq!(applied.len(), 1);
         assert_eq!(applied[0].version, 1);
         assert_eq!(applied[0].name, "initial");
+    }
+
+    #[tokio::test]
+    async fn test_apply_migration_idempotent_add_column() {
+        let runner = in_memory_runner().await.unwrap();
+        runner.ensure_migrations_table().await.unwrap();
+
+        // Create table and add the column once.
+        let migration1 = Migration {
+            version: 1,
+            name: "create_and_add".to_string(),
+            up_sql: "CREATE TABLE idempotent_test (id INTEGER PRIMARY KEY); \
+                     ALTER TABLE idempotent_test ADD COLUMN extra TEXT"
+                .to_string(),
+            down_sql: Some("DROP TABLE idempotent_test".to_string()),
+            checksum: compute_checksum("ignored"),
+        };
+        runner.apply_migration(&migration1).await.unwrap();
+
+        // Re-apply the same ADD COLUMN in a later migration; it must be skipped.
+        let migration2 = Migration {
+            version: 2,
+            name: "add_again".to_string(),
+            up_sql: "ALTER TABLE idempotent_test ADD COLUMN extra TEXT".to_string(),
+            down_sql: None,
+            checksum: compute_checksum("ignored2"),
+        };
+        runner.apply_migration(&migration2).await.unwrap();
+
+        let applied = runner.get_applied_migrations().await.unwrap();
+        assert_eq!(applied.len(), 2);
     }
 
     #[tokio::test]
