@@ -23,7 +23,7 @@ impl LocalClient {
         let id = uuid::Uuid::new_v4().to_string();
         let now = chrono::Utc::now().to_rfc3339();
 
-        self.connection
+        self.connection()
             .execute(
                 "INSERT INTO ai_conversations (id, user_id, title, context, created_at, updated_at)
              VALUES (?, ?, ?, ?, ?, ?)",
@@ -41,7 +41,7 @@ impl LocalClient {
     /// Returns an error if the operation fails.
     pub async fn get_conversation(&self, conversation_id: &str) -> Result<Option<AiConversation>> {
         let mut rows = self
-            .connection
+            .connection()
             .query(
                 "SELECT id, user_id, title, context, created_at, updated_at
              FROM ai_conversations WHERE id = ?",
@@ -74,7 +74,7 @@ impl LocalClient {
         limit: u32,
     ) -> Result<Vec<AiConversation>> {
         let mut rows = self
-            .connection
+            .connection()
             .query(
                 "SELECT id, user_id, title, context, created_at, updated_at
              FROM ai_conversations WHERE user_id = ?
@@ -114,7 +114,7 @@ impl LocalClient {
         let id = uuid::Uuid::new_v4().to_string();
         let now = chrono::Utc::now().to_rfc3339();
 
-        self.connection.execute(
+        self.connection().execute(
             "INSERT INTO ai_messages (id, conversation_id, role, content, file_attachment_id, tokens_used, model, created_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             libsql::params![
@@ -130,7 +130,7 @@ impl LocalClient {
         ).await?;
 
         // Update conversation's updated_at timestamp
-        self.connection
+        self.connection()
             .execute(
                 "UPDATE ai_conversations SET updated_at = ? WHERE id = ?",
                 libsql::params![now, conversation_id],
@@ -159,7 +159,7 @@ impl LocalClient {
              ORDER BY created_at ASC LIMIT ?";
 
         let mut rows = self
-            .connection
+            .connection()
             .query(query, libsql::params![conversation_id, limit_val])
             .await?;
 
@@ -186,7 +186,7 @@ impl LocalClient {
     ///
     /// Returns an error if the operation fails.
     pub async fn delete_conversation(&self, conversation_id: &str) -> Result<()> {
-        self.connection
+        self.connection()
             .execute(
                 "DELETE FROM ai_conversations WHERE id = ?",
                 libsql::params![conversation_id],
@@ -205,7 +205,7 @@ impl LocalClient {
         title: &str,
     ) -> Result<()> {
         let now = chrono::Utc::now().to_rfc3339();
-        self.connection
+        self.connection()
             .execute(
                 "UPDATE ai_conversations SET title = ?, updated_at = ? WHERE id = ?",
                 libsql::params![title, now, conversation_id],

@@ -57,7 +57,7 @@ impl LocalClient {
     }
 
     async fn check_invalid_currencies(&self, warnings: &mut Vec<String>) -> Result<()> {
-        let mut rows = self.connection.query(
+        let mut rows = self.connection().query(
             "SELECT DISTINCT currency FROM accounts WHERE currency NOT IN ('USD', 'EUR', 'GBP', 'CAD', 'JPY')",
             (),
         ).await?;
@@ -78,7 +78,7 @@ impl LocalClient {
 
     async fn check_invalid_amounts(&self, warnings: &mut Vec<String>) -> Result<()> {
         let mut rows = self
-            .connection
+            .connection()
             .query(
                 "SELECT COUNT(*) FROM transactions WHERE amount = 0 OR amount IS NULL",
                 (),
@@ -99,7 +99,7 @@ impl LocalClient {
 
     async fn check_future_transactions(&self, warnings: &mut Vec<String>) -> Result<()> {
         let mut rows = self
-            .connection
+            .connection()
             .query(
                 "SELECT COUNT(*) FROM transactions WHERE date > datetime('now')",
                 (),
@@ -119,7 +119,7 @@ impl LocalClient {
 
     // TAG: surface=database owner=platform-team rule=DB-001
     async fn check_foreign_keys(&self, issues: &mut Vec<String>) -> Result<()> {
-        let mut rows = self.connection.query("PRAGMA foreign_keys", ()).await?;
+        let mut rows = self.connection().query("PRAGMA foreign_keys", ()).await?;
         if let Some(row) = rows.next().await? {
             let fk_enabled: i64 = row.get(0)?;
             if fk_enabled == 0 {
@@ -131,7 +131,7 @@ impl LocalClient {
 
     async fn check_orphaned_transactions(&self, issues: &mut Vec<String>) -> Result<()> {
         let mut rows = self
-            .connection
+            .connection()
             .query(
                 "SELECT COUNT(*) FROM transactions t LEFT JOIN accounts a ON t.account_id = a.id WHERE a.id IS NULL",
                 (),
@@ -150,7 +150,7 @@ impl LocalClient {
 
     async fn check_orphaned_accounts(&self, issues: &mut Vec<String>) -> Result<()> {
         let mut rows = self
-            .connection
+            .connection()
             .query(
                 "SELECT COUNT(*) FROM accounts a LEFT JOIN user_profile u ON a.user_id = u.platform_user_id WHERE u.platform_user_id IS NULL",
                 (),
@@ -177,7 +177,7 @@ impl LocalClient {
         ];
         for index_name in REQUIRED_INDEXES {
             let mut rows = self
-                .connection
+                .connection()
                 .query(
                     "SELECT name FROM sqlite_master WHERE type='index' AND name=?",
                     libsql::params![*index_name],

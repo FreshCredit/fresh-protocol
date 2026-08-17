@@ -63,7 +63,7 @@ impl LocalClient {
     pub async fn get_user_preferences(&self, user_id: &str) -> Result<Option<UserPreferences>> {
         info!("Getting preferences for user: {user_id}");
 
-        let mut rows = self.connection.query(
+        let mut rows = self.connection().query(
             "SELECT ai_agent_enabled, ai_feedback_enabled, ai_offers_enabled, ai_lenders_enabled,
                     cloud_sync_enabled, blockchain_enabled, email_notifications_enabled, kilt_did_enabled,
                     COALESCE(ai_mode, 'auto') as ai_mode, COALESCE(mock_data_enabled, 0) as mock_data_enabled,
@@ -103,7 +103,7 @@ impl LocalClient {
         let id = uuid::Uuid::new_v4().to_string();
         let now = chrono::Utc::now().to_rfc3339();
 
-        self.connection
+        self.connection()
             .execute(
                 "INSERT INTO user_preferences (id, user_id, ai_agent_enabled, ai_feedback_enabled,
                 ai_offers_enabled, ai_lenders_enabled, cloud_sync_enabled, blockchain_enabled,

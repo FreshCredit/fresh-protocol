@@ -23,7 +23,7 @@ impl LocalClient {
     pub async fn store_account(&self, account: &freshcredit_types::Account) -> Result<()> {
         info!("Storing account locally: {}", account.id);
 
-        self.connection.execute(
+        self.connection().execute(
             "INSERT OR REPLACE INTO accounts (id, user_id, account_type, balance, currency, institution_name, created_at)
              VALUES (?, ?, ?, ?, ?, ?, ?)",
             libsql::params![
@@ -51,7 +51,7 @@ impl LocalClient {
     ) -> Result<()> {
         info!("Storing transaction locally: {}", transaction.id);
 
-        self.connection.execute(
+        self.connection().execute(
             "INSERT OR REPLACE INTO transactions (id, account_id, amount, currency, description, category, date, merchant_name)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
             libsql::params![
@@ -82,7 +82,7 @@ impl LocalClient {
         info!("Retrieving accounts for user: {}", user_id);
 
         let mut rows = self
-            .connection
+            .connection()
             .query(
                 "SELECT * FROM accounts WHERE user_id = ? ORDER BY created_at DESC LIMIT 1000",
                 libsql::params![user_id],
@@ -149,7 +149,7 @@ impl LocalClient {
         info!("Retrieving transactions for user: {user_id}");
 
         let mut rows = self
-            .connection
+            .connection()
             .query(
                 "SELECT t.* FROM transactions t
              JOIN accounts a ON t.account_id = a.id

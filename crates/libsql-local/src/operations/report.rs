@@ -26,7 +26,7 @@ impl LocalClient {
         let data = serde_json::to_string(report)
             .map_err(|e| freshcredit_types::FreshCreditError::InternalError(e.to_string()))?;
 
-        self.connection.execute(
+        self.connection().execute(
             "INSERT OR REPLACE INTO reports (id, user_id, report_type, report_status, report_data, raw_report_data, blockchain_hash, created_at, updated_at)
              VALUES (?, ?, 'financial', 'ready', ?, ?, ?, datetime('now'), datetime('now'))",
             libsql::params![
@@ -56,7 +56,7 @@ impl LocalClient {
             user_id
         );
 
-        let mut rows = self.connection.query(
+        let mut rows = self.connection().query(
             "SELECT report_data FROM reports WHERE user_id = ? ORDER BY created_at DESC LIMIT 1",
             libsql::params![user_id.clone()],
         ).await

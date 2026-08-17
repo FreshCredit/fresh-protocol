@@ -64,7 +64,7 @@ impl LocalClient {
         );
 
         let now = chrono::Utc::now().to_rfc3339();
-        self.connection
+        self.connection()
             .execute(
                 "INSERT OR REPLACE INTO scores (
                 id, user_id, provider_id, score_model_id, score_model_name,
@@ -100,7 +100,7 @@ impl LocalClient {
         info!("Getting scoring models for provider: {}", provider_id);
 
         let mut rows = self
-            .connection
+            .connection()
             .query(
                 "SELECT id, user_id, provider_id, score_model_id, score_model_name,
                     score_model_version, data_elements_used, data_element_weights,
@@ -139,7 +139,7 @@ impl LocalClient {
         info!("Getting scoring model: {}", model_id);
 
         let mut rows = self
-            .connection
+            .connection()
             .query(
                 "SELECT id, user_id, provider_id, score_model_id, score_model_name,
                     score_model_version, data_elements_used, data_element_weights,
@@ -178,7 +178,7 @@ impl LocalClient {
 
         // Slice C1: delete + tombstone in one transaction so the deletion
         // propagates to browser/cloud copies over HTTP sync.
-        let affected = delete_with_tombstone(&self.connection, "scores", model_id).await?;
+        let affected = delete_with_tombstone(&self.connection(), "scores", model_id).await?;
 
         Ok(affected > 0)
     }
@@ -199,7 +199,7 @@ impl LocalClient {
         );
 
         let now = chrono::Utc::now().to_rfc3339();
-        self.connection
+        self.connection()
             .execute(
                 "INSERT OR REPLACE INTO workflows (
                 id, user_id, workflow_type, workflow_name, workflow_description,
@@ -238,7 +238,7 @@ impl LocalClient {
         info!("Getting workflows for user: {}", user_id);
 
         let mut rows = self
-            .connection
+            .connection()
             .query(
                 workflow_sql!("WHERE user_id = ? ORDER BY updated_at DESC"),
                 libsql::params![user_id],
@@ -262,7 +262,7 @@ impl LocalClient {
         info!("Getting workflow: {}", workflow_id);
 
         let mut rows = self
-            .connection
+            .connection()
             .query(workflow_sql!("WHERE id = ?"), libsql::params![workflow_id])
             .await?;
 
@@ -283,7 +283,7 @@ impl LocalClient {
         // TAG: surface=database owner=platform-team rule=GENERAL-001
         // Slice C1: delete + tombstone in one transaction so the deletion
         // propagates to browser/cloud copies over HTTP sync.
-        let affected = delete_with_tombstone(&self.connection, "workflows", workflow_id).await?;
+        let affected = delete_with_tombstone(&self.connection(), "workflows", workflow_id).await?;
 
         Ok(affected > 0)
     }
@@ -296,7 +296,7 @@ impl LocalClient {
         info!("Publishing workflow: {}", workflow_id);
 
         let now = chrono::Utc::now().to_rfc3339();
-        let affected = self.connection.execute(
+        let affected = self.connection().execute(
             "UPDATE workflows SET workflow_status = 'published', is_active = 1, updated_at = ? WHERE id = ?",
             libsql::params![now, workflow_id],
         ).await?;

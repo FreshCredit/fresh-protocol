@@ -53,7 +53,7 @@ async fn test_schema_table_count() {
     // +1 table for multi-institution Plaid items (plaid_items)
     // +1 table for browser-first payment methods (payment_methods)
     // +1 table for deletion propagation tombstone ledger (sync_deletions, slice C1)
-    assert_eq!(count, 143, "Schema should contain exactly 143 tables");
+    assert_eq!(count, 144, "Schema should contain exactly 144 tables");
 }
 
 // TAG: surface=database owner=platform-team rule=DB-001

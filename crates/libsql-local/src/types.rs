@@ -54,6 +54,12 @@
 //!     verified_id_credential_id: None,
 //!     verified_id_status: "not_verified".to_string(),
 //!     verified_id_issued_at: None,
+//!     consumer_verified_id_credential_id: None,
+//!     consumer_verified_id_status: "not_verified".to_string(),
+//!     consumer_verified_id_issued_at: None,
+//!     provider_verified_id_credential_id: None,
+//!     provider_verified_id_status: "not_verified".to_string(),
+//!     provider_verified_id_issued_at: None,
 //!     created_at: "2025-01-01T00:00:00Z".to_string(),
 //!     updated_at: "2025-01-01T00:00:00Z".to_string(),
 //! };

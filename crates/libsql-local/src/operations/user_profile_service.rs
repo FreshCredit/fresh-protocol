@@ -73,7 +73,7 @@ impl LocalClient {
             profile.platform_user_id
         );
 
-        self.connection.execute(
+        self.connection().execute(
             "INSERT OR REPLACE INTO user_profile (
                 id, platform_user_id, azure_id, email, display_name, given_name, family_name,
                 surname, mobile_phone, job_title, street_address, city, state_province,
@@ -139,7 +139,7 @@ impl LocalClient {
         );
 
         let mut rows = self
-            .connection
+            .connection()
             .query(
                 // DB-010: EXCEPTION - Repository service implementation
                 "SELECT * FROM user_profile WHERE platform_user_id = ?",
@@ -158,7 +158,7 @@ impl LocalClient {
         tracing::info!("Retrieving user profile by azure_id: {}", azure_id);
 
         let mut rows = self
-            .connection
+            .connection()
             .query(
                 // DB-010: EXCEPTION - Repository service implementation
                 "SELECT * FROM user_profile WHERE azure_id = ?",

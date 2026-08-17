@@ -26,7 +26,7 @@ impl LocalClient {
         let payload_json = serde_json::to_string(&event.payload)?;
 
         // Use INSERT OR IGNORE for idempotency via event_id UNIQUE constraint
-        let affected = self.connection.execute(
+        let affected = self.connection().execute(
             "INSERT OR IGNORE INTO webhook_events (id, user_id, provider, event_type, event_id, payload, status, retry_count, created_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             libsql::params![
@@ -53,7 +53,7 @@ impl LocalClient {
     pub async fn get_pending_webhook_events(&self, limit: u32) -> Result<Vec<WebhookEvent>> {
         info!("Getting pending webhook events (limit: {})", limit);
 
-        let mut rows = self.connection.query(
+        let mut rows = self.connection().query(
             "SELECT id, user_id, provider, event_type, event_id, payload, status, retry_count, processed_at, created_at
              FROM webhook_events
              WHERE status = 'pending'
@@ -105,12 +105,12 @@ impl LocalClient {
         };
 
         let affected = if increment_retry {
-            self.connection.execute(
+            self.connection().execute(
                 "UPDATE webhook_events SET status = ?, retry_count = retry_count + 1, processed_at = ? WHERE event_id = ?",
                 libsql::params![status, processed_at, event_id],
             ).await?
         } else {
-            self.connection
+            self.connection()
                 .execute(
                     "UPDATE webhook_events SET status = ?, processed_at = ? WHERE event_id = ?",
                     libsql::params![status, processed_at, event_id],
@@ -136,7 +136,7 @@ impl LocalClient {
         );
 
         // P0-PERF: Limited to 1000 events to prevent memory exhaustion
-        let mut rows = self.connection.query(
+        let mut rows = self.connection().query(
             "SELECT id, user_id, provider, event_type, event_id, payload, status, retry_count, processed_at, created_at
              FROM webhook_events
              WHERE status = 'failed' AND retry_count < ?
@@ -175,7 +175,7 @@ impl LocalClient {
         info!("Moving webhook to dead letter: {}", event_id);
 
         let now = chrono::Utc::now().to_rfc3339();
-        let affected = self.connection.execute(
+        let affected = self.connection().execute(
             "UPDATE webhook_events SET status = 'dead_letter', processed_at = ? WHERE event_id = ?",
             libsql::params![now, event_id],
         ).await?;
@@ -189,7 +189,7 @@ impl LocalClient {
     ///
     /// Returns an error if the operation fails.
     pub async fn get_webhook_event(&self, event_id: &str) -> Result<Option<WebhookEvent>> {
-        let mut rows = self.connection.query(
+        let mut rows = self.connection().query(
             "SELECT id, user_id, provider, event_type, event_id, payload, status, retry_count, processed_at, created_at
              FROM webhook_events WHERE event_id = ?",
             libsql::params![event_id],
@@ -222,7 +222,7 @@ impl LocalClient {
     ///
     /// Returns an error if the operation fails.
     pub async fn get_recent_webhook_events(&self, limit: u32) -> Result<Vec<WebhookEvent>> {
-        let mut rows = self.connection.query(
+        let mut rows = self.connection().query(
             "SELECT id, user_id, provider, event_type, event_id, payload, status, retry_count, processed_at, created_at
              FROM webhook_events
              ORDER BY created_at DESC
@@ -259,7 +259,7 @@ impl LocalClient {
     /// Returns an error if the operation fails.
     pub async fn get_webhook_event_counts(&self) -> Result<WebhookEventCounts> {
         let mut rows = self
-            .connection
+            .connection()
             .query(
                 "SELECT status, COUNT(*) as count FROM webhook_events GROUP BY status",
                 libsql::params![],

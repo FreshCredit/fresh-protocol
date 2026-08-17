@@ -38,7 +38,7 @@ impl LocalClient {
             .unwrap_or("unknown")
             .to_string();
 
-        self.connection.execute(
+        self.connection().execute(
             "INSERT INTO uploaded_files (id, user_id, filename, file_type, file_size, mime_type, file_data, text_content, conversation_id, created_at, updated_at, expires_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             libsql::params![
@@ -66,7 +66,7 @@ impl LocalClient {
     ///
     /// Returns an error if the operation fails.
     pub async fn get_uploaded_file(&self, file_id: &str) -> Result<Option<UploadedFile>> {
-        let mut rows = self.connection.query(
+        let mut rows = self.connection().query(
             "SELECT id, user_id, filename, mime_type, file_size, file_data, text_content, ai_analysis, conversation_id, created_at, expires_at
              FROM uploaded_files WHERE id = ?",
             libsql::params![file_id],
@@ -97,7 +97,7 @@ impl LocalClient {
     ///
     /// Returns an error if the operation fails.
     pub async fn update_file_ai_analysis(&self, file_id: &str, analysis: &str) -> Result<()> {
-        self.connection
+        self.connection()
             .execute(
                 "UPDATE uploaded_files SET ai_analysis = ? WHERE id = ?",
                 libsql::params![analysis, file_id],
@@ -113,7 +113,7 @@ impl LocalClient {
     pub async fn cleanup_expired_files(&self) -> Result<u64> {
         let now = chrono::Utc::now().to_rfc3339();
         let affected = self
-            .connection
+            .connection()
             .execute(
                 "DELETE FROM uploaded_files WHERE expires_at < ?",
                 libsql::params![now],
