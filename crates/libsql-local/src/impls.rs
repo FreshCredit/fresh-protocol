@@ -73,11 +73,22 @@ impl LocalClient {
 
     /// Get access to the underlying connection for direct queries.
     ///
-    /// Returns a clone of the current connection. For clients backed by a shared
-    /// database, use [`LocalClient::query`] and [`LocalClient::execute`] to get
-    /// automatic reconnection on transient Hrana stream errors.
+    /// For clients backed by a shared database (remote Turso), returns a fresh
+    /// connection on every call so callers never hold a stale Hrana stream. The
+    /// cached connection is updated to match. For file-backed clients, returns the
+    /// single cached connection.
     #[must_use]
     pub fn connection(&self) -> libsql::Connection {
+        if let Some(db) = self.database.as_ref() {
+            if let Ok(fresh) = db.connect() {
+                let mut guard = self
+                    .connection
+                    .lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner());
+                *guard = fresh.clone();
+                return fresh;
+            }
+        }
         self.connection
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
