@@ -14,7 +14,7 @@
 use anyhow::Result;
 use libsql::Connection;
 
-use super::try_create_index;
+use super::{add_column_if_not_exists, try_create_index};
 use tracing::info;
 
 // TAG: surface=database owner=platform-team rule=DB-001
@@ -117,12 +117,7 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
     // migrations/2026-07-12-user-identities-primary.sql). Both statements are
     // idempotent: the ALTER errors out harmlessly once the column exists, and
     // the backfill skips users that already have a primary row.
-    let _ = conn
-        .execute(
-            "ALTER TABLE user_identities ADD COLUMN is_primary BOOLEAN DEFAULT FALSE",
-            (),
-        )
-        .await;
+        add_column_if_not_exists(conn, "user_identities", "is_primary", "BOOLEAN DEFAULT FALSE").await?;
     let _ = conn
         .execute(
             "UPDATE user_identities SET is_primary = TRUE WHERE rowid IN (\
@@ -137,54 +132,21 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
     // Migrations for existing databases
     // CHATBOT-FIX: platform_user_id is required by RBAC middleware queries
     // This column was added to the schema but existing databases may not have it
-    let _ = conn
-// TAG: surface=database owner=platform-team rule=DB-001
-        .execute(
-            "ALTER TABLE user_profile ADD COLUMN platform_user_id TEXT",
-            (),
-        )
-        .await;
+        add_column_if_not_exists(conn, "user_profile", "platform_user_id", "TEXT").await?;
     // For rows with NULL platform_user_id, populate from email as fallback
     let _ = conn.execute(
         "UPDATE user_profile SET platform_user_id = email WHERE platform_user_id IS NULL OR platform_user_id = ''",
         (),
     ).await;
 
-    let _ = conn
-        .execute(
-            "ALTER TABLE user_profile ADD COLUMN is_admin BOOLEAN DEFAULT FALSE",
-            (),
-        )
-        .await;
-    let _ = conn.execute(
-        "ALTER TABLE user_profile ADD COLUMN provider_onboarding_complete BOOLEAN DEFAULT FALSE",
-        (),
-    ).await;
+        add_column_if_not_exists(conn, "user_profile", "is_admin", "BOOLEAN DEFAULT FALSE").await?;
+        add_column_if_not_exists(conn, "user_profile", "provider_onboarding_complete", "BOOLEAN DEFAULT FALSE").await?;
     // ARCH-P2-001: Migration for new profile fields
-    let _ = conn
-        .execute("ALTER TABLE user_profile ADD COLUMN phone_number TEXT", ())
-        .await;
-    let _ = conn
-        .execute(
-            "ALTER TABLE user_profile ADD COLUMN preferred_name TEXT",
-            (),
-        )
-        .await;
-    let _ = conn
-        .execute(
-            "ALTER TABLE user_profile ADD COLUMN emergency_contact_name TEXT",
-            (),
-        )
-        .await;
-    let _ = conn
-        .execute(
-            "ALTER TABLE user_profile ADD COLUMN emergency_contact_phone TEXT",
-            (),
-        )
-        .await;
-    let _ = conn
-        .execute("ALTER TABLE user_profile ADD COLUMN employer_name TEXT", ())
-        .await;
+    add_column_if_not_exists(conn, "user_profile", "phone_number", "TEXT").await?;
+        add_column_if_not_exists(conn, "user_profile", "preferred_name", "TEXT").await?;
+        add_column_if_not_exists(conn, "user_profile", "emergency_contact_name", "TEXT").await?;
+        add_column_if_not_exists(conn, "user_profile", "emergency_contact_phone", "TEXT").await?;
+    add_column_if_not_exists(conn, "user_profile", "employer_name", "TEXT").await?;
 
     // Per-side Verified ID issuance tracking: a single user may hold one
     // consumer credential and one provider credential, issued independently.
@@ -193,42 +155,12 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
     // Aligns the local per-user schema with the shared/cloud DDL
     // (schema_manager impls/core.rs, libsql/cloud), which already carries
     // the role-scoped verified-ID columns.
-    let _ = conn
-        .execute(
-            "ALTER TABLE user_profile ADD COLUMN consumer_verified_id_credential_id TEXT",
-            (),
-        )
-        .await;
-    let _ = conn
-        .execute(
-            "ALTER TABLE user_profile ADD COLUMN consumer_verified_id_status TEXT DEFAULT 'pending'",
-            (),
-        )
-        .await;
-    let _ = conn
-        .execute(
-            "ALTER TABLE user_profile ADD COLUMN consumer_verified_id_issued_at TEXT",
-            (),
-        )
-        .await;
-    let _ = conn
-        .execute(
-            "ALTER TABLE user_profile ADD COLUMN provider_verified_id_credential_id TEXT",
-            (),
-        )
-        .await;
-    let _ = conn
-        .execute(
-            "ALTER TABLE user_profile ADD COLUMN provider_verified_id_status TEXT DEFAULT 'pending'",
-            (),
-        )
-        .await;
-    let _ = conn
-        .execute(
-            "ALTER TABLE user_profile ADD COLUMN provider_verified_id_issued_at TEXT",
-            (),
-        )
-        .await;
+        add_column_if_not_exists(conn, "user_profile", "consumer_verified_id_credential_id", "TEXT").await?;
+        add_column_if_not_exists(conn, "user_profile", "consumer_verified_id_status", "TEXT DEFAULT 'pending'").await?;
+        add_column_if_not_exists(conn, "user_profile", "consumer_verified_id_issued_at", "TEXT").await?;
+        add_column_if_not_exists(conn, "user_profile", "provider_verified_id_credential_id", "TEXT").await?;
+        add_column_if_not_exists(conn, "user_profile", "provider_verified_id_status", "TEXT DEFAULT 'pending'").await?;
+        add_column_if_not_exists(conn, "user_profile", "provider_verified_id_issued_at", "TEXT").await?;
 
     // TAG: surface=database owner=platform-team rule=DB-001
     // Create user_preferences table (matches production Turso schema)
@@ -266,62 +198,17 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
 
     // TAG: surface=database owner=platform-team rule=DB-001
     // Migrations for user_preferences
-    let _ = conn
-        .execute(
-            "ALTER TABLE user_preferences ADD COLUMN ai_mode TEXT DEFAULT 'auto'",
-            (),
-        )
-        .await;
-    let _ = conn
-        .execute(
-            "ALTER TABLE user_preferences ADD COLUMN mock_data_enabled BOOLEAN DEFAULT FALSE",
-            (),
-        )
-        .await;
-    let _ = conn
-        .execute(
-            "ALTER TABLE user_preferences ADD COLUMN onboarding_completed BOOLEAN DEFAULT FALSE",
-            (),
-        )
-        .await;
-    let _ = conn.execute("ALTER TABLE user_preferences ADD COLUMN onboarding_permanently_dismissed BOOLEAN DEFAULT FALSE", ()).await;
-    let _ = conn
-        .execute(
-            "ALTER TABLE user_preferences ADD COLUMN onboarding_reminder_dismissed_until DATETIME",
-            (),
-        )
-        .await;
-    let _ = conn.execute("ALTER TABLE user_preferences ADD COLUMN plaid_connection_skipped BOOLEAN DEFAULT FALSE", ()).await;
-    let _ = conn
-        .execute(
-            "ALTER TABLE user_preferences ADD COLUMN plaid_reminder_dismissed_until DATETIME",
-            (),
-        )
-        .await;
-    let _ = conn
-        .execute(
-            "ALTER TABLE user_preferences ADD COLUMN vault_key_acknowledged BOOLEAN DEFAULT FALSE",
-            (),
-        )
-        .await;
-    let _ = conn
-        .execute(
-            "ALTER TABLE user_preferences ADD COLUMN backup_sync_chosen BOOLEAN DEFAULT FALSE",
-            (),
-        )
-        .await;
-    let _ = conn
-        .execute(
-            "ALTER TABLE user_preferences ADD COLUMN assistant_data_consent BOOLEAN DEFAULT FALSE",
-            (),
-        )
-        .await;
-    let _ = conn
-        .execute(
-            "ALTER TABLE user_preferences ADD COLUMN assistant_model TEXT",
-            (),
-        )
-        .await;
+        add_column_if_not_exists(conn, "user_preferences", "ai_mode", "TEXT DEFAULT 'auto'").await?;
+        add_column_if_not_exists(conn, "user_preferences", "mock_data_enabled", "BOOLEAN DEFAULT FALSE").await?;
+        add_column_if_not_exists(conn, "user_preferences", "onboarding_completed", "BOOLEAN DEFAULT FALSE").await?;
+    add_column_if_not_exists(conn, "user_preferences", "onboarding_permanently_dismissed", "BOOLEAN DEFAULT FALSE").await?;
+        add_column_if_not_exists(conn, "user_preferences", "onboarding_reminder_dismissed_until", "DATETIME").await?;
+    add_column_if_not_exists(conn, "user_preferences", "plaid_connection_skipped", "BOOLEAN DEFAULT FALSE").await?;
+        add_column_if_not_exists(conn, "user_preferences", "plaid_reminder_dismissed_until", "DATETIME").await?;
+        add_column_if_not_exists(conn, "user_preferences", "vault_key_acknowledged", "BOOLEAN DEFAULT FALSE").await?;
+        add_column_if_not_exists(conn, "user_preferences", "backup_sync_chosen", "BOOLEAN DEFAULT FALSE").await?;
+        add_column_if_not_exists(conn, "user_preferences", "assistant_data_consent", "BOOLEAN DEFAULT FALSE").await?;
+        add_column_if_not_exists(conn, "user_preferences", "assistant_model", "TEXT").await?;
 
     // Create api_keys table for API key management
     conn.execute(
@@ -380,36 +267,11 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
             conn.execute("ALTER TABLE api_keys RENAME TO api_keys_old", ())
                 .await?;
             // Backfill any columns that may be missing on very old tables before copying.
-            let _ = conn
-                .execute(
-                    "ALTER TABLE api_keys_old ADD COLUMN permissions TEXT DEFAULT 'read'",
-                    (),
-                )
-                .await;
-            let _ = conn
-                .execute(
-                    "ALTER TABLE api_keys_old ADD COLUMN is_revoked BOOLEAN DEFAULT FALSE",
-                    (),
-                )
-                .await;
-            let _ = conn
-                .execute(
-                    "ALTER TABLE api_keys_old ADD COLUMN last_used_at DATETIME",
-                    (),
-                )
-                .await;
-            let _ = conn
-                .execute(
-                    "ALTER TABLE api_keys_old ADD COLUMN expires_at DATETIME",
-                    (),
-                )
-                .await;
-            let _ = conn
-                .execute(
-                    "ALTER TABLE api_keys_old ADD COLUMN updated_at DATETIME",
-                    (),
-                )
-                .await;
+                add_column_if_not_exists(conn, "api_keys_old", "permissions", "TEXT DEFAULT 'read'").await?;
+                add_column_if_not_exists(conn, "api_keys_old", "is_revoked", "BOOLEAN DEFAULT FALSE").await?;
+                add_column_if_not_exists(conn, "api_keys_old", "last_used_at", "DATETIME").await?;
+                add_column_if_not_exists(conn, "api_keys_old", "expires_at", "DATETIME").await?;
+                add_column_if_not_exists(conn, "api_keys_old", "updated_at", "DATETIME").await?;
             conn.execute(
                 "CREATE TABLE api_keys (
                     id TEXT PRIMARY KEY,
@@ -448,67 +310,27 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
 
     // Ensure all columns exist for tables that may have been created with an
     // older version of the correct schema.
-    let _ = conn
-        .execute(
-            "ALTER TABLE api_keys ADD COLUMN is_revoked BOOLEAN DEFAULT FALSE",
-            (),
-        )
-        .await;
-    let _ = conn
-        .execute("ALTER TABLE api_keys ADD COLUMN last_used_at DATETIME", ())
-        .await;
-    let _ = conn
-        .execute("ALTER TABLE api_keys ADD COLUMN expires_at DATETIME", ())
-        .await;
-    let _ = conn
-        .execute(
-            "ALTER TABLE api_keys ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP",
-            (),
-        )
-        .await;
-    let _ = conn
-        .execute("ALTER TABLE api_keys ADD COLUMN revoked_at DATETIME", ())
-        .await;
-    let _ = conn
-        .execute("ALTER TABLE api_keys ADD COLUMN revoked_reason TEXT", ())
-        .await;
-    let _ = conn
-        .execute("ALTER TABLE api_keys ADD COLUMN rotated_at DATETIME", ())
-        .await;
+        add_column_if_not_exists(conn, "api_keys", "is_revoked", "BOOLEAN DEFAULT FALSE").await?;
+    add_column_if_not_exists(conn, "api_keys", "last_used_at", "DATETIME").await?;
+    add_column_if_not_exists(conn, "api_keys", "expires_at", "DATETIME").await?;
+        add_column_if_not_exists(conn, "api_keys", "updated_at", "DATETIME DEFAULT CURRENT_TIMESTAMP").await?;
+    add_column_if_not_exists(conn, "api_keys", "revoked_at", "DATETIME").await?;
+    add_column_if_not_exists(conn, "api_keys", "revoked_reason", "TEXT").await?;
+    add_column_if_not_exists(conn, "api_keys", "rotated_at", "DATETIME").await?;
     // Credential-vault columns for retrievable service credentials
     // (encrypted_value holds AES-256-GCM ciphertext; NULL for legacy
     // hash-only API keys).
-    let _ = conn
-        .execute("ALTER TABLE api_keys ADD COLUMN encrypted_value TEXT", ())
-        .await;
-    let _ = conn
-        .execute("ALTER TABLE api_keys ADD COLUMN service TEXT", ())
-        .await;
-    let _ = conn
-        .execute("ALTER TABLE api_keys ADD COLUMN environment TEXT", ())
-        .await;
+    add_column_if_not_exists(conn, "api_keys", "encrypted_value", "TEXT").await?;
+    add_column_if_not_exists(conn, "api_keys", "service", "TEXT").await?;
+    add_column_if_not_exists(conn, "api_keys", "environment", "TEXT").await?;
     // Union-schema columns from the shared (production) api_keys shape.
     // The adapter writes the union column set so the same INSERT works on
     // both schemas; these idempotent ALTERs bring the local table up to the
     // union without a table rebuild.
-    let _ = conn
-        .execute("ALTER TABLE api_keys ADD COLUMN user_id TEXT", ())
-        .await;
-    let _ = conn
-        .execute("ALTER TABLE api_keys ADD COLUMN key_name TEXT", ())
-        .await;
-    let _ = conn
-        .execute(
-            "ALTER TABLE api_keys ADD COLUMN rate_limit INTEGER DEFAULT 1000",
-            (),
-        )
-        .await;
-    let _ = conn
-        .execute(
-            "ALTER TABLE api_keys ADD COLUMN is_active BOOLEAN DEFAULT TRUE",
-            (),
-        )
-        .await;
+    add_column_if_not_exists(conn, "api_keys", "user_id", "TEXT").await?;
+    add_column_if_not_exists(conn, "api_keys", "key_name", "TEXT").await?;
+        add_column_if_not_exists(conn, "api_keys", "rate_limit", "INTEGER DEFAULT 1000").await?;
+        add_column_if_not_exists(conn, "api_keys", "is_active", "BOOLEAN DEFAULT TRUE").await?;
 
     // Create webauthn_credentials table for FIDO2/passkey biometric authentication
     conn.execute(

@@ -7,7 +7,7 @@
 use anyhow::Result;
 use libsql::Connection;
 
-use super::try_create_index;
+use super::{add_column_if_not_exists, try_create_index};
 use tracing::info;
 
 // TAG: surface=database owner=platform-team rule=DB-001
@@ -88,17 +88,10 @@ pub async fn initialize_workflow_tables(conn: &Connection) -> Result<()> {
 ///
 /// Returns an error if the operation fails.
 pub async fn ensure_workflow_columns(conn: &Connection) -> Result<()> {
-    let migration_columns = [
-        "ALTER TABLE workflows ADD COLUMN workflow_status TEXT",
-        "ALTER TABLE workflows ADD COLUMN workflow_data TEXT NOT NULL DEFAULT '{}'",
-        "ALTER TABLE workflows ADD COLUMN is_active BOOLEAN NOT NULL DEFAULT FALSE",
-        "ALTER TABLE workflows ADD COLUMN next_run_at DATETIME",
-    ];
-    for sql in migration_columns {
-        if let Err(e) = conn.execute(sql, ()).await {
-            info!("Workflow column migration skipped (likely exists): {}", e);
-        }
-    }
+    add_column_if_not_exists(conn, "workflows", "workflow_status", "TEXT").await?;
+    add_column_if_not_exists(conn, "workflows", "workflow_data", "TEXT NOT NULL DEFAULT '{}'").await?;
+    add_column_if_not_exists(conn, "workflows", "is_active", "BOOLEAN NOT NULL DEFAULT FALSE").await?;
+    add_column_if_not_exists(conn, "workflows", "next_run_at", "DATETIME").await?;
     Ok(())
 }
 

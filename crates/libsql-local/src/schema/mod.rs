@@ -136,7 +136,7 @@ mod types;
 pub use types::SchemaValidation;
 
 mod helpers;
-pub use helpers::try_create_index;
+pub use helpers::{add_column_if_not_exists, try_create_index};
 
 mod impls;
 pub use impls::{
