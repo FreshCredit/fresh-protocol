@@ -123,6 +123,9 @@ impl LocalClient {
     /// Execute a raw SQL query and return rows.
     ///
     /// Retries once on Hrana stream errors when backed by a shared database.
+    /// NOTE: the returned `Rows` may hold a remote Hrana stream; callers that
+    /// iterate rows across await points should prefer [`Self::query_one`] or
+    /// [`Self::query_all`] so row iteration is also covered by the reconnect.
     #[must_use = "this returns a Result that should be handled"]
     /// # Errors
     ///
@@ -141,6 +144,85 @@ impl LocalClient {
             }
             Err(e) => Err(anyhow::anyhow!("{e}")),
         }
+    }
+
+    /// Execute a raw SQL query and return the first row, if any.
+    ///
+    /// Unlike [`Self::query`], this eagerly consumes the matching row within the
+    /// same connection scope, so transient Hrana stream errors during row
+    /// iteration are also retried. Returns `Ok(None)` when no row matches.
+    #[must_use = "this returns a Result that should be handled"]
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
+    pub async fn query_one(
+        &self,
+        sql: &str,
+        params: Vec<libsql::Value>,
+    ) -> Result<Option<libsql::Row>> {
+        let conn = self.connection();
+        match conn.query(sql, params.clone()).await {
+            Ok(mut rows) => match rows.next().await {
+                Ok(row) => Ok(row),
+                Err(e) if Self::is_reconnectable(&e) && self.database.is_some() => {
+                    warn!("Hrana stream lost on query_one row fetch; reconnecting LocalClient: {}", e);
+                    let new_conn = self.reconnect()?;
+                    let mut rows = new_conn
+                        .query(sql, params)
+                        .await
+                        .map_err(|e| anyhow::anyhow!("{e}"))?;
+                    rows.next().await.map_err(|e| anyhow::anyhow!("{e}"))
+                }
+                Err(e) => Err(anyhow::anyhow!("{e}")),
+            },
+            Err(e) if Self::is_reconnectable(&e) && self.database.is_some() => {
+                warn!("Hrana stream lost on query_one; reconnecting LocalClient: {}", e);
+                let new_conn = self.reconnect()?;
+                let mut rows = new_conn
+                    .query(sql, params)
+                    .await
+                    .map_err(|e| anyhow::anyhow!("{e}"))?;
+                rows.next().await.map_err(|e| anyhow::anyhow!("{e}"))
+            }
+            Err(e) => Err(anyhow::anyhow!("{e}")),
+        }
+    }
+
+    /// Execute a raw SQL query and return all rows.
+    ///
+    /// Eagerly collects rows within the same connection scope so transient Hrana
+    /// stream errors during iteration are retried once.
+    #[must_use = "this returns a Result that should be handled"]
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
+    pub async fn query_all(&self, sql: &str, params: Vec<libsql::Value>) -> Result<Vec<libsql::Row>> {
+        let conn = self.connection();
+        match Self::collect_rows(&conn, sql, &params).await {
+            Ok(rows) => Ok(rows),
+            Err(e) if Self::is_reconnectable(&e) && self.database.is_some() => {
+                warn!("Hrana stream lost on query_all; reconnecting LocalClient: {}", e);
+                let new_conn = self.reconnect()?;
+                Self::collect_rows(&new_conn, sql, &params)
+                    .await
+                    .map_err(|e| anyhow::anyhow!("{e}"))
+            }
+            Err(e) => Err(anyhow::anyhow!("{e}")),
+        }
+    }
+
+    /// Collect all rows from a query into a vector.
+    async fn collect_rows(
+        conn: &libsql::Connection,
+        sql: &str,
+        params: &[libsql::Value],
+    ) -> std::result::Result<Vec<libsql::Row>, libsql::Error> {
+        let mut rows = conn.query(sql, params.to_vec()).await?;
+        let mut out = Vec::new();
+        while let Some(row) = rows.next().await? {
+            out.push(row);
+        }
+        Ok(out)
     }
 
     /// Execute a raw SQL statement and return affected rows count.
