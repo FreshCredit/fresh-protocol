@@ -55,12 +55,12 @@ impl CloudClient {
     /// swallowed exactly like the schema migrations in the local crate.
     async fn ensure_security_preference_columns(&self) {
         let _ = self.execute(
-            "ALTER TABLE user_preferences ADD COLUMN vault_key_acknowledged BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE user_preferences ADD COLUMN IF NOT EXISTS vault_key_acknowledged BOOLEAN DEFAULT FALSE",
             cloud_params![],
         ).await;
         let _ = self
             .execute(
-                "ALTER TABLE user_preferences ADD COLUMN backup_sync_chosen BOOLEAN DEFAULT FALSE",
+                "ALTER TABLE user_preferences ADD COLUMN IF NOT EXISTS backup_sync_chosen BOOLEAN DEFAULT FALSE",
                 cloud_params![],
             )
             .await;
@@ -72,13 +72,13 @@ impl CloudClient {
     async fn ensure_assistant_preference_columns(&self) {
         let _ = self
             .execute(
-                "ALTER TABLE user_preferences ADD COLUMN assistant_data_consent BOOLEAN DEFAULT FALSE",
+                "ALTER TABLE user_preferences ADD COLUMN IF NOT EXISTS assistant_data_consent BOOLEAN DEFAULT FALSE",
                 cloud_params![],
             )
             .await;
         let _ = self
             .execute(
-                "ALTER TABLE user_preferences ADD COLUMN assistant_model TEXT",
+                "ALTER TABLE user_preferences ADD COLUMN IF NOT EXISTS assistant_model TEXT",
                 cloud_params![],
             )
             .await;
