@@ -89,8 +89,20 @@ pub async fn initialize_workflow_tables(conn: &Connection) -> Result<()> {
 /// Returns an error if the operation fails.
 pub async fn ensure_workflow_columns(conn: &Connection) -> Result<()> {
     add_column_if_not_exists(conn, "workflows", "workflow_status", "TEXT").await?;
-    add_column_if_not_exists(conn, "workflows", "workflow_data", "TEXT NOT NULL DEFAULT '{}'").await?;
-    add_column_if_not_exists(conn, "workflows", "is_active", "BOOLEAN NOT NULL DEFAULT FALSE").await?;
+    add_column_if_not_exists(
+        conn,
+        "workflows",
+        "workflow_data",
+        "TEXT NOT NULL DEFAULT '{}'",
+    )
+    .await?;
+    add_column_if_not_exists(
+        conn,
+        "workflows",
+        "is_active",
+        "BOOLEAN NOT NULL DEFAULT FALSE",
+    )
+    .await?;
     add_column_if_not_exists(conn, "workflows", "next_run_at", "DATETIME").await?;
     Ok(())
 }

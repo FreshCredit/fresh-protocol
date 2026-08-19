@@ -273,10 +273,7 @@ impl MigrationRunner {
     /// # Errors
     ///
     /// Returns an error if the operation fails.
-    async fn execute_statement_idempotent(
-        tx: &libsql::Transaction,
-        statement: &str,
-    ) -> Result<()> {
+    async fn execute_statement_idempotent(tx: &libsql::Transaction, statement: &str) -> Result<()> {
         if let Some((table, column)) = parse_alter_add_column(statement) {
             if column_exists(tx, &table, &column).await? {
                 info!(
@@ -433,16 +430,8 @@ fn strip_quotes(ident: &str) -> &str {
     ident
         .strip_prefix('"')
         .and_then(|s| s.strip_suffix('"'))
-        .or_else(|| {
-            ident
-                .strip_prefix('`')
-                .and_then(|s| s.strip_suffix('`'))
-        })
-        .or_else(|| {
-            ident
-                .strip_prefix('[')
-                .and_then(|s| s.strip_suffix(']'))
-        })
+        .or_else(|| ident.strip_prefix('`').and_then(|s| s.strip_suffix('`')))
+        .or_else(|| ident.strip_prefix('[').and_then(|s| s.strip_suffix(']')))
         .unwrap_or(ident)
 }
 
@@ -547,15 +536,11 @@ mod tests {
             Some(("report_shares".to_string(), "share_ciphertext".to_string()))
         );
         assert_eq!(
-            parse_alter_add_column(
-                "ALTER TABLE `report_shares` ADD share_key_wrap TEXT"
-            ),
+            parse_alter_add_column("ALTER TABLE `report_shares` ADD share_key_wrap TEXT"),
             Some(("report_shares".to_string(), "share_key_wrap".to_string()))
         );
         assert_eq!(
-            parse_alter_add_column(
-                "ALTER TABLE \"Report Shares\" ADD COLUMN \"shareKey\" TEXT"
-            ),
+            parse_alter_add_column("ALTER TABLE \"Report Shares\" ADD COLUMN \"shareKey\" TEXT"),
             Some(("Report Shares".to_string(), "shareKey".to_string()))
         );
         // Non-ALTER statements return None.

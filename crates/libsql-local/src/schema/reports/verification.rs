@@ -81,10 +81,10 @@ pub async fn initialize_verification_tables(conn: &Connection) -> Result<()> {
     // Convergence ALTERs (idempotent — duplicate-column errors are ignored):
     // if `identity.rs` created the table first, add the columns this canonical
     // definition carries that it lacks, and vice versa.
-        add_column_if_not_exists(conn, "verified_credentials", "revocation_id", "TEXT").await?;
-        add_column_if_not_exists(conn, "verified_credentials", "credential_data", "TEXT").await?;
-        add_column_if_not_exists(conn, "verified_credentials", "blockchain_hash", "TEXT").await?;
-        add_column_if_not_exists(conn, "verified_credentials", "block_number", "INTEGER").await?;
+    add_column_if_not_exists(conn, "verified_credentials", "revocation_id", "TEXT").await?;
+    add_column_if_not_exists(conn, "verified_credentials", "credential_data", "TEXT").await?;
+    add_column_if_not_exists(conn, "verified_credentials", "blockchain_hash", "TEXT").await?;
+    add_column_if_not_exists(conn, "verified_credentials", "block_number", "INTEGER").await?;
 
     Ok(())
 }

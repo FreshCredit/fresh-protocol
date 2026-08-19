@@ -117,9 +117,7 @@ impl CloudClient {
     /// reconnect.
     fn is_reconnectable(e: &libsql::Error) -> bool {
         let msg = e.to_string().to_lowercase();
-        msg.contains("stream not found")
-            || msg.contains("stream closed")
-            || msg.contains("hrana")
+        msg.contains("stream not found") || msg.contains("stream closed") || msg.contains("hrana")
     }
 
     /// Initialize cloud database schema using unified schema

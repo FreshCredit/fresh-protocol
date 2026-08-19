@@ -135,7 +135,10 @@ impl LocalClient {
         match conn.query(sql, params.clone()).await {
             Ok(rows) => Ok(rows),
             Err(e) if Self::is_reconnectable(&e) && self.database.is_some() => {
-                warn!("Hrana stream lost on query; reconnecting LocalClient: {}", e);
+                warn!(
+                    "Hrana stream lost on query; reconnecting LocalClient: {}",
+                    e
+                );
                 let new_conn = self.reconnect()?;
                 new_conn
                     .query(sql, params)
@@ -162,21 +165,26 @@ impl LocalClient {
     ) -> Result<Option<libsql::Row>> {
         let conn = self.connection();
         match conn.query(sql, params.clone()).await {
-            Ok(mut rows) => match rows.next().await {
-                Ok(row) => Ok(row),
-                Err(e) if Self::is_reconnectable(&e) && self.database.is_some() => {
-                    warn!("Hrana stream lost on query_one row fetch; reconnecting LocalClient: {}", e);
-                    let new_conn = self.reconnect()?;
-                    let mut rows = new_conn
-                        .query(sql, params)
-                        .await
-                        .map_err(|e| anyhow::anyhow!("{e}"))?;
-                    rows.next().await.map_err(|e| anyhow::anyhow!("{e}"))
+            Ok(mut rows) => {
+                match rows.next().await {
+                    Ok(row) => Ok(row),
+                    Err(e) if Self::is_reconnectable(&e) && self.database.is_some() => {
+                        warn!("Hrana stream lost on query_one row fetch; reconnecting LocalClient: {}", e);
+                        let new_conn = self.reconnect()?;
+                        let mut rows = new_conn
+                            .query(sql, params)
+                            .await
+                            .map_err(|e| anyhow::anyhow!("{e}"))?;
+                        rows.next().await.map_err(|e| anyhow::anyhow!("{e}"))
+                    }
+                    Err(e) => Err(anyhow::anyhow!("{e}")),
                 }
-                Err(e) => Err(anyhow::anyhow!("{e}")),
-            },
+            }
             Err(e) if Self::is_reconnectable(&e) && self.database.is_some() => {
-                warn!("Hrana stream lost on query_one; reconnecting LocalClient: {}", e);
+                warn!(
+                    "Hrana stream lost on query_one; reconnecting LocalClient: {}",
+                    e
+                );
                 let new_conn = self.reconnect()?;
                 let mut rows = new_conn
                     .query(sql, params)
@@ -196,12 +204,19 @@ impl LocalClient {
     /// # Errors
     ///
     /// Returns an error if the operation fails.
-    pub async fn query_all(&self, sql: &str, params: Vec<libsql::Value>) -> Result<Vec<libsql::Row>> {
+    pub async fn query_all(
+        &self,
+        sql: &str,
+        params: Vec<libsql::Value>,
+    ) -> Result<Vec<libsql::Row>> {
         let conn = self.connection();
         match Self::collect_rows(&conn, sql, &params).await {
             Ok(rows) => Ok(rows),
             Err(e) if Self::is_reconnectable(&e) && self.database.is_some() => {
-                warn!("Hrana stream lost on query_all; reconnecting LocalClient: {}", e);
+                warn!(
+                    "Hrana stream lost on query_all; reconnecting LocalClient: {}",
+                    e
+                );
                 let new_conn = self.reconnect()?;
                 Self::collect_rows(&new_conn, sql, &params)
                     .await
@@ -237,7 +252,10 @@ impl LocalClient {
         match conn.execute(sql, params.clone()).await {
             Ok(rows) => Ok(rows),
             Err(e) if Self::is_reconnectable(&e) && self.database.is_some() => {
-                warn!("Hrana stream lost on execute; reconnecting LocalClient: {}", e);
+                warn!(
+                    "Hrana stream lost on execute; reconnecting LocalClient: {}",
+                    e
+                );
                 let new_conn = self.reconnect()?;
                 new_conn
                     .execute(sql, params)
@@ -269,8 +287,6 @@ impl LocalClient {
     /// reconnect.
     fn is_reconnectable(e: &libsql::Error) -> bool {
         let msg = e.to_string().to_lowercase();
-        msg.contains("stream not found")
-            || msg.contains("stream closed")
-            || msg.contains("hrana")
+        msg.contains("stream not found") || msg.contains("stream closed") || msg.contains("hrana")
     }
 }

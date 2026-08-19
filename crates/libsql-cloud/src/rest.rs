@@ -45,6 +45,26 @@ impl CloudClient {
         })
     }
 
+    /// Check whether `column` already exists in `table` by querying SQLite
+    /// `pragma_table_info`. Turso/libsql does not reliably honor `ADD COLUMN IF
+    /// NOT EXISTS`, so we guard every lazy column addition with this check.
+    async fn column_exists(&self, table: &str, column: &str) -> bool {
+        let sql = "SELECT 1 FROM pragma_table_info(?) WHERE name = ?";
+        match self
+            .query(sql, cloud_params![table.to_string(), column.to_string()])
+            .await
+        {
+            Ok(mut rows) => matches!(rows.next().await, Ok(Some(_))),
+            Err(e) => {
+                warn!(
+                    "Failed to check column existence for {}.{}: {}",
+                    table, column, e
+                );
+                false
+            }
+        }
+    }
+
     /// Lazily add the onboarding security-step columns to an existing
     /// per-user cloud `user_preferences` table.
     ///
@@ -54,34 +74,54 @@ impl CloudClient {
     /// first preference access. Idempotent; duplicate-column errors are
     /// swallowed exactly like the schema migrations in the local crate.
     async fn ensure_security_preference_columns(&self) {
-        let _ = self.execute(
-            "ALTER TABLE user_preferences ADD COLUMN IF NOT EXISTS vault_key_acknowledged BOOLEAN DEFAULT FALSE",
-            cloud_params![],
-        ).await;
-        let _ = self
-            .execute(
-                "ALTER TABLE user_preferences ADD COLUMN IF NOT EXISTS backup_sync_chosen BOOLEAN DEFAULT FALSE",
+        if !self
+            .column_exists("user_preferences", "vault_key_acknowledged")
+            .await
+        {
+            let _ = self.execute(
+                "ALTER TABLE user_preferences ADD COLUMN vault_key_acknowledged BOOLEAN DEFAULT FALSE",
                 cloud_params![],
-            )
-            .await;
+            ).await;
+        }
+        if !self
+            .column_exists("user_preferences", "backup_sync_chosen")
+            .await
+        {
+            let _ = self
+                .execute(
+                    "ALTER TABLE user_preferences ADD COLUMN backup_sync_chosen BOOLEAN DEFAULT FALSE",
+                    cloud_params![],
+                )
+                .await;
+        }
     }
 
     /// Lazily add the assistant preference columns (widget consent + model
     /// picker) to an existing per-user cloud `user_preferences` table.
     /// Idempotent, same pattern as `ensure_security_preference_columns`.
     async fn ensure_assistant_preference_columns(&self) {
-        let _ = self
-            .execute(
-                "ALTER TABLE user_preferences ADD COLUMN IF NOT EXISTS assistant_data_consent BOOLEAN DEFAULT FALSE",
-                cloud_params![],
-            )
-            .await;
-        let _ = self
-            .execute(
-                "ALTER TABLE user_preferences ADD COLUMN IF NOT EXISTS assistant_model TEXT",
-                cloud_params![],
-            )
-            .await;
+        if !self
+            .column_exists("user_preferences", "assistant_data_consent")
+            .await
+        {
+            let _ = self
+                .execute(
+                    "ALTER TABLE user_preferences ADD COLUMN assistant_data_consent BOOLEAN DEFAULT FALSE",
+                    cloud_params![],
+                )
+                .await;
+        }
+        if !self
+            .column_exists("user_preferences", "assistant_model")
+            .await
+        {
+            let _ = self
+                .execute(
+                    "ALTER TABLE user_preferences ADD COLUMN assistant_model TEXT",
+                    cloud_params![],
+                )
+                .await;
+        }
     }
 
     /// Get user preferences from cloud
@@ -154,36 +194,35 @@ impl CloudClient {
         self.ensure_security_preference_columns().await;
         self.ensure_assistant_preference_columns().await;
 
-        self
-            .execute(
-                "INSERT OR REPLACE INTO user_preferences (
+        self.execute(
+            "INSERT OR REPLACE INTO user_preferences (
                 user_id, ai_agent_enabled, ai_feedback_enabled, ai_offers_enabled,
                 ai_lenders_enabled, cloud_sync_enabled, blockchain_enabled,
                 email_notifications_enabled, kilt_did_enabled, ai_mode, mock_data_enabled,
                 vault_key_acknowledged, backup_sync_chosen,
                 assistant_data_consent, assistant_model, updated_at
              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                cloud_params![
-                    user_id.to_string(),
-                    prefs.ai_agent_enabled.unwrap_or(false),
-                    prefs.ai_feedback_enabled.unwrap_or(false),
-                    prefs.ai_offers_enabled.unwrap_or(false),
-                    prefs.ai_lenders_enabled.unwrap_or(false),
-                    prefs.cloud_sync_enabled.unwrap_or(true),
-                    prefs.blockchain_enabled.unwrap_or(true),
-                    prefs.email_notifications_enabled.unwrap_or(true),
-                    prefs.kilt_did_enabled.unwrap_or(false),
-                    prefs.ai_mode.clone().unwrap_or_else(|| "auto".to_string()),
-                    prefs.mock_data_enabled.unwrap_or(false),
-                    prefs.vault_key_acknowledged.unwrap_or(false),
-                    prefs.backup_sync_chosen.unwrap_or(false),
-                    prefs.assistant_data_consent.unwrap_or(false),
-                    prefs.assistant_model.clone(),
-                    chrono::Utc::now().to_rfc3339(),
-                ],
-            )
-            .await
-            .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?;
+            cloud_params![
+                user_id.to_string(),
+                prefs.ai_agent_enabled.unwrap_or(false),
+                prefs.ai_feedback_enabled.unwrap_or(false),
+                prefs.ai_offers_enabled.unwrap_or(false),
+                prefs.ai_lenders_enabled.unwrap_or(false),
+                prefs.cloud_sync_enabled.unwrap_or(true),
+                prefs.blockchain_enabled.unwrap_or(true),
+                prefs.email_notifications_enabled.unwrap_or(true),
+                prefs.kilt_did_enabled.unwrap_or(false),
+                prefs.ai_mode.clone().unwrap_or_else(|| "auto".to_string()),
+                prefs.mock_data_enabled.unwrap_or(false),
+                prefs.vault_key_acknowledged.unwrap_or(false),
+                prefs.backup_sync_chosen.unwrap_or(false),
+                prefs.assistant_data_consent.unwrap_or(false),
+                prefs.assistant_model.clone(),
+                chrono::Utc::now().to_rfc3339(),
+            ],
+        )
+        .await
+        .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?;
 
         Ok(())
     }

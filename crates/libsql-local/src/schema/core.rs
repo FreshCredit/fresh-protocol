@@ -117,7 +117,13 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
     // migrations/2026-07-12-user-identities-primary.sql). Both statements are
     // idempotent: the ALTER errors out harmlessly once the column exists, and
     // the backfill skips users that already have a primary row.
-        add_column_if_not_exists(conn, "user_identities", "is_primary", "BOOLEAN DEFAULT FALSE").await?;
+    add_column_if_not_exists(
+        conn,
+        "user_identities",
+        "is_primary",
+        "BOOLEAN DEFAULT FALSE",
+    )
+    .await?;
     let _ = conn
         .execute(
             "UPDATE user_identities SET is_primary = TRUE WHERE rowid IN (\
@@ -132,20 +138,26 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
     // Migrations for existing databases
     // CHATBOT-FIX: platform_user_id is required by RBAC middleware queries
     // This column was added to the schema but existing databases may not have it
-        add_column_if_not_exists(conn, "user_profile", "platform_user_id", "TEXT").await?;
+    add_column_if_not_exists(conn, "user_profile", "platform_user_id", "TEXT").await?;
     // For rows with NULL platform_user_id, populate from email as fallback
     let _ = conn.execute(
         "UPDATE user_profile SET platform_user_id = email WHERE platform_user_id IS NULL OR platform_user_id = ''",
         (),
     ).await;
 
-        add_column_if_not_exists(conn, "user_profile", "is_admin", "BOOLEAN DEFAULT FALSE").await?;
-        add_column_if_not_exists(conn, "user_profile", "provider_onboarding_complete", "BOOLEAN DEFAULT FALSE").await?;
+    add_column_if_not_exists(conn, "user_profile", "is_admin", "BOOLEAN DEFAULT FALSE").await?;
+    add_column_if_not_exists(
+        conn,
+        "user_profile",
+        "provider_onboarding_complete",
+        "BOOLEAN DEFAULT FALSE",
+    )
+    .await?;
     // ARCH-P2-001: Migration for new profile fields
     add_column_if_not_exists(conn, "user_profile", "phone_number", "TEXT").await?;
-        add_column_if_not_exists(conn, "user_profile", "preferred_name", "TEXT").await?;
-        add_column_if_not_exists(conn, "user_profile", "emergency_contact_name", "TEXT").await?;
-        add_column_if_not_exists(conn, "user_profile", "emergency_contact_phone", "TEXT").await?;
+    add_column_if_not_exists(conn, "user_profile", "preferred_name", "TEXT").await?;
+    add_column_if_not_exists(conn, "user_profile", "emergency_contact_name", "TEXT").await?;
+    add_column_if_not_exists(conn, "user_profile", "emergency_contact_phone", "TEXT").await?;
     add_column_if_not_exists(conn, "user_profile", "employer_name", "TEXT").await?;
 
     // Per-side Verified ID issuance tracking: a single user may hold one
@@ -155,12 +167,48 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
     // Aligns the local per-user schema with the shared/cloud DDL
     // (schema_manager impls/core.rs, libsql/cloud), which already carries
     // the role-scoped verified-ID columns.
-        add_column_if_not_exists(conn, "user_profile", "consumer_verified_id_credential_id", "TEXT").await?;
-        add_column_if_not_exists(conn, "user_profile", "consumer_verified_id_status", "TEXT DEFAULT 'pending'").await?;
-        add_column_if_not_exists(conn, "user_profile", "consumer_verified_id_issued_at", "TEXT").await?;
-        add_column_if_not_exists(conn, "user_profile", "provider_verified_id_credential_id", "TEXT").await?;
-        add_column_if_not_exists(conn, "user_profile", "provider_verified_id_status", "TEXT DEFAULT 'pending'").await?;
-        add_column_if_not_exists(conn, "user_profile", "provider_verified_id_issued_at", "TEXT").await?;
+    add_column_if_not_exists(
+        conn,
+        "user_profile",
+        "consumer_verified_id_credential_id",
+        "TEXT",
+    )
+    .await?;
+    add_column_if_not_exists(
+        conn,
+        "user_profile",
+        "consumer_verified_id_status",
+        "TEXT DEFAULT 'pending'",
+    )
+    .await?;
+    add_column_if_not_exists(
+        conn,
+        "user_profile",
+        "consumer_verified_id_issued_at",
+        "TEXT",
+    )
+    .await?;
+    add_column_if_not_exists(
+        conn,
+        "user_profile",
+        "provider_verified_id_credential_id",
+        "TEXT",
+    )
+    .await?;
+    add_column_if_not_exists(
+        conn,
+        "user_profile",
+        "provider_verified_id_status",
+        "TEXT DEFAULT 'pending'",
+    )
+    .await?;
+    add_column_if_not_exists(
+        conn,
+        "user_profile",
+        "provider_verified_id_issued_at",
+        "TEXT",
+    )
+    .await?;
 
     // TAG: surface=database owner=platform-team rule=DB-001
     // Create user_preferences table (matches production Turso schema)
@@ -198,17 +246,71 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
 
     // TAG: surface=database owner=platform-team rule=DB-001
     // Migrations for user_preferences
-        add_column_if_not_exists(conn, "user_preferences", "ai_mode", "TEXT DEFAULT 'auto'").await?;
-        add_column_if_not_exists(conn, "user_preferences", "mock_data_enabled", "BOOLEAN DEFAULT FALSE").await?;
-        add_column_if_not_exists(conn, "user_preferences", "onboarding_completed", "BOOLEAN DEFAULT FALSE").await?;
-    add_column_if_not_exists(conn, "user_preferences", "onboarding_permanently_dismissed", "BOOLEAN DEFAULT FALSE").await?;
-        add_column_if_not_exists(conn, "user_preferences", "onboarding_reminder_dismissed_until", "DATETIME").await?;
-    add_column_if_not_exists(conn, "user_preferences", "plaid_connection_skipped", "BOOLEAN DEFAULT FALSE").await?;
-        add_column_if_not_exists(conn, "user_preferences", "plaid_reminder_dismissed_until", "DATETIME").await?;
-        add_column_if_not_exists(conn, "user_preferences", "vault_key_acknowledged", "BOOLEAN DEFAULT FALSE").await?;
-        add_column_if_not_exists(conn, "user_preferences", "backup_sync_chosen", "BOOLEAN DEFAULT FALSE").await?;
-        add_column_if_not_exists(conn, "user_preferences", "assistant_data_consent", "BOOLEAN DEFAULT FALSE").await?;
-        add_column_if_not_exists(conn, "user_preferences", "assistant_model", "TEXT").await?;
+    add_column_if_not_exists(conn, "user_preferences", "ai_mode", "TEXT DEFAULT 'auto'").await?;
+    add_column_if_not_exists(
+        conn,
+        "user_preferences",
+        "mock_data_enabled",
+        "BOOLEAN DEFAULT FALSE",
+    )
+    .await?;
+    add_column_if_not_exists(
+        conn,
+        "user_preferences",
+        "onboarding_completed",
+        "BOOLEAN DEFAULT FALSE",
+    )
+    .await?;
+    add_column_if_not_exists(
+        conn,
+        "user_preferences",
+        "onboarding_permanently_dismissed",
+        "BOOLEAN DEFAULT FALSE",
+    )
+    .await?;
+    add_column_if_not_exists(
+        conn,
+        "user_preferences",
+        "onboarding_reminder_dismissed_until",
+        "DATETIME",
+    )
+    .await?;
+    add_column_if_not_exists(
+        conn,
+        "user_preferences",
+        "plaid_connection_skipped",
+        "BOOLEAN DEFAULT FALSE",
+    )
+    .await?;
+    add_column_if_not_exists(
+        conn,
+        "user_preferences",
+        "plaid_reminder_dismissed_until",
+        "DATETIME",
+    )
+    .await?;
+    add_column_if_not_exists(
+        conn,
+        "user_preferences",
+        "vault_key_acknowledged",
+        "BOOLEAN DEFAULT FALSE",
+    )
+    .await?;
+    add_column_if_not_exists(
+        conn,
+        "user_preferences",
+        "backup_sync_chosen",
+        "BOOLEAN DEFAULT FALSE",
+    )
+    .await?;
+    add_column_if_not_exists(
+        conn,
+        "user_preferences",
+        "assistant_data_consent",
+        "BOOLEAN DEFAULT FALSE",
+    )
+    .await?;
+    add_column_if_not_exists(conn, "user_preferences", "assistant_model", "TEXT").await?;
 
     // Create api_keys table for API key management
     conn.execute(
@@ -267,11 +369,13 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
             conn.execute("ALTER TABLE api_keys RENAME TO api_keys_old", ())
                 .await?;
             // Backfill any columns that may be missing on very old tables before copying.
-                add_column_if_not_exists(conn, "api_keys_old", "permissions", "TEXT DEFAULT 'read'").await?;
-                add_column_if_not_exists(conn, "api_keys_old", "is_revoked", "BOOLEAN DEFAULT FALSE").await?;
-                add_column_if_not_exists(conn, "api_keys_old", "last_used_at", "DATETIME").await?;
-                add_column_if_not_exists(conn, "api_keys_old", "expires_at", "DATETIME").await?;
-                add_column_if_not_exists(conn, "api_keys_old", "updated_at", "DATETIME").await?;
+            add_column_if_not_exists(conn, "api_keys_old", "permissions", "TEXT DEFAULT 'read'")
+                .await?;
+            add_column_if_not_exists(conn, "api_keys_old", "is_revoked", "BOOLEAN DEFAULT FALSE")
+                .await?;
+            add_column_if_not_exists(conn, "api_keys_old", "last_used_at", "DATETIME").await?;
+            add_column_if_not_exists(conn, "api_keys_old", "expires_at", "DATETIME").await?;
+            add_column_if_not_exists(conn, "api_keys_old", "updated_at", "DATETIME").await?;
             conn.execute(
                 "CREATE TABLE api_keys (
                     id TEXT PRIMARY KEY,
@@ -310,10 +414,16 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
 
     // Ensure all columns exist for tables that may have been created with an
     // older version of the correct schema.
-        add_column_if_not_exists(conn, "api_keys", "is_revoked", "BOOLEAN DEFAULT FALSE").await?;
+    add_column_if_not_exists(conn, "api_keys", "is_revoked", "BOOLEAN DEFAULT FALSE").await?;
     add_column_if_not_exists(conn, "api_keys", "last_used_at", "DATETIME").await?;
     add_column_if_not_exists(conn, "api_keys", "expires_at", "DATETIME").await?;
-        add_column_if_not_exists(conn, "api_keys", "updated_at", "DATETIME DEFAULT CURRENT_TIMESTAMP").await?;
+    add_column_if_not_exists(
+        conn,
+        "api_keys",
+        "updated_at",
+        "DATETIME DEFAULT CURRENT_TIMESTAMP",
+    )
+    .await?;
     add_column_if_not_exists(conn, "api_keys", "revoked_at", "DATETIME").await?;
     add_column_if_not_exists(conn, "api_keys", "revoked_reason", "TEXT").await?;
     add_column_if_not_exists(conn, "api_keys", "rotated_at", "DATETIME").await?;
@@ -329,8 +439,8 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
     // union without a table rebuild.
     add_column_if_not_exists(conn, "api_keys", "user_id", "TEXT").await?;
     add_column_if_not_exists(conn, "api_keys", "key_name", "TEXT").await?;
-        add_column_if_not_exists(conn, "api_keys", "rate_limit", "INTEGER DEFAULT 1000").await?;
-        add_column_if_not_exists(conn, "api_keys", "is_active", "BOOLEAN DEFAULT TRUE").await?;
+    add_column_if_not_exists(conn, "api_keys", "rate_limit", "INTEGER DEFAULT 1000").await?;
+    add_column_if_not_exists(conn, "api_keys", "is_active", "BOOLEAN DEFAULT TRUE").await?;
 
     // Create webauthn_credentials table for FIDO2/passkey biometric authentication
     conn.execute(

@@ -66,12 +66,24 @@ pub async fn initialize_agent_tables(conn: &Connection) -> Result<()> {
 
     // CHATBOT-FIX: Migrations for Phase 9 columns on existing databases
     // These columns are queried by BindingService.get_or_create_binding()
-        add_column_if_not_exists(conn, "agent_bindings", "entra_object_id", "TEXT").await?;
-        add_column_if_not_exists(conn, "agent_bindings", "verified_credential_did", "TEXT").await?;
-        add_column_if_not_exists(conn, "agent_bindings", "last_verified_at", "DATETIME").await?;
-        add_column_if_not_exists(conn, "agent_bindings", "identity_verified", "INTEGER DEFAULT 0").await?;
-        add_column_if_not_exists(conn, "agent_bindings", "blockchain_anchor_hash", "TEXT").await?;
-        add_column_if_not_exists(conn, "agent_bindings", "binding_status", "TEXT NOT NULL DEFAULT 'active'").await?;
+    add_column_if_not_exists(conn, "agent_bindings", "entra_object_id", "TEXT").await?;
+    add_column_if_not_exists(conn, "agent_bindings", "verified_credential_did", "TEXT").await?;
+    add_column_if_not_exists(conn, "agent_bindings", "last_verified_at", "DATETIME").await?;
+    add_column_if_not_exists(
+        conn,
+        "agent_bindings",
+        "identity_verified",
+        "INTEGER DEFAULT 0",
+    )
+    .await?;
+    add_column_if_not_exists(conn, "agent_bindings", "blockchain_anchor_hash", "TEXT").await?;
+    add_column_if_not_exists(
+        conn,
+        "agent_bindings",
+        "binding_status",
+        "TEXT NOT NULL DEFAULT 'active'",
+    )
+    .await?;
 
     // PR-P0-3: Validate schema after migrations
     validate_agent_bindings_schema(conn).await;
