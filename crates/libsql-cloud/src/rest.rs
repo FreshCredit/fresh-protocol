@@ -1,6 +1,43 @@
 use super::*;
 
 // TAG: surface=database owner=platform-team rule=DB-001
+/// libsql's typed `row.get::<T>()` panics with `unreachable!("invalid value type")`
+/// when the SQLite value type does not match `T`. These tolerant helpers inspect
+/// the raw `Value` and coerce or default instead of aborting the process.
+fn tolerant_i64(row: &libsql::Row, idx: i32) -> Option<i64> {
+    match row.get_value(idx) {
+        Ok(libsql::Value::Integer(i)) => Some(i),
+        Ok(libsql::Value::Text(s)) => s.parse::<i64>().ok(),
+        Ok(libsql::Value::Real(f)) => Some(f as i64),
+        _ => None,
+    }
+}
+
+fn tolerant_i32(row: &libsql::Row, idx: i32) -> Option<i32> {
+    tolerant_i64(row, idx).and_then(|i| i32::try_from(i).ok())
+}
+
+fn tolerant_bool(row: &libsql::Row, idx: i32) -> Option<bool> {
+    match row.get_value(idx) {
+        Ok(libsql::Value::Integer(i)) => Some(i != 0),
+        Ok(libsql::Value::Text(s)) => {
+            Some(!s.is_empty() && s != "0" && s.to_lowercase() != "false")
+        }
+        Ok(libsql::Value::Real(f)) => Some(f != 0.0),
+        _ => None,
+    }
+}
+
+fn tolerant_f64(row: &libsql::Row, idx: i32) -> Option<f64> {
+    match row.get_value(idx) {
+        Ok(libsql::Value::Real(f)) => Some(f),
+        Ok(libsql::Value::Integer(i)) => Some(i as f64),
+        Ok(libsql::Value::Text(s)) => s.parse::<f64>().ok(),
+        _ => None,
+    }
+}
+
+// TAG: surface=database owner=platform-team rule=DB-001
 impl CloudClient {
     /// Get count of accounts from cloud (for sync status)
     /// # Errors
@@ -141,25 +178,25 @@ impl CloudClient {
             .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?)
         .map_or(Ok(None), |row| {
             Ok(Some(freshcredit_libsql_local::UserPreferences {
-                ai_agent_enabled: row.get::<bool>(0).ok(),
-                ai_feedback_enabled: row.get::<bool>(1).ok(),
-                ai_offers_enabled: row.get::<bool>(2).ok(),
+                ai_agent_enabled: tolerant_bool(&row, 0),
+                ai_feedback_enabled: tolerant_bool(&row, 1),
+                ai_offers_enabled: tolerant_bool(&row, 2),
                 // TAG: surface=database owner=platform-team rule=DB-001
-                ai_lenders_enabled: row.get::<bool>(3).ok(),
-                cloud_sync_enabled: row.get::<bool>(4).ok(),
-                blockchain_enabled: row.get::<bool>(5).ok(),
-                email_notifications_enabled: row.get::<bool>(6).ok(),
-                kilt_did_enabled: row.get::<bool>(7).ok(),
+                ai_lenders_enabled: tolerant_bool(&row, 3),
+                cloud_sync_enabled: tolerant_bool(&row, 4),
+                blockchain_enabled: tolerant_bool(&row, 5),
+                email_notifications_enabled: tolerant_bool(&row, 6),
+                kilt_did_enabled: tolerant_bool(&row, 7),
                 ai_mode: row.get::<String>(8).ok(),
-                mock_data_enabled: row.get::<bool>(9).ok(),
+                mock_data_enabled: tolerant_bool(&row, 9),
                 onboarding_completed: None,
                 onboarding_permanently_dismissed: None,
                 onboarding_reminder_dismissed_until: None,
                 plaid_connection_skipped: None,
                 plaid_reminder_dismissed_until: None,
-                vault_key_acknowledged: row.get::<bool>(10).ok(),
-                backup_sync_chosen: row.get::<bool>(11).ok(),
-                assistant_data_consent: row.get::<bool>(12).ok(),
+                vault_key_acknowledged: tolerant_bool(&row, 10),
+                backup_sync_chosen: tolerant_bool(&row, 11),
+                assistant_data_consent: tolerant_bool(&row, 12),
                 assistant_model: row.get::<Option<String>>(13).unwrap_or(None),
             }))
         })
@@ -271,7 +308,7 @@ impl CloudClient {
                 date_of_birth: row.get(15).ok(),
                 ssn_last_four: row.get(16).ok(),
                 employment_status: row.get(17).ok(),
-                annual_income: row.get(18).ok(),
+                annual_income: tolerant_i32(&row, 18),
                 // New fields added in ARCH-P2-001 (columns 19-23)
                 // TAG: surface=database owner=platform-team rule=DB-001
                 phone_number: row.get(19).ok(),
@@ -281,8 +318,8 @@ impl CloudClient {
                 employer_name: row.get(23).ok(),
                 // Existing fields shifted by 5 (columns 24+)
                 role: row.get(24).unwrap_or_else(|_| "consumer".to_string()),
-                is_admin: row.get::<i64>(25).unwrap_or(0) != 0,
-                provider_onboarding_complete: row.get::<i64>(26).unwrap_or(0) != 0,
+                is_admin: tolerant_bool(&row, 25).unwrap_or(false),
+                provider_onboarding_complete: tolerant_bool(&row, 26).unwrap_or(false),
                 mfa_enabled: false,
                 mfa_verified_at: None,
                 tenant_id: row.get(27).unwrap_or_default(),
@@ -348,7 +385,7 @@ impl CloudClient {
                 id: row.get(0).unwrap_or_default(),
                 user_id: row.get(1).unwrap_or_default(),
                 account_type,
-                balance: row.get(3).ok(),
+                balance: tolerant_f64(&row, 3),
                 currency: row.get(4).unwrap_or_else(|_| "USD".to_string()),
                 institution_name: row.get(5).unwrap_or_default(),
                 created_at,
@@ -400,7 +437,7 @@ impl CloudClient {
             transactions.push(freshcredit_types::Transaction {
                 id: row.get(0).unwrap_or_default(),
                 account_id: row.get(1).unwrap_or_default(),
-                amount: row.get(2).unwrap_or(0.0),
+                amount: tolerant_f64(&row, 2).unwrap_or(0.0),
                 currency: row.get(3).unwrap_or_else(|_| "USD".to_string()),
                 description: row.get(4).unwrap_or_default(),
                 category,
@@ -523,7 +560,7 @@ impl CloudClient {
                 id: row.get(0).unwrap_or_default(),
                 user_id: row.get(1).unwrap_or_default(),
                 account_type,
-                balance: row.get(3).ok(),
+                balance: tolerant_f64(&row, 3),
                 currency: row.get(4).unwrap_or_else(|_| "USD".to_string()),
                 institution_name: row.get(5).unwrap_or_default(),
                 created_at,
