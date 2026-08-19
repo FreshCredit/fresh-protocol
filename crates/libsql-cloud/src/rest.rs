@@ -45,43 +45,68 @@ impl CloudClient {
         })
     }
 
+    /// Check whether a column already exists on a table.
+    async fn column_exists(&self, table: &str, column: &str) -> bool {
+        let Ok(mut rows) = self
+            .query(
+                "SELECT 1 FROM pragma_table_info(?) WHERE name = ?",
+                cloud_params![table.to_string(), column.to_string()],
+            )
+            .await
+        else {
+            return false;
+        };
+        matches!(rows.next().await, Ok(Some(_)))
+    }
+
     /// Lazily add the onboarding security-step columns to an existing
     /// per-user cloud `user_preferences` table.
     ///
     /// New cloud databases get these columns from the local-crate schema at
     /// provisioning time, but `initialize_schema` only runs at creation — so
     /// databases provisioned before the columns existed are upgraded here, on
-    /// first preference access. Idempotent; duplicate-column errors are
-    /// swallowed exactly like the schema migrations in the local crate.
+    /// first preference access. Idempotent; checks `pragma_table_info` before
+    /// each `ALTER TABLE` because libsql does not support `ADD COLUMN IF NOT
+    /// EXISTS`.
     async fn ensure_security_preference_columns(&self) {
-        let _ = self.execute(
-            "ALTER TABLE user_preferences ADD COLUMN IF NOT EXISTS vault_key_acknowledged BOOLEAN DEFAULT FALSE",
-            cloud_params![],
-        ).await;
-        let _ = self
-            .execute(
-                "ALTER TABLE user_preferences ADD COLUMN IF NOT EXISTS backup_sync_chosen BOOLEAN DEFAULT FALSE",
-                cloud_params![],
-            )
-            .await;
+        if !self.column_exists("user_preferences", "vault_key_acknowledged").await {
+            let _ = self
+                .execute(
+                    "ALTER TABLE user_preferences ADD COLUMN vault_key_acknowledged BOOLEAN DEFAULT FALSE",
+                    cloud_params![],
+                )
+                .await;
+        }
+        if !self.column_exists("user_preferences", "backup_sync_chosen").await {
+            let _ = self
+                .execute(
+                    "ALTER TABLE user_preferences ADD COLUMN backup_sync_chosen BOOLEAN DEFAULT FALSE",
+                    cloud_params![],
+                )
+                .await;
+        }
     }
 
     /// Lazily add the assistant preference columns (widget consent + model
     /// picker) to an existing per-user cloud `user_preferences` table.
     /// Idempotent, same pattern as `ensure_security_preference_columns`.
     async fn ensure_assistant_preference_columns(&self) {
-        let _ = self
-            .execute(
-                "ALTER TABLE user_preferences ADD COLUMN IF NOT EXISTS assistant_data_consent BOOLEAN DEFAULT FALSE",
-                cloud_params![],
-            )
-            .await;
-        let _ = self
-            .execute(
-                "ALTER TABLE user_preferences ADD COLUMN IF NOT EXISTS assistant_model TEXT",
-                cloud_params![],
-            )
-            .await;
+        if !self.column_exists("user_preferences", "assistant_data_consent").await {
+            let _ = self
+                .execute(
+                    "ALTER TABLE user_preferences ADD COLUMN assistant_data_consent BOOLEAN DEFAULT FALSE",
+                    cloud_params![],
+                )
+                .await;
+        }
+        if !self.column_exists("user_preferences", "assistant_model").await {
+            let _ = self
+                .execute(
+                    "ALTER TABLE user_preferences ADD COLUMN assistant_model TEXT",
+                    cloud_params![],
+                )
+                .await;
+        }
     }
 
     /// Get user preferences from cloud
