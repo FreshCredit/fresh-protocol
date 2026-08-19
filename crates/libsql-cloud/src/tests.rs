@@ -869,6 +869,55 @@ async fn test_get_user_profile_by_azure_id_not_found() {
 }
 
 #[tokio::test]
+async fn test_get_user_profile_by_azure_id_tolerates_text_boolean_columns() {
+    let client = CloudClient::new_test().await;
+    init_full_schema(&client).await;
+
+    // Simulate a legacy or browser-side writer that stored booleans/numbers as
+    // TEXT. libsql's typed row.get::<i64>() panics on type mismatch; the reader
+    // must coerce instead of aborting the process.
+    client
+        .connection()
+        .execute(
+            "INSERT INTO user_profile (
+                id, platform_user_id, azure_id, email, display_name,
+                given_name, family_name, surname, mobile_phone, job_title,
+                street_address, city, state_province, postal_code, country_region,
+                date_of_birth, ssn_last_four, employment_status, annual_income,
+                phone_number, preferred_name, emergency_contact_name, emergency_contact_phone,
+                employer_name, role, is_admin, provider_onboarding_complete, tenant_id,
+                object_id, verified_id_credential_id, verified_id_status,
+                verified_id_issued_at,
+                consumer_verified_id_credential_id, consumer_verified_id_status, consumer_verified_id_issued_at,
+                provider_verified_id_credential_id, provider_verified_id_status, provider_verified_id_issued_at,
+                created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            libsql::params![
+                "azure-text", "azure-text", "azure-text", "text@example.com", "Text User",
+                None::<String>, None::<String>, None::<String>, None::<String>, None::<String>,
+                None::<String>, None::<String>, None::<String>, None::<String>, None::<String>,
+                None::<String>, None::<String>, None::<String>, "82000",
+                None::<String>, None::<String>, None::<String>, None::<String>,
+                None::<String>, "consumer", "true", "0", "freshcredit",
+                "azure-text", None::<String>, "pending",
+                None::<String>,
+                None::<String>, "pending", None::<String>,
+                None::<String>, "pending", None::<String>,
+                "2026-01-01T00:00:00Z", "2026-01-01T00:00:00Z"
+            ],
+        )
+        .await
+        .expect("Failed to insert text-typed profile row");
+
+    let result = client.get_user_profile_by_azure_id("azure-text").await;
+    assert!(result.is_ok(), "reader must not panic on text booleans");
+    let profile = result.unwrap().expect("profile should be found");
+    assert!(profile.is_admin, "text 'true' should coerce to true");
+    assert!(!profile.provider_onboarding_complete, "text '0' should coerce to false");
+    assert_eq!(profile.annual_income, Some(82_000), "text annual_income should coerce to integer");
+}
+
+#[tokio::test]
 async fn test_save_and_get_user_preferences() {
     let client = CloudClient::new_test().await;
     init_full_schema(&client).await;
