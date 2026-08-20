@@ -452,13 +452,13 @@ impl CloudClient {
         .map_or(Ok(None), |row| {
             Ok(Some(freshcredit_libsql_local::UserProfile {
                 id: uuid::Uuid::new_v4().to_string(),
-                platform_user_id: row.get::<String>(0).unwrap_or_default(),
-                azure_id: row.get::<String>(5).unwrap_or_default(),
-                email: row.get::<String>(1).unwrap_or_default(),
-                display_name: row.get::<String>(2).unwrap_or_default(),
-                given_name: row.get::<String>(3).ok(),
-                family_name: row.get::<String>(4).ok(),
-                surname: row.get::<String>(4).ok(),
+                platform_user_id: rest::tolerant_string(&row, 0).unwrap_or_default(),
+                azure_id: rest::tolerant_string(&row, 5).unwrap_or_default(),
+                email: rest::tolerant_string(&row, 1).unwrap_or_default(),
+                display_name: rest::tolerant_string(&row, 2).unwrap_or_default(),
+                given_name: rest::tolerant_string(&row, 3),
+                family_name: rest::tolerant_string(&row, 4),
+                surname: rest::tolerant_string(&row, 4),
                 mobile_phone: None,
                 job_title: None,
                 street_address: None,
@@ -482,24 +482,21 @@ impl CloudClient {
                 mfa_enabled: false,
                 mfa_verified_at: None,
                 tenant_id: "freshcredit".to_string(),
-                object_id: row.get::<String>(5).unwrap_or_default(),
-                verified_id_credential_id: row.get::<String>(6).ok(),
-                verified_id_status: row
-                    .get::<String>(7)
-                    .unwrap_or_else(|_| "pending".to_string()),
-                verified_id_issued_at: row.get::<String>(8).ok(),
-                consumer_verified_id_credential_id: row.get::<String>(9).ok(),
-                consumer_verified_id_status: row
-                    .get::<String>(10)
-                    .unwrap_or_else(|_| "pending".to_string()),
-                consumer_verified_id_issued_at: row.get::<String>(11).ok(),
-                provider_verified_id_credential_id: row.get::<String>(12).ok(),
-                provider_verified_id_status: row
-                    .get::<String>(13)
-                    .unwrap_or_else(|_| "pending".to_string()),
-                provider_verified_id_issued_at: row.get::<String>(14).ok(),
-                created_at: row.get::<String>(15).unwrap_or_default(),
-                updated_at: row.get::<String>(16).unwrap_or_default(),
+                object_id: rest::tolerant_string(&row, 5).unwrap_or_default(),
+                verified_id_credential_id: rest::tolerant_string(&row, 6),
+                verified_id_status: rest::tolerant_string(&row, 7)
+                    .unwrap_or_else(|| "pending".to_string()),
+                verified_id_issued_at: rest::tolerant_string(&row, 8),
+                consumer_verified_id_credential_id: rest::tolerant_string(&row, 9),
+                consumer_verified_id_status: rest::tolerant_string(&row, 10)
+                    .unwrap_or_else(|| "pending".to_string()),
+                consumer_verified_id_issued_at: rest::tolerant_string(&row, 11),
+                provider_verified_id_credential_id: rest::tolerant_string(&row, 12),
+                provider_verified_id_status: rest::tolerant_string(&row, 13)
+                    .unwrap_or_else(|| "pending".to_string()),
+                provider_verified_id_issued_at: rest::tolerant_string(&row, 14),
+                created_at: rest::tolerant_string(&row, 15).unwrap_or_default(),
+                updated_at: rest::tolerant_string(&row, 16).unwrap_or_default(),
             }))
         })
     }
