@@ -1,0 +1,511 @@
+// TAG: surface=security owner=security-team rule=SEC-001
+//! Axum middleware for rate limiting
+
+use axum::{
+    extract::Request,
+    http::{HeaderMap, HeaderValue, StatusCode},
+    middleware::Next,
+    response::{IntoResponse, Response},
+};
+use std::sync::Arc;
+use tracing::{instrument, warn};
+
+use crate::{
+    config::RateLimitConfig,
+    limiter::{RateLimitError, RateLimiter},
+};
+use freshcredit_core_timing::SystemClock;
+
+/// Rate limit layer for Axum
+#[derive(Clone, Debug)]
+pub struct RateLimitLayer {
+    limiter: Arc<RateLimiter>,
+    /// SECURITY: Separate stricter limiter for auth endpoints
+    auth_limiter: Arc<RateLimiter>,
+    include_headers: bool,
+}
+
+impl RateLimitLayer {
+    /// Create a new rate limit layer
+    #[must_use]
+    pub fn new(config: RateLimitConfig) -> Self {
+        let include_headers = config.include_headers;
+        let limiter = Arc::new(RateLimiter::new(config, Arc::new(SystemClock)));
+        // SECURITY: Auth endpoints use stricter rate limiting
+        let auth_limiter = Arc::new(RateLimiter::new(
+            RateLimitConfig::auth(),
+            Arc::new(SystemClock),
+        ));
+
+        Self {
+            limiter,
+            auth_limiter,
+            include_headers,
+        }
+    }
+
+    /// Create rate limit layer for anonymous users
+    #[must_use]
+    pub fn anonymous() -> Self {
+        Self::new(RateLimitConfig::anonymous())
+    }
+    // TAG: surface=security owner=platform-team rule=GENERAL-001
+
+    /// Create rate limit layer for authenticated consumers
+    #[must_use]
+    pub fn consumer() -> Self {
+        Self::new(RateLimitConfig::consumer())
+    }
+
+    /// Create rate limit layer for authenticated providers
+    #[must_use]
+    pub fn provider() -> Self {
+        Self::new(RateLimitConfig::provider())
+    }
+
+    /// Middleware handler
+    #[instrument(name = "rate_limit_middleware", skip(self, req, next), fields(path = %req.uri().path()))]
+    pub async fn handle(&self, req: Request, next: Next) -> Response {
+        // Skip rate limiting for exempt routes
+        let path = req.uri().path();
+        if should_exempt_from_rate_limit(path) {
+            return next.run(req).await;
+        }
+
+        // Extract identifier (IP address or user ID)
+        let identifier = extract_identifier(&req);
+
+        // Log rate limit check for debugging
+        let is_auth = is_auth_endpoint(path);
+        tracing::debug!(
+            path = %path,
+            identifier = %identifier,
+            is_auth_endpoint = is_auth,
+            "Rate limit check"
+        );
+
+        // SECURITY: Use stricter rate limiting for auth endpoints
+        let limiter = if is_auth {
+            &self.auth_limiter
+        } else {
+            &self.limiter
+        };
+
+        // Check rate limit
+        match limiter.check_and_record(&identifier) {
+            Ok(result) => {
+                // Request allowed - add rate limit headers and proceed
+                let mut response = next.run(req).await;
+
+                if self.include_headers {
+                    add_rate_limit_headers(response.headers_mut(), &result);
+                }
+                // TAG: surface=security owner=security-team rule=SEC-001
+
+                response
+            }
+            Err(RateLimitError::LimitExceeded { retry_after, .. }) => {
+                // Rate limit exceeded - return 429
+                warn!("Rate limit exceeded for identifier: {}", identifier);
+
+                let mut headers = HeaderMap::new();
+                headers.insert(
+                    "Retry-After",
+                    HeaderValue::from_str(&retry_after.as_secs().to_string())
+                        .unwrap_or_else(|_| HeaderValue::from_static("60")),
+                );
+                headers.insert("X-RateLimit-Limit", HeaderValue::from_static("0"));
+                headers.insert("X-RateLimit-Remaining", HeaderValue::from_static("0"));
+
+                (
+                    StatusCode::TOO_MANY_REQUESTS,
+                    headers,
+                    "Rate limit exceeded",
+                )
+                    .into_response()
+            }
+        }
+    }
+}
+
+/// Check if a route should be exempt from rate limiting
+fn should_exempt_from_rate_limit(path: &str) -> bool {
+    // Exempt static assets (CSS, JS, fonts, icons, images)
+    if path.starts_with("/static/") {
+        return true;
+    }
+
+    // Exempt health checks and well-known endpoints
+    if matches!(
+        path,
+        "/" | "/health" | "/favicon.ico" | "/.well-known/did-configuration.json"
+    ) {
+        return true;
+    }
+
+    // SECURITY FIX: Authentication endpoints are NO LONGER exempt
+    // They now use stricter rate limiting via is_auth_endpoint() below
+    // Previously: "/login", "/test-signin", "/auth/callback", "/logout" were exempt
+    // This was a CRITICAL security vulnerability allowing brute force attacks
+
+    // Exempt webhook endpoints (external services)
+    if path.starts_with("/api/webhooks/") {
+        return true;
+        // TAG: surface=security owner=platform-team rule=GENERAL-001
+    }
+
+    // Exempt critical database and UI endpoints that are called on every page load
+    // These endpoints are protected by authentication, not rate limiting
+    if matches!(
+        path,
+        "/api/database/token"           // Browser database initialization
+            | "/api/notifications/unread-count"  // Header notification badge
+            | "/api/user/me"                     // Header user info
+            | "/api/session/status"              // Session keepalive
+            | "/api/session/activity" // Session activity tracking
+    ) {
+        return true;
+    }
+
+    // Exempt logo proxy (cosmetic, no security impact)
+    if path.starts_with("/api/logo-proxy") {
+        return true;
+    }
+
+    // Exempt Turso sync proxy (already has circuit breaker and backoff logic)
+    if path.starts_with("/api/turso-sync") {
+        return true;
+    }
+
+    // Exempt authenticated consumer page routes
+    // These are protected by authentication middleware, not rate limiting
+    // Rate limiting authenticated pages causes 429 errors on normal navigation
+    if matches!(
+        path,
+        "/dashboard"
+            | "/reports"
+            | "/settings"
+            | "/accounts"
+            | "/transactions"
+            | "/profile"
+            | "/notifications"
+            | "/connect"
+            | "/connect/bank"
+            | "/connect/crypto"
+            | "/connect/identity"
+    ) {
+        return true;
+    }
+
+    // Exempt provider business section routes (authenticated providers)
+    // All /business/* routes are for authenticated providers
+    if path.starts_with("/business") {
+        return true;
+    }
+    // TAG: surface=security owner=security-team rule=SEC-001
+
+    // Exempt shared informational routes
+    if matches!(
+        path,
+        "/help" | "/support" | "/privacy" | "/terms" | "/about" | "/contact"
+    ) {
+        return true;
+    }
+
+    // Exempt debug routes (development and troubleshooting)
+    if path.starts_with("/debug") {
+        return true;
+    }
+
+    false
+}
+
+/// Check if a path is an authentication endpoint that needs stricter rate limiting
+/// SECURITY: Auth endpoints have lower limits to prevent brute force attacks
+fn is_auth_endpoint(path: &str) -> bool {
+    matches!(
+        path,
+        "/login"
+            | "/register"
+            | "/forgot-password"
+            | "/reset-password"
+            | "/test-signin"
+            | "/auth/callback"
+            | "/auth/verify"
+            | "/api/auth/login"
+            | "/api/auth/register"
+            | "/api/auth/refresh"
+            | "/api/auth/forgot-password"
+            | "/api/auth/reset-password"
+            | "/api/auth/verify-email"
+            | "/logout"
+    ) || path.starts_with("/api/auth/")
+}
+
+/// Extract identifier from request (IP address or user ID)
+/// `CLOUD_RUN_FIX`: Improved IP extraction to handle multiple proxy scenarios
+fn extract_identifier(req: &Request) -> String {
+    // Try to get user ID from extensions (set by auth middleware)
+    if let Some(user_id) = req.extensions().get::<String>() {
+        return format!("user:{user_id}");
+    }
+
+    // Try multiple headers for client IP (Cloud Run + Load Balancer compatibility)
+    // Priority order: X-Forwarded-For > X-Real-IP > X-Client-IP > CF-Connecting-IP
+    let client_ip = req
+            // TAG: surface=security owner=platform-team rule=GENERAL-001
+        .headers()
+        .get("X-Forwarded-For")
+        .and_then(|h| h.to_str().ok())
+        .and_then(|s| {
+            // X-Forwarded-For can contain multiple IPs: client, proxy1, proxy2, ...
+            // We want the first (client) IP
+            s.split(',').next().map(str::trim)
+        })
+        .or_else(|| {
+            req.headers()
+                .get("X-Real-IP")
+                .and_then(|h| h.to_str().ok())
+                .map(str::trim)
+        })
+        .or_else(|| {
+            req.headers()
+                .get("X-Client-IP")
+                .and_then(|h| h.to_str().ok())
+                .map(str::trim)
+        })
+        .or_else(|| {
+            req.headers()
+                .get("CF-Connecting-IP") // Cloudflare
+                .and_then(|h| h.to_str().ok())
+                .map(str::trim)
+        });
+
+    if let Some(ip) = client_ip {
+        if !ip.is_empty() && ip != "unknown" {
+            return format!("ip:{ip}");
+        }
+    }
+
+    // Log when IP extraction fails for debugging
+    tracing::debug!("Could not extract client IP for rate limiting, using 'unknown'");
+    "ip:unknown".to_string()
+}
+
+/// Add rate limit headers to response
+fn add_rate_limit_headers(headers: &mut HeaderMap, result: &crate::limiter::RateLimitResult) {
+    headers.insert(
+        "X-RateLimit-Limit",
+        HeaderValue::from_str(&result.max_requests.to_string())
+            .unwrap_or_else(|_| HeaderValue::from_static("0")),
+    );
+
+    headers.insert(
+        "X-RateLimit-Remaining",
+        HeaderValue::from_str(&result.remaining.to_string())
+            .unwrap_or_else(|_| HeaderValue::from_static("0")),
+        // TAG: surface=security owner=security-team rule=SEC-001
+    );
+
+    headers.insert(
+        "X-RateLimit-Reset",
+        HeaderValue::from_str(&result.reset_at.timestamp().to_string())
+            .unwrap_or_else(|_| HeaderValue::from_static("0")),
+    );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::{body::Body, routing::get, Router};
+    use chrono::Utc;
+    use tower::ServiceExt;
+
+    #[test]
+    fn test_should_exempt_from_rate_limit() {
+        assert!(should_exempt_from_rate_limit("/static/main.css"));
+        assert!(should_exempt_from_rate_limit("/health"));
+        assert!(should_exempt_from_rate_limit("/favicon.ico"));
+        assert!(should_exempt_from_rate_limit("/api/webhooks/stripe"));
+        assert!(should_exempt_from_rate_limit("/dashboard"));
+        assert!(should_exempt_from_rate_limit("/help"));
+        assert!(!should_exempt_from_rate_limit("/api/users"));
+        assert!(!should_exempt_from_rate_limit("/api/auth/login"));
+    }
+
+    #[test]
+    fn test_is_auth_endpoint() {
+        assert!(is_auth_endpoint("/login"));
+        assert!(is_auth_endpoint("/api/auth/login"));
+        assert!(is_auth_endpoint("/api/auth/register"));
+        assert!(is_auth_endpoint("/logout"));
+        assert!(!is_auth_endpoint("/api/users"));
+        assert!(!is_auth_endpoint("/dashboard"));
+    }
+
+    #[test]
+    fn test_extract_identifier_from_headers() {
+        let mut req = Request::new(Body::empty());
+        req.headers_mut()
+            .insert("X-Forwarded-For", HeaderValue::from_static("192.168.1.1"));
+        assert_eq!(extract_identifier(&req), "ip:192.168.1.1");
+    }
+
+    #[test]
+    fn test_extract_identifier_from_x_real_ip() {
+        let mut req = Request::new(Body::empty());
+        req.headers_mut()
+            // TAG: surface=security owner=platform-team rule=GENERAL-001
+            .insert("X-Real-IP", HeaderValue::from_static("10.0.0.1"));
+        assert_eq!(extract_identifier(&req), "ip:10.0.0.1");
+    }
+
+    #[test]
+    fn test_extract_identifier_fallback() {
+        let req = Request::new(Body::empty());
+        assert_eq!(extract_identifier(&req), "ip:unknown");
+    }
+
+    #[test]
+    fn test_extract_identifier_with_extension() {
+        let mut req = Request::new(Body::empty());
+        req.extensions_mut().insert("user-123".to_string());
+        assert_eq!(extract_identifier(&req), "user:user-123");
+    }
+
+    #[test]
+    fn test_add_rate_limit_headers() {
+        let mut headers = HeaderMap::new();
+        let result = crate::limiter::RateLimitResult {
+            allowed: true,
+            requests_made: 5,
+            max_requests: 10,
+            remaining: 5,
+            reset_at: Utc::now(),
+            retry_after: None,
+        };
+        add_rate_limit_headers(&mut headers, &result);
+        assert_eq!(headers.get("X-RateLimit-Limit").unwrap(), "10");
+        assert_eq!(headers.get("X-RateLimit-Remaining").unwrap(), "5");
+        assert!(headers.contains_key("X-RateLimit-Reset"));
+    }
+
+    #[tokio::test]
+    async fn test_middleware_exempt_route() {
+        let layer = RateLimitLayer::anonymous();
+        let app = Router::new()
+            .route("/health", get(|| async { "ok" }))
+            .layer(axum::middleware::from_fn(move |req, next| {
+                let layer = layer.clone();
+                async move { layer.handle(req, next).await }
+            }));
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/health")
+                    .body(Body::empty())
+                    .unwrap(),
+                // TAG: surface=security owner=security-team rule=SEC-001
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[test]
+    fn test_extract_identifier_x_forwarded_for_multiple() {
+        let mut req = Request::new(Body::empty());
+        req.headers_mut().insert(
+            "X-Forwarded-For",
+            HeaderValue::from_static("192.168.1.1, 10.0.0.1, 172.16.0.1"),
+        );
+        assert_eq!(extract_identifier(&req), "ip:192.168.1.1");
+    }
+
+    #[test]
+    fn test_extract_identifier_x_client_ip() {
+        let mut req = Request::new(Body::empty());
+        req.headers_mut()
+            .insert("X-Client-IP", HeaderValue::from_static("10.0.0.2"));
+        assert_eq!(extract_identifier(&req), "ip:10.0.0.2");
+    }
+
+    #[test]
+    fn test_extract_identifier_cf_connecting_ip() {
+        let mut req = Request::new(Body::empty());
+        req.headers_mut()
+            .insert("CF-Connecting-IP", HeaderValue::from_static("203.0.113.1"));
+        assert_eq!(extract_identifier(&req), "ip:203.0.113.1");
+    }
+
+    #[test]
+    fn test_extract_identifier_unknown_ip() {
+        let mut req = Request::new(Body::empty());
+        req.headers_mut()
+            .insert("X-Forwarded-For", HeaderValue::from_static("unknown"));
+        assert_eq!(extract_identifier(&req), "ip:unknown");
+    }
+
+    #[test]
+    fn test_extract_identifier_empty_x_forwarded_for() {
+        let mut req = Request::new(Body::empty());
+        req.headers_mut()
+            .insert("X-Forwarded-For", HeaderValue::from_static(""));
+        assert_eq!(extract_identifier(&req), "ip:unknown");
+    }
+
+    #[test]
+    // TAG: surface=security owner=platform-team rule=GENERAL-001
+    fn test_exempt_routes_comprehensive() {
+        assert!(should_exempt_from_rate_limit("/static/js/app.js"));
+        assert!(should_exempt_from_rate_limit("/static/css/style.css"));
+        assert!(should_exempt_from_rate_limit("/"));
+        assert!(should_exempt_from_rate_limit(
+            "/.well-known/did-configuration.json"
+        ));
+        assert!(should_exempt_from_rate_limit("/api/database/token"));
+        assert!(should_exempt_from_rate_limit(
+            "/api/notifications/unread-count"
+        ));
+        assert!(should_exempt_from_rate_limit("/api/user/me"));
+        assert!(should_exempt_from_rate_limit("/api/session/status"));
+        assert!(should_exempt_from_rate_limit("/api/logo-proxy/google"));
+        assert!(should_exempt_from_rate_limit("/api/turso-sync/sync"));
+        assert!(should_exempt_from_rate_limit("/business/dashboard"));
+        assert!(should_exempt_from_rate_limit("/business/reports"));
+        assert!(should_exempt_from_rate_limit("/privacy"));
+        assert!(should_exempt_from_rate_limit("/terms"));
+        assert!(should_exempt_from_rate_limit("/about"));
+        assert!(should_exempt_from_rate_limit("/contact"));
+        assert!(should_exempt_from_rate_limit("/debug/info"));
+        assert!(!should_exempt_from_rate_limit("/api/transactions"));
+        assert!(!should_exempt_from_rate_limit("/api/payments"));
+        assert!(!should_exempt_from_rate_limit("/api/auth/login"));
+        assert!(!should_exempt_from_rate_limit("/api/auth/2fa/verify"));
+    }
+
+    #[test]
+    fn test_auth_endpoints_comprehensive() {
+        assert!(is_auth_endpoint("/login"));
+        assert!(is_auth_endpoint("/register"));
+        assert!(is_auth_endpoint("/forgot-password"));
+        assert!(is_auth_endpoint("/reset-password"));
+        assert!(is_auth_endpoint("/test-signin"));
+        assert!(is_auth_endpoint("/auth/callback"));
+        assert!(is_auth_endpoint("/auth/verify"));
+        assert!(is_auth_endpoint("/api/auth/login"));
+        assert!(is_auth_endpoint("/api/auth/register"));
+        assert!(is_auth_endpoint("/api/auth/refresh"));
+        assert!(is_auth_endpoint("/api/auth/forgot-password"));
+        assert!(is_auth_endpoint("/api/auth/reset-password"));
+        assert!(is_auth_endpoint("/api/auth/verify-email"));
+        assert!(is_auth_endpoint("/api/auth/2fa/verify"));
+        assert!(is_auth_endpoint("/api/auth/mfa/setup"));
+        assert!(is_auth_endpoint("/logout"));
+        assert!(!is_auth_endpoint("/api/users"));
+        assert!(!is_auth_endpoint("/api/transactions"));
+    }
+    // TAG: surface=security owner=security-team rule=SEC-001
+}

@@ -1,0 +1,52 @@
+[package]
+name = "freshcredit-middleware-session"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+repository.workspace = true
+description.workspace = true
+readme.workspace = true
+keywords.workspace = true
+categories.workspace = true
+[dependencies]
+# Core dependencies
+freshcredit-core-timing = { path = "../../core/timing", version = "0.1.0" }
+
+# Token encryption (AES-256-GCM) for OAuth refresh tokens at rest
+freshcredit-security = { path = "../../core/security", version = "0.1.0" }
+
+# Web framework
+axum = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true }
+
+# Database
+libsql = { workspace = true }
+
+# Async runtime
+tokio = { workspace = true }
+async-trait = "0.1"
+
+# Serialization
+serde = { workspace = true }
+serde_json = "1.0"
+
+# Time
+chrono = { version = "0.4", features = ["serde"] }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = "1.0"
+
+# Logging
+tracing = "0.1"
+
+# Utilities
+uuid = { workspace = true }
+workspace-hack = { version = "0.1", path = "../../../workspace-hack" }
+
+[dev-dependencies]
+tokio = { workspace = true }
+[lints]
+workspace = true
