@@ -53,6 +53,7 @@ pub async fn initialize_financial_tables(conn: &Connection) -> Result<()> {
             balance_limit REAL,
             current_balance REAL,
             available_balance REAL,
+            balance_as_of DATETIME,
             currency TEXT DEFAULT 'USD',
             currency_code TEXT DEFAULT 'USD',
             balance REAL DEFAULT 0.0,
