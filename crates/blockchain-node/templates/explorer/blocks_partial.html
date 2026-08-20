@@ -1,0 +1,45 @@
+<!-- Recent Blocks Partial - HTMX auto-refresh target -->
+<div class="space-y-3">
+    {% if recent_blocks.is_empty() %}
+    <div class="text-center py-8 text-muted-foreground">
+        <svg class="w-8 h-8 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+        </svg>
+        <p>No blocks available</p>
+    </div>
+    {% else %}
+    {% for block in recent_blocks %}
+    <a href="/block/{{ block.number }}" class="block border border-border rounded-lg p-4 hover:bg-muted hover:border-muted-foreground transition-colors cursor-pointer">
+        <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2">
+                <svg class="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                </svg>
+                <span class="font-semibold text-lg text-foreground">#{{ block.number }}</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="badge badge-success">Finalized</span>
+                <svg class="w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                </svg>
+            </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-foreground">
+            <div>
+                <span class="text-muted-foreground">Hash:</span>
+                <code class="mono text-xs ml-1">{{ block.hash_short }}</code>
+            </div>
+            <div>
+                <span class="text-muted-foreground">Parent:</span>
+                <code class="mono text-xs ml-1">{{ block.parent_hash_short }}</code>
+            </div>
+            <div>
+                <span class="text-muted-foreground">Extrinsics:</span>
+                <span class="ml-1">{{ block.extrinsics_count }}</span>
+            </div>
+        </div>
+    </a>
+    {% endfor %}
+    {% endif %}
+</div>
+

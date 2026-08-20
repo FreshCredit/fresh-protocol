@@ -1,0 +1,82 @@
+[package]
+name = "nomt-sidecar"
+version.workspace = true
+edition.workspace = true
+description = "NOMT (Nearly-Optimal Merkle Trie) sidecar service for FreshCredit blockchain"
+authors = ["FreshCredit <hello@freshcredit.com>"]
+license.workspace = true
+
+repository.workspace = true
+readme.workspace = true
+keywords.workspace = true
+categories.workspace = true
+[dependencies]
+# ENOMT - Extended Nearly-Optimal Merkle Trie database (NOMT successor)
+# P0-SEC-FIX: Using FreshCredit fork with security patches applied
+# Fork: https://github.com/FreshCredit/enomt (security-fixes branch)
+# Fixes: RUSTSEC-2026-0002 (lru >=0.16.3)
+# Original: https://github.com/thrumdev/enomt (actively maintained)
+nomt = { git = "https://github.com/FreshCredit/enomt", rev = "a687aa0" }
+
+# Async runtime
+tokio = { workspace = true }
+
+# HTTP server
+axum = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true, features = ["cors", "trace"] }
+http = "1.0"
+
+# gRPC server (for high-performance internal communication)
+tonic = "0.12"
+prost = "0.13"
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Hashing - Using freshcredit-nomt-core for consistency
+freshcredit-nomt-core = { path = "../freshcredit-nomt-core", version = "0.1.0" }
+hex = "0.4"
+
+# Logging and tracing
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter", "json"] }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Configuration
+dotenvy = "0.15"
+
+# Metrics
+# Updated from 0.13 to 0.14 to fix RUSTSEC-2024-0437 (protobuf vulnerability)
+prometheus = "0.14"
+
+# Time
+chrono = { workspace = true }
+
+# HTTP client for Substrate RPC calls (root anchoring)
+reqwest = { workspace = true }
+
+# File locking for shared NFS storage
+fs2 = "0.4"
+
+# Hashing
+sha2 = "0.10"
+workspace-hack = { version = "0.1", path = "../../workspace-hack" }
+
+[build-dependencies]
+tonic-build = "0.12"
+
+[[bin]]
+name = "nomt-sidecar"
+path = "src/main.rs"
+
+
+[dev-dependencies]
+tempfile = { workspace = true }
+
+[lints]
+workspace = true
