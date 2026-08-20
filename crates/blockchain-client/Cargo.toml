@@ -1,0 +1,42 @@
+[package]
+name = "blockchain-client"
+description = "FreshCredit blockchain integration client"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+readme.workspace = true
+keywords.workspace = true
+categories.workspace = true
+[dependencies]
+anyhow = { workspace = true }
+serde = { workspace = true }
+serde_json = "1.0"
+tracing = "0.1"
+tokio = { workspace = true }
+sha2 = "0.10"
+base64 = { workspace = true }
+chrono = { workspace = true }
+hex = { workspace = true }
+freshcredit-config = { path = "../core/config", version = "0.1.0" }
+
+# Substrate client via subxt
+subxt = "0.50"
+subxt-rpcs = "0.50"
+subxt-signer = { version = "0.50", features = ["subxt", "sr25519"] }
+
+# Substrate hashing for transaction IDs
+sp-crypto-hashing = "0.1"
+
+# HTTP client for NOMT sidecar
+reqwest = { workspace = true }
+workspace-hack = { version = "0.1", path = "../../workspace-hack" }
+
+[dev-dependencies]
+tokio-test = "0.4"
+wiremock = "0.6"
+sp-core-hashing = "5.0"
+
+[lints]
+workspace = true
