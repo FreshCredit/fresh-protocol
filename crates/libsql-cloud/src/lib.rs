@@ -435,7 +435,10 @@ impl CloudClient {
             .query(
                 "SELECT platform_user_id, email, display_name, given_name, surname,
                     object_id, verified_id_credential_id, verified_id_status,
-                    verified_id_issued_at, created_at, updated_at
+                    verified_id_issued_at,
+                    consumer_verified_id_credential_id, consumer_verified_id_status, consumer_verified_id_issued_at,
+                    provider_verified_id_credential_id, provider_verified_id_status, provider_verified_id_issued_at,
+                    created_at, updated_at
              FROM user_profile WHERE email = ? OR platform_user_id = ?",
                 cloud_params![user_email.to_string(), user_email.to_string()],
             )
@@ -485,14 +488,18 @@ impl CloudClient {
                     .get::<String>(7)
                     .unwrap_or_else(|_| "pending".to_string()),
                 verified_id_issued_at: row.get::<String>(8).ok(),
-                consumer_verified_id_credential_id: None,
-                consumer_verified_id_status: "pending".to_string(),
-                consumer_verified_id_issued_at: None,
-                provider_verified_id_credential_id: None,
-                provider_verified_id_status: "pending".to_string(),
-                provider_verified_id_issued_at: None,
-                created_at: row.get::<String>(9).unwrap_or_default(),
-                updated_at: row.get::<String>(10).unwrap_or_default(),
+                consumer_verified_id_credential_id: row.get::<String>(9).ok(),
+                consumer_verified_id_status: row
+                    .get::<String>(10)
+                    .unwrap_or_else(|_| "pending".to_string()),
+                consumer_verified_id_issued_at: row.get::<String>(11).ok(),
+                provider_verified_id_credential_id: row.get::<String>(12).ok(),
+                provider_verified_id_status: row
+                    .get::<String>(13)
+                    .unwrap_or_else(|_| "pending".to_string()),
+                provider_verified_id_issued_at: row.get::<String>(14).ok(),
+                created_at: row.get::<String>(15).unwrap_or_default(),
+                updated_at: row.get::<String>(16).unwrap_or_default(),
             }))
         })
     }
