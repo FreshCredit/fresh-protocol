@@ -4,7 +4,17 @@ use super::*;
 /// libsql's typed `row.get::<T>()` panics with `unreachable!("invalid value type")`
 /// when the SQLite value type does not match `T`. These tolerant helpers inspect
 /// the raw `Value` and coerce or default instead of aborting the process.
-fn tolerant_i64(row: &libsql::Row, idx: i32) -> Option<i64> {
+pub(crate) fn tolerant_string(row: &libsql::Row, idx: i32) -> Option<String> {
+    match row.get_value(idx) {
+        Ok(libsql::Value::Text(s)) => Some(s),
+        Ok(libsql::Value::Integer(i)) => Some(i.to_string()),
+        Ok(libsql::Value::Real(f)) => Some(f.to_string()),
+        Ok(libsql::Value::Blob(_)) => None,
+        Ok(libsql::Value::Null) | Err(_) => None,
+    }
+}
+
+pub(crate) fn tolerant_i64(row: &libsql::Row, idx: i32) -> Option<i64> {
     match row.get_value(idx) {
         Ok(libsql::Value::Integer(i)) => Some(i),
         Ok(libsql::Value::Text(s)) => s.parse::<i64>().ok(),
@@ -13,11 +23,11 @@ fn tolerant_i64(row: &libsql::Row, idx: i32) -> Option<i64> {
     }
 }
 
-fn tolerant_i32(row: &libsql::Row, idx: i32) -> Option<i32> {
+pub(crate) fn tolerant_i32(row: &libsql::Row, idx: i32) -> Option<i32> {
     tolerant_i64(row, idx).and_then(|i| i32::try_from(i).ok())
 }
 
-fn tolerant_bool(row: &libsql::Row, idx: i32) -> Option<bool> {
+pub(crate) fn tolerant_bool(row: &libsql::Row, idx: i32) -> Option<bool> {
     match row.get_value(idx) {
         Ok(libsql::Value::Integer(i)) => Some(i != 0),
         Ok(libsql::Value::Text(s)) => {
@@ -28,7 +38,7 @@ fn tolerant_bool(row: &libsql::Row, idx: i32) -> Option<bool> {
     }
 }
 
-fn tolerant_f64(row: &libsql::Row, idx: i32) -> Option<f64> {
+pub(crate) fn tolerant_f64(row: &libsql::Row, idx: i32) -> Option<f64> {
     match row.get_value(idx) {
         Ok(libsql::Value::Real(f)) => Some(f),
         Ok(libsql::Value::Integer(i)) => Some(i as f64),
