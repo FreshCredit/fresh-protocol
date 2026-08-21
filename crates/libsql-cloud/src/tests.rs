@@ -913,8 +913,15 @@ async fn test_get_user_profile_by_azure_id_tolerates_text_boolean_columns() {
     assert!(result.is_ok(), "reader must not panic on text booleans");
     let profile = result.unwrap().expect("profile should be found");
     assert!(profile.is_admin, "text 'true' should coerce to true");
-    assert!(!profile.provider_onboarding_complete, "text '0' should coerce to false");
-    assert_eq!(profile.annual_income, Some(82_000), "text annual_income should coerce to integer");
+    assert!(
+        !profile.provider_onboarding_complete,
+        "text '0' should coerce to false"
+    );
+    assert_eq!(
+        profile.annual_income,
+        Some(82_000),
+        "text annual_income should coerce to integer"
+    );
 }
 
 #[tokio::test]
