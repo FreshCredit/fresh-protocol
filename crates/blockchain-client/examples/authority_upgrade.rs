@@ -55,7 +55,7 @@ async fn main() -> Result<()> {
         return Ok(());
     }
 
-    let signer = dev::alice();
+    let _signer = dev::alice();
 
     // Aura value: BoundedVec<sr25519 Public> = compact(3) + 3×32B
     let mut aura_value = vec![3u8 << 2];
