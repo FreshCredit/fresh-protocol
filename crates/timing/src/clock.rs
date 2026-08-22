@@ -152,5 +152,33 @@ mod tests {
         assert_eq!(clock.timestamp(), 1_735_689_600);
         assert_eq!(clock.timestamp_millis(), 1_735_689_600_000);
     }
+
+    #[tokio::test]
+    async fn test_monotonic_now_resists_wall_clock_jumps() {
+        // P0: Even when the mocked wall clock jumps around, the monotonic
+        // `Instant` returned by the clock must never decrease.
+        tokio::time::pause();
+
+        let base = Utc::now();
+        let mut clock = MockClock::new(base);
+
+        let mono1 = clock.monotonic_now();
+        clock.advance(Duration::hours(1));
+        let mono2 = clock.monotonic_now();
+
+        // Jump the wall clock backward past the original time.
+        clock.set(base - Duration::hours(1));
+        let mono3 = clock.monotonic_now();
+
+        assert!(
+            mono2 >= mono1,
+            "monotonic time should not decrease on a forward wall jump"
+        );
+        assert!(
+            mono3 >= mono2,
+            "monotonic time should not decrease on a backward wall jump"
+        );
+        assert_eq!(clock.now(), base - Duration::hours(1));
+    }
     // TAG: surface=api owner=platform-team rule=API-001
 }
