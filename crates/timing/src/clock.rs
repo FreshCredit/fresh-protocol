@@ -11,10 +11,19 @@
 //!   clock is trusted.
 //! * `monotonic_now()` returns an `std::time::Instant`. Use it for duration
 //!   measurements, timeouts, and rate-limit refills so OS clock jumps do not
-//!   skew the result.
+//!   skew the result. **Never subtract two wall-clock readings to measure
+//!   elapsed time.**
 //! * `uncertainty()` is reserved for future TrueTime-style bounded uncertainty.
 //!   It currently returns `None` because the system relies on the host NTP
 //!   source and has no independent time reference.
+//!
+//! # Time source
+//!
+//! `Clock::source()` defaults to `TimeSource::Host`. Production deployments on
+//! GCP should rely on Google internal NTP (leap-second smeared) and may later
+//! upgrade to a `GlobalClock` implementation that provides an uncertainty
+//! interval. See `docs/application/planning/global-clock-plan.md` for the full
+//! roadmap.
 //!
 //! For distributed correctness (LWW conflict resolution, settlement, blockchain
 //! anchoring), prefer server/cloud timestamps and document a maximum tolerated
@@ -22,6 +31,21 @@
 
 use chrono::{DateTime, Utc};
 use std::time::{Duration, Instant};
+
+/// Source of truth for a clock reading.
+///
+/// Production deployments should rely on `Ntp` (Google internal NTP on GCP)
+/// or, for strict cross-region serializability, `Spanner`/TrueTime. See
+/// `docs/application/planning/global-clock-plan.md`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TimeSource {
+    /// Unsynchronized host wall-clock.
+    Host,
+    /// Synchronized via NTP.
+    Ntp,
+    /// Cloud Spanner / TrueTime-derived timestamp.
+    Spanner,
+}
 
 /// Clock abstraction for time operations
 ///
@@ -56,6 +80,11 @@ pub trait Clock: Send + Sync {
     /// This is a placeholder for future NTP/TrueTime integration.
     fn uncertainty(&self) -> Option<Duration> {
         None
+    }
+
+    /// Source of truth for this clock's wall-clock readings.
+    fn source(&self) -> TimeSource {
+        TimeSource::Host
     }
 }
 
