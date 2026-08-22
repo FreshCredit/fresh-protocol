@@ -3,8 +3,25 @@
 //!
 //! This module provides a trait-based clock abstraction that allows for testable
 //! time operations throughout the `FreshCredit` codebase.
+//!
+//! # Wall-clock vs monotonic time
+//!
+//! * `now()` returns wall-clock UTC (`DateTime<Utc>`). Use it for user-facing
+//!   timestamps, audit timestamps, and TTL/freshness decisions when the host
+//!   clock is trusted.
+//! * `monotonic_now()` returns an `std::time::Instant`. Use it for duration
+//!   measurements, timeouts, and rate-limit refills so OS clock jumps do not
+//!   skew the result.
+//! * `uncertainty()` is reserved for future TrueTime-style bounded uncertainty.
+//!   It currently returns `None` because the system relies on the host NTP
+//!   source and has no independent time reference.
+//!
+//! For distributed correctness (LWW conflict resolution, settlement, blockchain
+//! anchoring), prefer server/cloud timestamps and document a maximum tolerated
+//! skew rather than relying on client wall clocks.
 
 use chrono::{DateTime, Utc};
+use std::time::{Duration, Instant};
 
 /// Clock abstraction for time operations
 ///
@@ -23,6 +40,23 @@ pub trait Clock: Send + Sync {
     fn timestamp_millis(&self) -> i64 {
         self.now().timestamp_millis()
     }
+
+    /// Get a monotonic `Instant` suitable for measuring elapsed durations.
+    ///
+    /// Default implementation returns `Instant::now()`; production code should
+    /// use this (or `std::time::Instant` directly) whenever measuring durations,
+    /// rather than subtracting two `Utc::now()` values.
+    fn monotonic_now(&self) -> Instant {
+        Instant::now()
+    }
+
+    /// Estimated uncertainty bounds for the wall-clock time, if known.
+    ///
+    /// A `Some` value means the real time is within ±duration of `now()`.
+    /// This is a placeholder for future NTP/TrueTime integration.
+    fn uncertainty(&self) -> Option<Duration> {
+        None
+    }
 }
 
 /// System clock using actual time
@@ -35,6 +69,10 @@ pub struct SystemClock;
 impl Clock for SystemClock {
     fn now(&self) -> DateTime<Utc> {
         Utc::now()
+    }
+
+    fn monotonic_now(&self) -> Instant {
+        Instant::now()
     }
 }
 
