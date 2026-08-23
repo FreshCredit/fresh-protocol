@@ -38,9 +38,13 @@ const DEFAULT_NTP_SERVER: &str = "time.google.com:123";
 const DEFAULT_NTP_SYNC_INTERVAL: Duration = Duration::from_secs(300);
 
 /// Maximum tolerated delta between a fresh NTP sample and the local host clock.
-/// Samples outside this window are logged and ignored to protect against spoofed
-/// or corrupted replies.
+/// Samples outside this window are rejected to protect against spoofed or
+/// corrupted replies.
 const NTP_SANITY_SECONDS: i64 = 60;
+
+/// Default clock-skew tolerance. If the NTP-derived offset exceeds this bound
+/// we warn loudly so operators can investigate drift or a bad sample.
+const DEFAULT_SKEW_TOLERANCE: Duration = Duration::from_millis(100);
 
 /// A timestamp paired with metadata about how it was produced.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -90,6 +94,9 @@ pub trait GlobalClock: Clock + Send + Sync {
     }
 
     /// Convenience: create a `MonotonicDeadline` from a duration.
+    ///
+    /// This method is not object-safe; use `MonotonicDeadline::after(&*clock, timeout)`
+    /// when working with `dyn GlobalClock` trait objects.
     #[must_use]
     fn deadline(&self, timeout: Duration) -> MonotonicDeadline
     where
@@ -101,6 +108,9 @@ pub trait GlobalClock: Clock + Send + Sync {
     /// Convenience: create a `MonotonicDeadline` from an absolute wall-clock
     /// target. The deadline is anchored to the current monotonic instant, so a
     /// wall-clock jump does not silently extend or shorten the wait.
+    ///
+    /// This method is not object-safe; use `MonotonicDeadline::after(&*clock, delta)`
+    /// when working with `dyn GlobalClock` trait objects.
     #[must_use]
     fn deadline_until(&self, target: DateTime<Utc>) -> MonotonicDeadline
     where
@@ -153,6 +163,12 @@ impl MonotonicDeadline {
     #[must_use]
     pub const fn instant(&self) -> Instant {
         self.deadline
+    }
+
+    /// Convert to a `tokio::time::Instant` suitable for `tokio::time::sleep_until`.
+    #[must_use]
+    pub fn to_tokio_instant(self) -> tokio::time::Instant {
+        tokio::time::Instant::from_std(self.deadline)
     }
 }
 
@@ -213,6 +229,10 @@ pub enum NtpError {
     /// The server reported stratum 0, meaning it is not synchronized.
     #[error("NTP server stratum indicates unsynchronized server")]
     Unsynchronized,
+    /// The corrected sample differed from the local clock by more than the
+    /// configured sanity window, suggesting a spoofed or corrupted reply.
+    #[error("NTP sample rejected: local delta {0:?}")]
+    SampleRejected(chrono::Duration),
 }
 
 /// NTP-backed global clock.
@@ -233,6 +253,9 @@ pub struct NtpGlobalClock {
     uncertainty_us: AtomicI64,
     server: String,
     sync_interval: Duration,
+    /// Tolerance beyond which a persistent NTP offset is considered clock skew
+    /// and logged as a warning.
+    skew_tolerance: Duration,
 }
 
 impl NtpGlobalClock {
@@ -247,15 +270,33 @@ impl NtpGlobalClock {
 
     /// Create a clock that synchronizes against a specific `host:port`.
     ///
+    /// The optional `skew_tolerance` configures the offset magnitude that triggers
+    /// a warning log on each sample; `None` uses the default (`100 ms`).
+    ///
     /// # Errors
     ///
     /// Returns `NtpError` if the initial NTP query fails.
     pub async fn with_server(server: &str) -> Result<Arc<Self>, NtpError> {
+        Self::with_server_and_tolerance(server, None).await
+    }
+
+    /// Create a clock that synchronizes against a specific `host:port` with an
+    /// explicit clock-skew tolerance.
+    ///
+    /// # Errors
+    ///
+    /// Returns `NtpError` if the initial NTP query fails.
+    pub async fn with_server_and_tolerance(
+        server: &str,
+        skew_tolerance: Option<Duration>,
+    ) -> Result<Arc<Self>, NtpError> {
+        let skew_tolerance = skew_tolerance.unwrap_or(DEFAULT_SKEW_TOLERANCE);
         let clock = Arc::new(Self {
             offset_us: AtomicI64::new(0),
             uncertainty_us: AtomicI64::new(0),
             server: server.to_string(),
             sync_interval: DEFAULT_NTP_SYNC_INTERVAL,
+            skew_tolerance,
         });
         let sample = clock.sync_once().await?;
         clock.apply_sample(sample);
@@ -278,6 +319,15 @@ impl NtpGlobalClock {
             .unwrap_or(i64::MAX);
         self.offset_us.store(offset_us, Ordering::Relaxed);
         self.uncertainty_us.store(uncertainty_us, Ordering::Relaxed);
+
+        let offset_abs = Duration::from_micros(offset_us.unsigned_abs());
+        if offset_abs > self.skew_tolerance {
+            tracing::warn!(
+                "Clock skew detected: NTP offset {:?} exceeds tolerance {:?}",
+                offset_abs,
+                self.skew_tolerance
+            );
+        }
     }
 
     /// Perform a single NTP v4 query and return the sampled time.
@@ -336,13 +386,16 @@ impl NtpGlobalClock {
         let corrected_wall = server_wall
             + chrono::Duration::from_std(uncertainty).unwrap_or(chrono::Duration::zero());
 
-        // Sanity check against local clock.
+        // Sanity check against local clock. A sample that is wildly different
+        // from the local host clock is treated as untrustworthy and rejected
+        // rather than applied.
         let local_delta = (corrected_wall - local_wall_t0).abs();
         if local_delta > chrono::Duration::seconds(NTP_SANITY_SECONDS) {
             tracing::warn!(
-                "NTP sample differs from local clock by {:?}; ignoring",
+                "NTP sample differs from local clock by {:?}; rejecting",
                 local_delta
             );
+            return Err(NtpError::SampleRejected(local_delta));
         }
 
         Ok(NtpSample {
@@ -421,11 +474,19 @@ pub struct GlobalClockFactory;
 impl GlobalClockFactory {
     /// Create a global clock. Falls back to host clock if NTP is disabled or
     /// unreachable.
+    ///
+    /// Reads `CLOCK_SKEW_TOLERANCE_MS` from the environment to configure the
+    /// NTP offset warning threshold; defaults to 100 ms.
     pub async fn create(enable_ntp: bool) -> Arc<dyn GlobalClock> {
+        let skew_tolerance = std::env::var("CLOCK_SKEW_TOLERANCE_MS")
+            .ok()
+            .and_then(|v| v.parse::<u64>().ok())
+            .map(Duration::from_millis);
+
         if !enable_ntp {
             return Arc::new(HostGlobalClock);
         }
-        match NtpGlobalClock::new().await {
+        match NtpGlobalClock::with_server_and_tolerance(DEFAULT_NTP_SERVER, skew_tolerance).await {
             Ok(clock) => clock as Arc<dyn GlobalClock>,
             Err(e) => {
                 tracing::warn!(error = %e, "NTP clock unavailable; falling back to host clock");
@@ -495,5 +556,24 @@ mod tests {
             u32::from_be_bytes([response[40], response[41], response[42], response[43]]);
         let parsed_unix = parsed_seconds - NTP_UNIX_OFFSET_SECONDS as u32;
         assert_eq!(parsed_unix, 1_000_000_000);
+    }
+
+    #[test]
+    fn test_monotonic_deadline_to_tokio_instant() {
+        let clock = HostGlobalClock;
+        let deadline = clock.deadline(Duration::from_millis(50));
+        let tokio_instant = deadline.to_tokio_instant();
+        assert!(!deadline.is_expired());
+        // The conversion should preserve the underlying instant.
+        assert_eq!(
+            tokio_instant,
+            tokio::time::Instant::from_std(deadline.instant())
+        );
+    }
+
+    #[test]
+    fn test_ntp_error_sample_rejected_display() {
+        let err = NtpError::SampleRejected(chrono::Duration::seconds(120));
+        assert!(err.to_string().contains("NTP sample rejected"));
     }
 }
