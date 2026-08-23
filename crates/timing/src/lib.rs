@@ -18,6 +18,7 @@
 pub mod calendar;
 pub mod clock;
 pub mod freshness;
+pub mod global_clock;
 pub mod id;
 pub mod retry;
 pub mod settlement;
@@ -28,6 +29,10 @@ pub mod ttl;
 pub use calendar::BusinessDayCalendar;
 pub use clock::{Clock, MockClock, SystemClock};
 pub use freshness::{DataType, FreshnessStatus, FreshnessThresholds, FreshnessValidator};
+pub use global_clock::{
+    GlobalClock, GlobalClockFactory, HostGlobalClock, MonotonicDeadline, NtpError, NtpGlobalClock,
+    Timestamp,
+};
 pub use id::{
     item_id, model_id, new_id, payment_method_id, prefixed_id, report_id, request_id, session_id,
     transaction_id, workflow_id,

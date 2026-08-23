@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
 
 use crate::calendar::BusinessDayCalendar;
+use crate::clock::Clock;
 
 /// ACH settlement timing calculator
 #[derive(Debug)]
@@ -79,15 +80,15 @@ impl SettlementCalculator {
         }
     }
 
-    /// Check if payment should be settled by now
-    pub fn is_settlement_overdue(
+    /// Check if payment should be settled by the provided clock's current time.
+    pub fn is_settlement_overdue_with_clock(
         &self,
+        clock: &dyn Clock,
         initiated_at: DateTime<Utc>,
         settlement_type: AchSettlementType,
     ) -> bool {
-        // TAG: surface=api owner=platform-team rule=API-001
         let expected_settlement = self.calculate_settlement_date(initiated_at, settlement_type);
-        let now = Utc::now();
+        let now = clock.now();
 
         let is_overdue = now > expected_settlement.settlement_date;
 
@@ -102,15 +103,29 @@ impl SettlementCalculator {
         is_overdue
     }
 
-    /// Get settlement status based on current time
-    #[must_use]
-    pub fn get_settlement_status(
+    /// Check if payment should be settled by now using the system wall-clock.
+    pub fn is_settlement_overdue(
         &self,
+        initiated_at: DateTime<Utc>,
+        settlement_type: AchSettlementType,
+    ) -> bool {
+        self.is_settlement_overdue_with_clock(
+            &crate::clock::SystemClock,
+            initiated_at,
+            settlement_type,
+        )
+    }
+
+    /// Get settlement status based on the provided clock's current time.
+    #[must_use]
+    pub fn get_settlement_status_with_clock(
+        &self,
+        clock: &dyn Clock,
         initiated_at: DateTime<Utc>,
         settlement_type: AchSettlementType,
     ) -> SettlementStatus {
         let expected_settlement = self.calculate_settlement_date(initiated_at, settlement_type);
-        let now = Utc::now();
+        let now = clock.now();
 
         if now < expected_settlement.settlement_date {
             SettlementStatus::InTransit
@@ -122,17 +137,46 @@ impl SettlementCalculator {
         }
     }
 
-    /// Calculate days until settlement
+    /// Get settlement status based on current time using the system wall-clock.
+    #[must_use]
+    pub fn get_settlement_status(
+        &self,
+        initiated_at: DateTime<Utc>,
+        settlement_type: AchSettlementType,
+    ) -> SettlementStatus {
+        self.get_settlement_status_with_clock(
+            &crate::clock::SystemClock,
+            initiated_at,
+            settlement_type,
+        )
+    }
+
+    /// Calculate days until settlement using the provided clock's current time.
+    #[must_use]
+    pub fn days_until_settlement_with_clock(
+        &self,
+        clock: &dyn Clock,
+        initiated_at: DateTime<Utc>,
+        settlement_type: AchSettlementType,
+    ) -> i64 {
+        let expected_settlement = self.calculate_settlement_date(initiated_at, settlement_type);
+        let now = clock.now();
+
+        (expected_settlement.settlement_date.date_naive() - now.date_naive()).num_days()
+    }
+
+    /// Calculate days until settlement using the system wall-clock.
     #[must_use]
     pub fn days_until_settlement(
         &self,
         initiated_at: DateTime<Utc>,
         settlement_type: AchSettlementType,
     ) -> i64 {
-        let expected_settlement = self.calculate_settlement_date(initiated_at, settlement_type);
-        let now = Utc::now();
-
-        (expected_settlement.settlement_date.date_naive() - now.date_naive()).num_days()
+        self.days_until_settlement_with_clock(
+            &crate::clock::SystemClock,
+            initiated_at,
+            settlement_type,
+        )
     }
 }
 
@@ -314,6 +358,80 @@ mod tests {
         let initiated = Utc.with_ymd_and_hms(2025, 1, 6, 10, 0, 0).unwrap();
         let result = calculator.calculate_settlement_date(initiated, AchSettlementType::NextDay);
         assert_eq!(result.business_days, 1);
+    }
+
+    #[test]
+    fn test_settlement_overdue_with_mock_clock() {
+        use crate::clock::MockClock;
+
+        let calculator = SettlementCalculator::new();
+        let initiated = Utc.with_ymd_and_hms(2025, 1, 6, 10, 0, 0).unwrap(); // Monday
+
+        // 10 days later → overdue
+        let now = initiated + Duration::days(10);
+        let clock = MockClock::new(now);
+        assert!(calculator.is_settlement_overdue_with_clock(
+            &clock,
+            initiated,
+            AchSettlementType::ThreeDaySettlement
+        ));
+
+        // Same day → not overdue
+        let clock = MockClock::new(initiated);
+        assert!(!calculator.is_settlement_overdue_with_clock(
+            &clock,
+            initiated,
+            AchSettlementType::ThreeDaySettlement
+        ));
+    }
+
+    #[test]
+    fn test_settlement_status_with_mock_clock() {
+        use crate::clock::MockClock;
+
+        let calculator = SettlementCalculator::new();
+        let initiated = Utc.with_ymd_and_hms(2025, 1, 6, 10, 0, 0).unwrap(); // Monday
+
+        // Same-day ACH settles next business day (Tuesday). Viewing on Monday → InTransit.
+        let now = initiated;
+        let clock = MockClock::new(now);
+        assert_eq!(
+            calculator.get_settlement_status_with_clock(
+                &clock,
+                initiated,
+                AchSettlementType::SameDay
+            ),
+            SettlementStatus::InTransit
+        );
+
+        // Viewing 10 days later → Overdue.
+        let now = initiated + Duration::days(10);
+        let clock = MockClock::new(now);
+        assert_eq!(
+            calculator.get_settlement_status_with_clock(
+                &clock,
+                initiated,
+                AchSettlementType::SameDay
+            ),
+            SettlementStatus::Overdue
+        );
+    }
+
+    #[test]
+    fn test_days_until_settlement_with_mock_clock() {
+        use crate::clock::MockClock;
+
+        let calculator = SettlementCalculator::new();
+        let initiated = Utc.with_ymd_and_hms(2025, 1, 6, 10, 0, 0).unwrap(); // Monday
+
+        // Next-day ACH settles Tuesday. On Monday → 1 day remaining (date delta).
+        let clock = MockClock::new(initiated);
+        let days = calculator.days_until_settlement_with_clock(
+            &clock,
+            initiated,
+            AchSettlementType::NextDay,
+        );
+        assert_eq!(days, 1);
     }
 
     #[test]

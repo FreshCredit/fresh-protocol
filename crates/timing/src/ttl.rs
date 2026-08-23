@@ -8,12 +8,24 @@ use async_trait::async_trait;
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 
+use crate::clock::Clock;
+
 /// TTL enforcement trait for ephemeral data
 #[async_trait]
 pub trait TtlEnforcement: Send + Sync {
-    /// Check if item has expired based on TTL
+    /// Check if item has expired based on TTL using the provided clock.
+    fn is_expired_with_clock(
+        &self,
+        clock: &dyn Clock,
+        created_at: DateTime<Utc>,
+        ttl: Duration,
+    ) -> bool {
+        clock.now() > created_at + ttl
+    }
+
+    /// Check if item has expired based on TTL using the system wall-clock.
     fn is_expired(&self, created_at: DateTime<Utc>, ttl: Duration) -> bool {
-        Utc::now() > created_at + ttl
+        self.is_expired_with_clock(&crate::clock::SystemClock, created_at, ttl)
     }
 
     /// Calculate expiration timestamp
@@ -291,6 +303,34 @@ mod tests {
         let ttl_duration = Duration::hours(24);
 
         assert!(!ttl.is_expired(created_at, ttl_duration));
+    }
+
+    #[test]
+    fn test_ttl_is_expired_with_mock_clock() {
+        use crate::clock::MockClock;
+
+        struct TestTtl;
+
+        #[async_trait]
+        impl TtlEnforcement for TestTtl {
+            async fn cleanup_expired(&self, _table: &str, _ttl: Duration) -> Result<u64, TtlError> {
+                Ok(0)
+            }
+        }
+
+        let ttl = TestTtl;
+        let base = DateTime::parse_from_rfc3339("2025-01-01T00:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let clock = MockClock::new(base);
+
+        // Expired: created 25 hours ago, TTL 24 hours.
+        let created_at = base - Duration::hours(25);
+        assert!(ttl.is_expired_with_clock(&clock, created_at, Duration::hours(24)));
+
+        // Not expired: created 1 hour ago.
+        let created_at = base - Duration::hours(1);
+        assert!(!ttl.is_expired_with_clock(&clock, created_at, Duration::hours(24)));
     }
     // TAG: surface=api owner=platform-team rule=API-001
 }

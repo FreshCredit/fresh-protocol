@@ -6,6 +6,8 @@
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 
+use crate::clock::Clock;
+
 /// Data freshness validator
 #[derive(Debug, Clone)]
 pub struct FreshnessValidator {
@@ -128,10 +130,11 @@ impl FreshnessValidator {
     }
     // TAG: surface=api owner=platform-team rule=API-001
 
-    /// Check freshness of data
+    /// Check freshness of data using the provided clock.
     #[must_use]
-    pub fn check_freshness(
+    pub fn check_freshness_with_clock(
         &self,
+        clock: &dyn Clock,
         data_type: DataType,
         last_synced_at: DateTime<Utc>,
     ) -> FreshnessStatus {
@@ -142,7 +145,7 @@ impl FreshnessValidator {
             DataType::Reports => self.thresholds.reports,
         };
 
-        let age = Utc::now() - last_synced_at;
+        let age = clock.now() - last_synced_at;
         let is_fresh = age <= threshold;
         #[allow(clippy::cast_precision_loss)] // Acceptable for staleness percentage calculation
         let staleness_percentage =
@@ -155,6 +158,16 @@ impl FreshnessValidator {
             threshold,
             staleness_percentage,
         }
+    }
+
+    /// Check freshness of data using the system wall-clock.
+    #[must_use]
+    pub fn check_freshness(
+        &self,
+        data_type: DataType,
+        last_synced_at: DateTime<Utc>,
+    ) -> FreshnessStatus {
+        self.check_freshness_with_clock(&crate::clock::SystemClock, data_type, last_synced_at)
     }
 }
 
@@ -316,6 +329,29 @@ mod tests {
         };
         assert!(status.is_approaching_stale());
         assert!(!status.is_critically_stale());
+    }
+
+    #[test]
+    fn test_freshness_with_mock_clock() {
+        use crate::clock::MockClock;
+
+        let validator = FreshnessValidator::with_default_thresholds();
+        let base = DateTime::parse_from_rfc3339("2025-01-01T00:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let clock = MockClock::new(base);
+
+        // Reports threshold is 24 hours. 12 hours old → fresh.
+        let fresh_time = base - Duration::hours(12);
+        let status = validator.check_freshness_with_clock(&clock, DataType::Reports, fresh_time);
+        assert!(status.is_fresh);
+        assert!(!status.is_critically_stale());
+
+        // 48 hours old → stale.
+        let stale_time = base - Duration::hours(48);
+        let status = validator.check_freshness_with_clock(&clock, DataType::Reports, stale_time);
+        assert!(!status.is_fresh);
+        assert!(status.is_critically_stale());
     }
     // TAG: surface=api owner=platform-team rule=API-001
 }
