@@ -114,6 +114,6 @@ cargo test -p freshcredit-types
 
 ## Related Documentation
 
-📁 [Architecture Overview](../../../docs/reference/architecture/)
+📁 [Architecture Overview](../../../docs/application/architecture/)
 
 📁 [freshcredit-config](../config/)
