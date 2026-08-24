@@ -169,4 +169,4 @@ cargo test -p nomt-wasm
 
 📁 [Blockchain Client](../blockchain-client/) - Substrate integration
 
-📁 [Architecture Overview](../../../docs/reference/architecture/)
+📁 [Architecture Overview](../../../docs/application/architecture/)

@@ -75,8 +75,8 @@ docker run -p 8080:8080 -e BLOCKCHAIN_WS_URL=wss://testnet.freshcredit.com fresh
 
 ## Related Documentation
 
-- 📁 [Architecture Overview](../../docs/reference/architecture/)
-- 📁 [API Reference](../../docs/reference/api/)
+- 📁 [Architecture Overview](../../docs/application/architecture/)
+- 📁 [API Reference](../../docs/application/api/)
 - 📁 [Compliance Controls](../../docs/compliance/controls/)
 - [Blockchain Client](../../crates/blockchain-client/) - Rust client library
 - [Testnet](https://testnet.freshcredit.com) - Public testnet environment

@@ -182,4 +182,4 @@ NOMT_NATIVE=true cargo run -p nomt-sidecar
 
 📁 [Blockchain Client](../blockchain-client/) - Substrate integration
 
-📁 [Architecture Overview](../../../docs/reference/architecture/)
+📁 [Architecture Overview](../../../docs/application/architecture/)
