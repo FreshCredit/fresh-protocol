@@ -168,4 +168,4 @@ cargo test -p blockchain-client
 
 📁 [Arc Poller](../arc-poller/) - Arc Network integration
 
-📁 [Architecture Overview](../../../docs/reference/architecture/)
+📁 [Architecture Overview](../../../docs/application/architecture/)
