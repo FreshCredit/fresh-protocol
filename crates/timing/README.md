@@ -181,4 +181,4 @@ cargo test -p freshcredit-core-timing mock
 
 📁 [FreshCredit Config](../config/) - Configuration management
 
-📁 [Architecture Overview](../../../docs/reference/architecture/)
+📁 [Architecture Overview](../../../docs/application/architecture/)

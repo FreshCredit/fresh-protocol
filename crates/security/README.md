@@ -114,4 +114,4 @@ cargo test -p freshcredit-security
 
 ## Related Documentation
 
-📁 [Architecture Overview](../../../docs/reference/architecture/)
+📁 [Architecture Overview](../../../docs/application/architecture/)
