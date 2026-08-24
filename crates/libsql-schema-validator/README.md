@@ -189,4 +189,4 @@ cargo run --bin validate-schema
 
 📁 [Database Migrations](../../migrations/) - Migration system
 
-📁 [Architecture Overview](../../../../docs/reference/architecture/)
+📁 [Architecture Overview](../../../../docs/application/architecture/)
