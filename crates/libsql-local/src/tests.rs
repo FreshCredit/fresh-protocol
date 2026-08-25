@@ -53,9 +53,11 @@ async fn test_schema_table_count() {
     // +1 table for multi-institution Plaid items (plaid_items)
     // +1 table for browser-first payment methods (payment_methods)
     // +1 table for deletion propagation tombstone ledger (sync_deletions, slice C1)
-    // +5 GTT trust-score tables (gtt_physio_stream, gtt_fin_stream,
-    // gtt_ling_stream, gtt_composite_index, gtt_model_metadata)
-    assert_eq!(count, 149, "Schema should contain exactly 149 tables");
+    // +8 GTT trust-score tables (gtt_physio_stream, gtt_fin_stream,
+    // gtt_ling_stream, gtt_composite_index, gtt_model_metadata,
+    // gtt_user_meta, gtt_user_baseline, gtt_labels)
+    // +1 consumer approved_data mirror table (vault-as-source-of-truth, phase 2)
+    assert_eq!(count, 153, "Schema should contain exactly 153 tables");
 }
 
 // TAG: surface=database owner=platform-team rule=DB-001
@@ -105,6 +107,8 @@ async fn test_critical_tables_exist() {
         "apple_music_genre_stats",
         // Deletion propagation tombstone ledger (slice C1)
         "sync_deletions",
+        // Consumer approved-data mirror (vault-as-source-of-truth, phase 2)
+        "approved_data",
     ];
 
     for table in critical_tables {

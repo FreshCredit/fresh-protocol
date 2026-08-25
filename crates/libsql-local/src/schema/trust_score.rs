@@ -1,7 +1,8 @@
 //! General Theory of Trust (GTT) schema definitions
 //!
 //! Edge-side physiological, financial, and linguistic stability streams plus the
-//! composite trust index. Mirrors Appendix C.2 of the GTT whitepaper.
+//! composite trust index. Mirrors Appendix C.2 of the GTT whitepaper and the
+//! A.11 pre-analysis plan (User_Meta, labels).
 //!
 //! COMPLIANCE: §10 Unified Database Schema Architecture
 
@@ -27,6 +28,9 @@ pub async fn initialize_trust_score_tables(conn: &Connection) -> Result<()> {
             sleep_eff REAL,
             temp_skin REAL,
             step_count INTEGER,
+            respiration_rate REAL,
+            vo2_estimated REAL,
+            blood_oxygen REAL,
             psi_bio REAL,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -65,6 +69,17 @@ pub async fn initialize_trust_score_tables(conn: &Connection) -> Result<()> {
             emoji_entropy REAL,
             semantic_cos REAL,
             sentiment_score REAL,
+            speech_entropy REAL,
+            pitch_variability REAL,
+            sentiment_valence REAL,
+            sentiment_arousal REAL,
+            semantic_distance REAL,
+            behavioral_latency_ms REAL,
+            behavioral_choice_consistency REAL,
+            behavioral_variance REAL,
+            device_time_jitter_ms REAL,
+            device_battery_percent REAL,
+            environment_noise_db REAL,
             psi_ling REAL,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -113,6 +128,55 @@ pub async fn initialize_trust_score_tables(conn: &Connection) -> Result<()> {
     )
     .await?;
 
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS gtt_user_meta (
+            user_id TEXT PRIMARY KEY,
+            device_id TEXT,
+            hardware_model TEXT,
+            region_code TEXT,
+            consent_version TEXT,
+            hash_ref TEXT,
+            ts_utc DATETIME NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
+        )",
+        (),
+    )
+    .await?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS gtt_user_baseline (
+            user_id TEXT PRIMARY KEY,
+            hr_rest_mean REAL,
+            hr_rest_sd REAL,
+            hrv_rmssd_mean REAL,
+            hrv_rmssd_sd REAL,
+            sleep_eff_mean REAL,
+            sleep_eff_sd REAL,
+            window_count INTEGER,
+            updated_at DATETIME NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
+        )",
+        (),
+    )
+    .await?;
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS gtt_labels (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            ts_utc DATETIME NOT NULL,
+            label_default_90d INTEGER,
+            label_stability_composite REAL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
+        )",
+        (),
+    )
+    .await?;
+
     initialize_trust_score_indexes(conn).await?;
 
     Ok(())
@@ -147,6 +211,21 @@ pub async fn initialize_trust_score_indexes(conn: &Connection) -> Result<()> {
     .await?;
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_gtt_model_metadata_hash ON gtt_model_metadata(model_hash)",
+        (),
+    )
+    .await?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_gtt_user_meta_user ON gtt_user_meta(user_id)",
+        (),
+    )
+    .await?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_gtt_user_baseline_user ON gtt_user_baseline(user_id)",
+        (),
+    )
+    .await?;
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_gtt_labels_user_ts ON gtt_labels(user_id, ts_utc)",
         (),
     )
     .await?;

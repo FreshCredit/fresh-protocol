@@ -568,6 +568,30 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
     )
     .await?;
 
+    // V2 consumer approved data items. Mirrors the shared_db `approved_data`
+    // table (schema_manager impls/core.rs): finalized approved staged rows
+    // are written here so the browser vault sync can read them locally and
+    // report generation can count them as vault-backed data.
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS approved_data (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            category TEXT NOT NULL,
+            label TEXT NOT NULL,
+            approved_at TEXT NOT NULL,
+            hash_prefix TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )",
+        (),
+    )
+    .await?;
+    let _ = conn
+        .execute(
+            "CREATE INDEX IF NOT EXISTS idx_approved_data_user_id ON approved_data(user_id)",
+            (),
+        )
+        .await;
+
     // Deletion propagation ledger (slice C1): every hard delete records a
     // tombstone here in the same transaction, and the browser HTTP sync
     // replays it in both directions. Mirrors the browser OPFS schema in
