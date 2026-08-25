@@ -3,7 +3,7 @@
 
 use axum::{
     extract::Request,
-    http::{HeaderMap, HeaderValue, StatusCode},
+    http::{HeaderMap, HeaderValue, Method, StatusCode},
     middleware::Next,
     response::{IntoResponse, Response},
 };
@@ -76,15 +76,18 @@ impl RateLimitLayer {
         let identifier = extract_identifier(&req);
 
         // Log rate limit check for debugging
-        let is_auth = is_auth_endpoint(path);
+        let is_auth = is_auth_endpoint(req.method(), path);
         tracing::debug!(
             path = %path,
+            method = %req.method(),
             identifier = %identifier,
             is_auth_endpoint = is_auth,
             "Rate limit check"
         );
 
-        // SECURITY: Use stricter rate limiting for auth endpoints
+        // SECURITY: Use stricter rate limiting for state-changing auth endpoints only.
+        // GET/HEAD to login/register/etc. are render pages; limiting them by IP breaks
+        // invite flows where many users share a corporate NAT or mobile carrier CGNAT.
         let limiter = if is_auth {
             &self.auth_limiter
         } else {
@@ -220,9 +223,17 @@ fn should_exempt_from_rate_limit(path: &str) -> bool {
     false
 }
 
-/// Check if a path is an authentication endpoint that needs stricter rate limiting
-/// SECURITY: Auth endpoints have lower limits to prevent brute force attacks
-fn is_auth_endpoint(path: &str) -> bool {
+/// Check if a path is an authentication endpoint that needs stricter rate limiting.
+/// SECURITY: Auth endpoints have lower limits to prevent brute force attacks.
+/// GET/HEAD to render pages and OAuth callbacks use the normal limiter so invite links
+/// and shared-network users are not blocked; state-changing auth requests stay strict.
+fn is_auth_endpoint(method: &Method, path: &str) -> bool {
+    let is_state_changing = !matches!(*method, Method::GET | Method::HEAD);
+
+    if path.starts_with("/api/auth/") {
+        return true;
+    }
+
     matches!(
         path,
         "/login"
@@ -232,14 +243,8 @@ fn is_auth_endpoint(path: &str) -> bool {
             | "/test-signin"
             | "/auth/callback"
             | "/auth/verify"
-            | "/api/auth/login"
-            | "/api/auth/register"
-            | "/api/auth/refresh"
-            | "/api/auth/forgot-password"
-            | "/api/auth/reset-password"
-            | "/api/auth/verify-email"
             | "/logout"
-    ) || path.starts_with("/api/auth/")
+    ) && is_state_changing
 }
 
 /// Extract identifier from request (IP address or user ID)
@@ -335,12 +340,18 @@ mod tests {
 
     #[test]
     fn test_is_auth_endpoint() {
-        assert!(is_auth_endpoint("/login"));
-        assert!(is_auth_endpoint("/api/auth/login"));
-        assert!(is_auth_endpoint("/api/auth/register"));
-        assert!(is_auth_endpoint("/logout"));
-        assert!(!is_auth_endpoint("/api/users"));
-        assert!(!is_auth_endpoint("/dashboard"));
+        // State-changing auth requests use the strict limiter.
+        assert!(is_auth_endpoint(&Method::POST, "/login"));
+        assert!(is_auth_endpoint(&Method::POST, "/api/auth/login"));
+        assert!(is_auth_endpoint(&Method::POST, "/api/auth/register"));
+        assert!(is_auth_endpoint(&Method::POST, "/logout"));
+        // GET to auth render pages/callbacks is not strict (avoids blocking shared NAT).
+        assert!(!is_auth_endpoint(&Method::GET, "/login"));
+        assert!(!is_auth_endpoint(&Method::GET, "/register"));
+        assert!(!is_auth_endpoint(&Method::GET, "/auth/callback"));
+        assert!(!is_auth_endpoint(&Method::GET, "/logout"));
+        assert!(!is_auth_endpoint(&Method::GET, "/api/users"));
+        assert!(!is_auth_endpoint(&Method::GET, "/dashboard"));
     }
 
     #[test]
@@ -488,24 +499,39 @@ mod tests {
 
     #[test]
     fn test_auth_endpoints_comprehensive() {
-        assert!(is_auth_endpoint("/login"));
-        assert!(is_auth_endpoint("/register"));
-        assert!(is_auth_endpoint("/forgot-password"));
-        assert!(is_auth_endpoint("/reset-password"));
-        assert!(is_auth_endpoint("/test-signin"));
-        assert!(is_auth_endpoint("/auth/callback"));
-        assert!(is_auth_endpoint("/auth/verify"));
-        assert!(is_auth_endpoint("/api/auth/login"));
-        assert!(is_auth_endpoint("/api/auth/register"));
-        assert!(is_auth_endpoint("/api/auth/refresh"));
-        assert!(is_auth_endpoint("/api/auth/forgot-password"));
-        assert!(is_auth_endpoint("/api/auth/reset-password"));
-        assert!(is_auth_endpoint("/api/auth/verify-email"));
-        assert!(is_auth_endpoint("/api/auth/2fa/verify"));
-        assert!(is_auth_endpoint("/api/auth/mfa/setup"));
-        assert!(is_auth_endpoint("/logout"));
-        assert!(!is_auth_endpoint("/api/users"));
-        assert!(!is_auth_endpoint("/api/transactions"));
+        let post = Method::POST;
+        let get = Method::GET;
+
+        // State-changing auth requests are strict.
+        assert!(is_auth_endpoint(&post, "/login"));
+        assert!(is_auth_endpoint(&post, "/register"));
+        assert!(is_auth_endpoint(&post, "/forgot-password"));
+        assert!(is_auth_endpoint(&post, "/reset-password"));
+        assert!(is_auth_endpoint(&post, "/test-signin"));
+        assert!(is_auth_endpoint(&post, "/logout"));
+
+        // All /api/auth/* requests are strict.
+        assert!(is_auth_endpoint(&post, "/api/auth/login"));
+        assert!(is_auth_endpoint(&post, "/api/auth/register"));
+        assert!(is_auth_endpoint(&post, "/api/auth/refresh"));
+        assert!(is_auth_endpoint(&post, "/api/auth/forgot-password"));
+        assert!(is_auth_endpoint(&post, "/api/auth/reset-password"));
+        assert!(is_auth_endpoint(&post, "/api/auth/verify-email"));
+        assert!(is_auth_endpoint(&post, "/api/auth/2fa/verify"));
+        assert!(is_auth_endpoint(&post, "/api/auth/mfa/setup"));
+
+        // GET to render pages / OAuth callbacks is not strict (shared NAT fix).
+        assert!(!is_auth_endpoint(&get, "/login"));
+        assert!(!is_auth_endpoint(&get, "/register"));
+        assert!(!is_auth_endpoint(&get, "/forgot-password"));
+        assert!(!is_auth_endpoint(&get, "/reset-password"));
+        assert!(!is_auth_endpoint(&get, "/test-signin"));
+        assert!(!is_auth_endpoint(&get, "/auth/callback"));
+        assert!(!is_auth_endpoint(&get, "/auth/verify"));
+        assert!(!is_auth_endpoint(&get, "/logout"));
+
+        assert!(!is_auth_endpoint(&get, "/api/users"));
+        assert!(!is_auth_endpoint(&get, "/api/transactions"));
     }
     // TAG: surface=security owner=security-team rule=SEC-001
 }
