@@ -26,6 +26,7 @@
 //! - notifications.rs: Notification tables (`webhook_events`, notifications)
 //! - linkedin.rs: `LinkedIn` professional data tables
 //! - healthkit.rs: Apple `HealthKit` tables
+//! - trust_score.rs: General Theory of Trust (GTT) stream tables
 //! - `apple_music.rs`: Apple Music tables
 //! - correlation.rs: Correlation engine tables
 //! - platform.rs: Platform-level tables (referrals, metrics, etc.)
@@ -85,6 +86,7 @@ pub mod healthkit;
 pub mod ip;
 pub mod linkedin;
 pub mod publications;
+pub mod trust_score;
 
 // Platform and infrastructure modules
 pub mod indexes;
@@ -125,6 +127,7 @@ pub use reports::{initialize_all_reports_tables, initialize_all_reports_tables_w
 pub use security::initialize_security_tables;
 pub use teams::{initialize_teams_indexes, initialize_teams_tables};
 pub use ticketing::initialize_ticketing_tables;
+pub use trust_score::initialize_trust_score_tables;
 pub use ucp::initialize_ucp_tables;
 pub use webhook::initialize_webhook_tables;
 pub use workflow::{ensure_workflow_columns, initialize_workflow_tables};

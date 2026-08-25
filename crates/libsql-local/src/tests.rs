@@ -1,7 +1,7 @@
 use super::*;
 
-/// Test that the schema contains exactly 117 tables as documented
-/// `HARDCODED_SCHEMA`: 117 unique tables in modular schema (verified 2026-01-15)
+/// Test that the schema contains exactly 149 tables as documented
+/// `HARDCODED_SCHEMA`: 149 unique tables in modular schema (verified 2026-08-25)
 /// Added: `provider_teams`, `team_members`, `team_invites` (Teams)
 /// Added: `customer_activities`, `customer_segments`, `customer_segment_memberships`, `customer_communications` (Customers)
 /// Added: `offer_analytics`, `offer_ab_test_results`, `offer_events` (Offer Analytics)
@@ -53,7 +53,9 @@ async fn test_schema_table_count() {
     // +1 table for multi-institution Plaid items (plaid_items)
     // +1 table for browser-first payment methods (payment_methods)
     // +1 table for deletion propagation tombstone ledger (sync_deletions, slice C1)
-    assert_eq!(count, 144, "Schema should contain exactly 144 tables");
+    // +5 GTT trust-score tables (gtt_physio_stream, gtt_fin_stream,
+    // gtt_ling_stream, gtt_composite_index, gtt_model_metadata)
+    assert_eq!(count, 149, "Schema should contain exactly 149 tables");
 }
 
 // TAG: surface=database owner=platform-team rule=DB-001

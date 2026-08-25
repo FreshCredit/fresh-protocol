@@ -179,6 +179,13 @@ async fn init_data_source_group(
     });
     info!("[ARCH-007] Schema category initialized: apple_music");
 
+    initialize_trust_score_tables(conn).await?;
+    validations.push(SchemaValidation {
+        category: "trust_score",
+        tables_initialized: true,
+    });
+    info!("[ARCH-007] Schema category initialized: trust_score");
+
     initialize_correlation_tables(conn).await?;
     validations.push(SchemaValidation {
         category: "correlation",
