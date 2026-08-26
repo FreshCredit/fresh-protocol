@@ -50,6 +50,14 @@ pub async fn initialize_trust_score_tables(conn: &Connection) -> Result<()> {
             balance_mean REAL,
             balance_var REAL,
             merchant_diversity REAL,
+            cashflow_30d_inflow REAL,
+            cashflow_30d_outflow REAL,
+            cashflow_60d_inflow REAL,
+            cashflow_60d_outflow REAL,
+            cashflow_90d_inflow REAL,
+            cashflow_90d_outflow REAL,
+            income_regularity REAL,
+            spending_entropy REAL,
             psi_fin REAL,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -177,6 +185,19 @@ pub async fn initialize_trust_score_tables(conn: &Connection) -> Result<()> {
     )
     .await?;
 
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS gtt_balance_snapshots (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            date TEXT NOT NULL,
+            total_balance REAL NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
+        )",
+        (),
+    )
+    .await?;
+
     initialize_trust_score_indexes(conn).await?;
 
     Ok(())
@@ -226,6 +247,12 @@ pub async fn initialize_trust_score_indexes(conn: &Connection) -> Result<()> {
     .await?;
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_gtt_labels_user_ts ON gtt_labels(user_id, ts_utc)",
+        (),
+    )
+    .await?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_gtt_balance_snapshots_user_date ON gtt_balance_snapshots(user_id, date)",
         (),
     )
     .await?;
