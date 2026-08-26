@@ -26,5 +26,6 @@ pub mod profile;
 pub mod report;
 pub mod user_profile_service;
 pub mod validation;
+pub mod vault_vectors;
 pub mod webhook;
 pub mod workflow;

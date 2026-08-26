@@ -1,8 +1,8 @@
 //! Local `LibSQL` database operations for `FreshCredit`
 //!
 //! This module implements the unified database schema for `FreshCredit`,
-//! // `HARDCODED_SCHEMA`: 149 tables in Rust modular schema, 150 in `unified_schema.sql` (+1 browser-specific `blockchain_proofs`) (verified 2026-08-25)
-//! containing 149 tables that support:
+//! // `HARDCODED_SCHEMA`: 150 tables in Rust modular schema, 151 in `unified_schema.sql` (+1 browser-specific `blockchain_proofs`) (verified 2026-08-25)
+//! containing 150 tables that support:
 // TAG: surface=database owner=platform-team rule=DB-001
 //! - User profile and authentication (Entra ID + Verified ID)
 //! - All 11 Plaid products (Accounts, Transactions, Auth, Identity, etc.)
@@ -29,7 +29,7 @@
 //! - schema/: Schema definitions organized by domain
 //! - operations/: CRUD operations organized by domain
 //!
-//! `HARDCODED_SCHEMA`: 149 unique tables in modular schema (verified 2026-08-25)
+//! `HARDCODED_SCHEMA`: 150 unique tables in modular schema (verified 2026-08-25)
 
 // Submodules for incremental extraction
 #![allow(clippy::wildcard_imports)]

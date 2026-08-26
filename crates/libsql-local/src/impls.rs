@@ -101,7 +101,7 @@ impl LocalClient {
     /// This function delegates to the schema module for table creation.
     /// All table definitions are in `schema/` submodules for maintainability.
     ///
-    /// `HARDCODED_SCHEMA`: 117 tables total across all modules (verified 2026-01-15)
+    /// `HARDCODED_SCHEMA`: 150 tables total across all modules (verified 2026-08-25)
     /// See `schema/mod.rs` for the complete table inventory.
     #[must_use = "this returns a Result that should be handled"]
     /// # Errors
@@ -114,9 +114,8 @@ impl LocalClient {
         // Delegate to the modular schema initialization
         crate::schema::initialize_all_schema_tables(&conn).await?;
 
-        // HARDCODED_SCHEMA: 124 tables in Rust modular schema (verified 2026-01-15)
-        // Added: 4 agent tables + 3 UCP tables = 7 new tables
-        info!("Unified database schema initialization completed (124 tables)");
+        // HARDCODED_SCHEMA: 150 tables in Rust modular schema (verified 2026-08-25)
+        info!("Unified database schema initialization completed (150 tables)");
         Ok(())
     }
 

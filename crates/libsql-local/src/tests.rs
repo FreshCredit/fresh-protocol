@@ -1,11 +1,12 @@
 use super::*;
 
-/// Test that the schema contains exactly 149 tables as documented
-/// `HARDCODED_SCHEMA`: 149 unique tables in modular schema (verified 2026-08-25)
+/// Test that the schema contains exactly 156 tables as documented
+/// `HARDCODED_SCHEMA`: 150 unique tables in modular schema (verified 2026-08-25)
 /// Added: `provider_teams`, `team_members`, `team_invites` (Teams)
 /// Added: `customer_activities`, `customer_segments`, `customer_segment_memberships`, `customer_communications` (Customers)
 /// Added: `offer_analytics`, `offer_ab_test_results`, `offer_events` (Offer Analytics)
 /// Added: `bridge_transfers`, `gateway_sessions`, `gateway_transactions` (Circle Arc Phase 2)
+/// Added: `vault_category_vectors` (Vault vectorization, plus internal vector-index tables)
 #[tokio::test]
 async fn test_schema_table_count() {
     let client = LocalClient::new_in_memory().await.unwrap();
@@ -57,7 +58,8 @@ async fn test_schema_table_count() {
     // gtt_ling_stream, gtt_composite_index, gtt_model_metadata,
     // gtt_user_meta, gtt_user_baseline, gtt_labels)
     // +1 consumer approved_data mirror table (vault-as-source-of-truth, phase 2)
-    assert_eq!(count, 153, "Schema should contain exactly 153 tables");
+    // +1 vault_category_vectors table (vault vectorization; internal vector-index tables add 2 more)
+    assert_eq!(count, 156, "Schema should contain exactly 156 tables");
 }
 
 // TAG: surface=database owner=platform-team rule=DB-001

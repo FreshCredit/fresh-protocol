@@ -102,6 +102,9 @@ pub mod agent;
 // Governance modules
 pub mod governance;
 
+// Vault vectorization (category-specific deterministic vectors)
+pub mod vault_vectors;
+
 // Re-exports for convenience
 pub use agent::{check_agent_bindings_schema, initialize_agent_tables};
 pub use ai::initialize_ai_tables;
@@ -129,6 +132,7 @@ pub use teams::{initialize_teams_indexes, initialize_teams_tables};
 pub use ticketing::initialize_ticketing_tables;
 pub use trust_score::initialize_trust_score_tables;
 pub use ucp::initialize_ucp_tables;
+pub use vault_vectors::initialize_vault_vector_tables;
 pub use webhook::initialize_webhook_tables;
 pub use workflow::{ensure_workflow_columns, initialize_workflow_tables};
 

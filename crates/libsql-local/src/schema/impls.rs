@@ -200,6 +200,13 @@ async fn init_data_source_group(
     });
     info!("[ARCH-007] Schema category initialized: platform");
 
+    initialize_vault_vector_tables(conn).await?;
+    validations.push(SchemaValidation {
+        category: "vault_vectors",
+        tables_initialized: true,
+    });
+    info!("[ARCH-007] Schema category initialized: vault_vectors");
+
     Ok(())
 }
 

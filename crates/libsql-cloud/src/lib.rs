@@ -1,7 +1,7 @@
 //! Cloud `LibSQL` (Turso) database operations for `FreshCredit`
 //!
-//! // `HARDCODED_SCHEMA`: 145 tables in `unified_schema.sql` (verified 2026-07-25)
-//! Uses the unified 145-table schema from `migrations/unified_schema.sql`.
+//! // `HARDCODED_SCHEMA`: 135 tables in `unified_schema.sql` (verified 2026-08-25)
+//! Uses the unified 135-table schema from `migrations/unified_schema.sql`.
 //! Cloud databases are per-user Turso instances with identical schema to local.
 
 #![allow(clippy::wildcard_imports)]
@@ -121,12 +121,12 @@ impl CloudClient {
     }
 
     /// Initialize cloud database schema using unified schema
-    /// // `HARDCODED_SCHEMA`: 145 tables in `unified_schema.sql` (verified 2026-07-25)
+    /// // `HARDCODED_SCHEMA`: 135 tables in `unified_schema.sql` (verified 2026-08-25)
     /// # Errors
     ///
     /// Returns an error if the operation fails.
     pub async fn initialize_schema(&self) -> Result<()> {
-        info!("Initializing cloud database with unified schema (145 tables)");
+        info!("Initializing cloud database with unified schema (135 tables)");
 
         // Check if schema already exists by looking for key tables
         let key_tables = vec!["user_profile", "accounts", "transactions", "reports"];
