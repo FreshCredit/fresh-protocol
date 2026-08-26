@@ -228,6 +228,7 @@ fn should_exempt_from_rate_limit(path: &str) -> bool {
             | "/test-signin"
             | "/auth/callback"
             | "/auth/verify"
+            | "/auth/login/start"
             | "/logout"
             | "/solutions"
             | "/download"
@@ -355,6 +356,7 @@ mod tests {
         assert!(should_exempt_from_rate_limit("/api/webhooks/stripe"));
         assert!(should_exempt_from_rate_limit("/dashboard"));
         assert!(should_exempt_from_rate_limit("/help"));
+        assert!(should_exempt_from_rate_limit("/auth/login/start"));
         assert!(!should_exempt_from_rate_limit("/api/users"));
         assert!(!should_exempt_from_rate_limit("/api/auth/login"));
     }
