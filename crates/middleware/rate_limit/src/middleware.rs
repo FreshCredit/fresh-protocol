@@ -215,6 +215,27 @@ fn should_exempt_from_rate_limit(path: &str) -> bool {
         return true;
     }
 
+    // Exempt public authentication render pages. These are GET-only landing pages
+    // protected by CSP/headers, not rate limiting. Shared NAT / mobile carrier IPs
+    // were hitting the anonymous tier here, causing legitimate invite links and
+    // first-time users to receive 429 errors.
+    if matches!(
+        path,
+        "/login"
+            | "/register"
+            | "/forgot-password"
+            | "/reset-password"
+            | "/test-signin"
+            | "/auth/callback"
+            | "/auth/verify"
+            | "/logout"
+            | "/solutions"
+            | "/download"
+            | "/book"
+    ) {
+        return true;
+    }
+
     // Exempt debug routes (development and troubleshooting)
     if path.starts_with("/debug") {
         return true;
@@ -491,6 +512,14 @@ mod tests {
         assert!(should_exempt_from_rate_limit("/about"));
         assert!(should_exempt_from_rate_limit("/contact"));
         assert!(should_exempt_from_rate_limit("/debug/info"));
+        // Public auth render pages are exempt from IP-based rate limiting.
+        assert!(should_exempt_from_rate_limit("/login"));
+        assert!(should_exempt_from_rate_limit("/register"));
+        assert!(should_exempt_from_rate_limit("/forgot-password"));
+        assert!(should_exempt_from_rate_limit("/reset-password"));
+        assert!(should_exempt_from_rate_limit("/solutions"));
+        assert!(should_exempt_from_rate_limit("/download"));
+        assert!(should_exempt_from_rate_limit("/book"));
         assert!(!should_exempt_from_rate_limit("/api/transactions"));
         assert!(!should_exempt_from_rate_limit("/api/payments"));
         assert!(!should_exempt_from_rate_limit("/api/auth/login"));
