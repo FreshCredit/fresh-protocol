@@ -104,6 +104,12 @@ impl LocalClient {
                 user_id: row.get(1)?,
                 account_type,
                 balance: row.get(3)?,
+                current_balance: None,
+                available_balance: None,
+                credit_limit: None,
+                iso_currency_code: None,
+                mask: None,
+                official_name: None,
                 currency: row.get(4)?,
                 institution_name: row.get(5)?,
                 created_at: chrono::DateTime::parse_from_rfc3339(&row.get::<String>(6)?)
