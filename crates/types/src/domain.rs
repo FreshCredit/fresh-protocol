@@ -24,6 +24,24 @@ pub struct Account {
     pub account_type: AccountType,
     /// Balance
     pub balance: Option<f64>,
+    /// Current balance (from Plaid `balances.current`)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub current_balance: Option<f64>,
+    /// Available balance (from Plaid `balances.available`)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub available_balance: Option<f64>,
+    /// Credit/limit (from Plaid `balances.limit`)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub credit_limit: Option<f64>,
+    /// ISO currency code (from Plaid `balances.iso_currency_code`)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub iso_currency_code: Option<String>,
+    /// Account mask (last digits)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mask: Option<String>,
+    /// Official account name from the institution
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub official_name: Option<String>,
     /// Currency
     // TAG: surface=api owner=platform-team rule=API-001
     pub currency: String,
