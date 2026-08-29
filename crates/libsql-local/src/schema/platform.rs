@@ -42,6 +42,15 @@ pub async fn initialize_platform_tables(conn: &Connection) -> Result<()> {
     )
     .await?;
 
+    // Deduplicate repeated approval payloads (e.g. Plaid reconnects) by natural key.
+    let _ = conn
+        .execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_data_approval_hashes_natural_key
+             ON data_approval_hashes(user_id, approval_type, data_hash)",
+            (),
+        )
+        .await;
+
     // TAG: surface=database owner=platform-team rule=DB-001
     // Referrals for rewards program
     conn.execute(
