@@ -59,7 +59,8 @@ async fn test_schema_table_count() {
     // gtt_user_meta, gtt_user_baseline, gtt_labels)
     // +1 consumer approved_data mirror table (vault-as-source-of-truth, phase 2)
     // +1 vault_category_vectors table (vault vectorization; internal vector-index tables add 2 more)
-    assert_eq!(count, 156, "Schema should contain exactly 156 tables");
+    // +1 native_health_staging table (Apple Health / Google Health Connect staging)
+    assert_eq!(count, 157, "Schema should contain exactly 157 tables");
 }
 
 // TAG: surface=database owner=platform-team rule=DB-001
