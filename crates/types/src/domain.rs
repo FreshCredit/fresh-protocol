@@ -430,6 +430,12 @@ mod tests {
             account_type: AccountType::Savings,
             // TAG: surface=api owner=platform-team rule=API-001
             balance: Some(1000.50),
+            current_balance: None,
+            available_balance: None,
+            credit_limit: None,
+            iso_currency_code: None,
+            mask: None,
+            official_name: None,
             currency: "USD".to_string(),
             institution_name: "Test Bank".to_string(),
             created_at: Utc::now(),
