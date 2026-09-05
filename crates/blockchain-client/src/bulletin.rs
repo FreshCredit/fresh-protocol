@@ -28,10 +28,12 @@ pub const DEFAULT_IPFS_GATEWAYS: &[&str] = &[
     "https://cloudflare-ipfs.com/ipfs/",
 ];
 
-/// Maximum envelope size the PoC will attempt to anchor on-chain via
-/// `transactionStorage.store`. Bulletin Chain stores data on-chain; real
-/// deployments should use IPFS pinning with a CID anchor. This limit keeps the
-/// PoC from accidentally submitting huge blobs.
+/// Maximum envelope size the `PoC` will attempt to anchor on-chain via
+/// `transactionStorage.store`.
+///
+/// Bulletin Chain stores data on-chain; real deployments should use IPFS
+/// pinning with a CID anchor. This limit keeps the `PoC` from accidentally
+/// submitting huge blobs.
 pub const MAX_ENVELOPE_ANCHOR_BYTES: usize = 256 * 1024; // 256 KiB
 
 /// Configuration for the Bulletin Chain client.
@@ -62,8 +64,7 @@ impl BulletinConfig {
     pub fn from_env() -> Self {
         let enabled = std::env::var("BULLETIN_ENABLED")
             .ok()
-            .map(|s| s.trim().eq_ignore_ascii_case("true"))
-            .unwrap_or(false);
+            .is_some_and(|s| s.trim().eq_ignore_ascii_case("true"));
 
         Self {
             rpc_url: std::env::var("BULLETIN_RPC_URL").unwrap_or_default(),
@@ -294,7 +295,7 @@ impl BulletinClient {
     /// Retrieve envelope bytes for a CID.
     ///
     /// Tries the configured `BULLETIN_IPFS_GATEWAY` first, then the public
-    /// gateway fallback list. For the PoC, retrieval requires a peered node or
+    /// gateway fallback list. For the `PoC`, retrieval requires a peered node or
     /// configured gateway; if none respond, an explanatory error is returned.
     ///
     /// # Errors
@@ -307,12 +308,12 @@ impl BulletinClient {
             let normalized = if g.ends_with('/') {
                 g.to_string()
             } else {
-                format!("{}/", g)
+                format!("{g}/")
             };
             gateways.push(normalized);
         }
 
-        gateways.extend(DEFAULT_IPFS_GATEWAYS.iter().map(|s| s.to_string()));
+        gateways.extend(DEFAULT_IPFS_GATEWAYS.iter().map(|s| (*s).to_string()));
 
         if gateways.is_empty() {
             anyhow::bail!("No IPFS gateway available for Bulletin retrieval");
@@ -325,7 +326,7 @@ impl BulletinClient {
             .context("Failed to build Bulletin HTTP client")?;
 
         for gateway in &gateways {
-            let url = format!("{}{}", gateway, cid);
+            let url = format!("{gateway}{cid}");
             match http
                 .get(&url)
                 .header(reqwest::header::ACCEPT, "application/octet-stream, */*")
@@ -364,21 +365,20 @@ impl BulletinClient {
 
         Err(last_error.unwrap_or_else(|| {
             anyhow::anyhow!(
-                "Could not retrieve Bulletin CID {}; retrieval needs a peered node or configured gateway",
-                cid
+                "Could not retrieve Bulletin CID {cid}; retrieval needs a peered node or configured gateway"
             )
         }))
     }
 
     /// Whether the client is configured to attempt on-chain anchoring.
     #[must_use]
-    pub fn is_enabled(&self) -> bool {
+    pub const fn is_enabled(&self) -> bool {
         self.config.enabled
     }
 
     /// Reference to the loaded configuration.
     #[must_use]
-    pub fn config(&self) -> &BulletinConfig {
+    pub const fn config(&self) -> &BulletinConfig {
         &self.config
     }
 }

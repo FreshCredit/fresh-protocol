@@ -129,7 +129,7 @@ fn test_report_type_display() {
 // TAG: surface=blockchain owner=blockchain-team rule=BLOCKCHAIN-001
 #[test]
 fn test_report_type_default() {
-    let rt: ReportType = Default::default();
+    let rt: ReportType = ReportType::default();
     assert_eq!(rt, ReportType::PlaidFinancial);
 }
 

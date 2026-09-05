@@ -2,14 +2,14 @@
 //! chain via sudo storage writes, then forces a proper GRANDPA set change.
 //!
 //! Storage layouts (verified against the live runtime):
-//!   Aura:Authorities    = BoundedVec<sr25519::app_sr25519::Public>
-//!   Grandpa:Authorities = WeakBoundedVec<(grandpa::app::Public, u64)>
+//!   Aura:Authorities    = `BoundedVec`<sr25519::app_sr25519::Public>
+//!   Grandpa:Authorities = `WeakBoundedVec`<(`grandpa::app::Public`, u64)>
 //!
 //! Usage:
-//!   cargo run -p blockchain-client --example authority_upgrade --            (dry run)
-//!   cargo run -p blockchain-client --example authority_upgrade -- --execute  (writes)
+//!   cargo run -p blockchain-client --example `authority_upgrade` --            (dry run)
+//!   cargo run -p blockchain-client --example `authority_upgrade` -- --execute  (writes)
 //!
-//! Requires RPC_URL (default ws://localhost:19944 — port-forward to the pod).
+//! Requires `RPC_URL` (default <ws://localhost:19944> — port-forward to the pod).
 
 use anyhow::Result;
 use blockchain_client::freshcredit_runtime;
@@ -96,9 +96,10 @@ async fn main() -> Result<()> {
 
     // Force a proper GRANDPA set change so voters adopt the new set cleanly.
     let fin = api.at_current_block().await?.block_number();
+    let stalled_at = u32::try_from(fin).expect("block number exceeds u32::MAX");
     let note = freshcredit_runtime::tx()
         .grandpa()
-        .note_stalled(2000u32, fin as u32);
+        .note_stalled(2000u32, stalled_at);
     let progress = api
         .tx()
         .await?
