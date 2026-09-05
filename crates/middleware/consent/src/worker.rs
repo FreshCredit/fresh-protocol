@@ -142,8 +142,7 @@ mod tests {
         }
 
         async fn cleanup_expired(&self) -> Result<u64, ConsentError> {
-            let mut count = self.cleanup_count.lock().unwrap();
-            *count += 1;
+            *self.cleanup_count.lock().unwrap() += 1;
             Ok(3) // Simulate cleaning up 3 consents
         }
     }
@@ -162,8 +161,7 @@ mod tests {
         let revoked = worker.cleanup().await.unwrap();
         assert_eq!(revoked, 3);
 
-        let count = cleanup_count.lock().unwrap();
-        assert_eq!(*count, 1);
+        assert_eq!(*cleanup_count.lock().unwrap(), 1);
     }
 
     #[test]

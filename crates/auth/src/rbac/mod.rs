@@ -101,14 +101,12 @@ impl Rbac {
     /// Check if a role has a specific permission
     #[must_use]
     pub fn has_permission(&self, role: Role, resource: &str, action: &str) -> bool {
-        if let Some(permissions) = self.roles.get(&role) {
+        self.roles.get(&role).is_some_and(|permissions| {
             permissions.iter().any(|p| {
                 (p.resource == "*" || p.resource == resource)
                     && (p.action == "*" || p.action == action)
             })
-        } else {
-            false
-        }
+        })
     }
 
     /// Get permissions for a role

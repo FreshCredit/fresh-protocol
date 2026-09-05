@@ -148,22 +148,16 @@ impl JwtManager {
     ///
     /// Returns an error if the operation fails.
     pub fn extract_bearer_token(auth_header: &str) -> Result<&str, AuthError> {
-        if let Some(token) = auth_header.strip_prefix("Bearer ") {
-            Ok(token.trim())
-        } else {
-            Err(AuthError::InvalidTokenFormat)
-        }
+        auth_header
+            .strip_prefix("Bearer ")
+            .map_or(Err(AuthError::InvalidTokenFormat), |token| Ok(token.trim()))
     }
 
     /// Check if a token is expired without full validation
     #[must_use]
     pub fn is_token_expired(&self, token: &str) -> bool {
-        match self.validate_token(token) {
-            // TAG: surface=auth owner=platform-team rule=GENERAL-001
-            Ok(_) => false,
-            Err(AuthError::TokenExpired) => true,
-            Err(_) => true, // Treat validation errors as expired
-        }
+        // Treat validation errors (incl. expired) as expired
+        self.validate_token(token).is_err()
     }
 }
 

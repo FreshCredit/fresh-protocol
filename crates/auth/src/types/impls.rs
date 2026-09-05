@@ -72,11 +72,11 @@ impl AuthError {
     pub const fn status_code(&self) -> http::StatusCode {
         use http::StatusCode;
         match self {
-            Self::MissingAuthorization => StatusCode::UNAUTHORIZED,
+            Self::MissingAuthorization
+            | Self::TokenExpired
+            | Self::InvalidSignature
+            | Self::UserNotFound(_) => StatusCode::UNAUTHORIZED,
             Self::InvalidTokenFormat => StatusCode::BAD_REQUEST,
-            Self::TokenExpired => StatusCode::UNAUTHORIZED,
-            Self::InvalidSignature => StatusCode::UNAUTHORIZED,
-            Self::UserNotFound(_) => StatusCode::UNAUTHORIZED,
             Self::InsufficientPermissions(_) => StatusCode::FORBIDDEN,
             Self::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
         }

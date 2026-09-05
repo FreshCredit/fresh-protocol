@@ -20,8 +20,6 @@ biometric = ["webauthn-rs"]
 axum = ["dep:axum", "axum-extra"]
 
 [dependencies]
-# Core async runtime
-tokio = { workspace = true, features = ["full"] }
 async-trait = { workspace = true }
 
 # HTTP framework (optional)
@@ -66,9 +64,13 @@ tracing = { workspace = true }
 workspace-hack = { version = "0.1", path = "../../workspace-hack" }
 
 [dev-dependencies]
+tokio = { workspace = true, features = ["full"] }
 tokio-test = "0.4.4"
 mockall = "0.13.1"
 tower = { workspace = true, features = ["util"] }
 
 [lints]
 workspace = true
+
+[package.metadata.cargo-udeps.ignore]
+normal = ["workspace-hack"]

@@ -168,16 +168,11 @@ pub fn require_role(
             if has_role {
                 next.run(request).await
             } else {
-                match Response::builder()
+                // This should never fail with Body::empty(), but handle gracefully
+                Response::builder()
                     .status(StatusCode::FORBIDDEN)
                     .body(Body::empty())
-                {
-                    Ok(response) => response,
-                    Err(_) => {
-                        // This should never fail with Body::empty(), but handle gracefully
-                        Response::new(Body::from("Forbidden"))
-                    }
-                }
+                    .unwrap_or_else(|_| Response::new(Body::from("Forbidden")))
             }
         })
     }

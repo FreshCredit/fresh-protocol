@@ -154,8 +154,7 @@ impl FromRequestParts<Arc<JwtExtractorState>> for JwtExtractor {
 
         let manager = JwtManager::new(&state.secret);
         let claims = manager.validate_token(token).map_err(|e| match e {
-            AuthError::TokenExpired => StatusCode::UNAUTHORIZED,
-            AuthError::InvalidSignature => StatusCode::UNAUTHORIZED,
+            AuthError::TokenExpired | AuthError::InvalidSignature => StatusCode::UNAUTHORIZED,
             _ => StatusCode::BAD_REQUEST,
         })?;
 

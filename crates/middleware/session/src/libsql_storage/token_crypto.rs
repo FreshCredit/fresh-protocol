@@ -16,7 +16,7 @@ use tracing::debug;
 /// Falls back to plaintext when encryption is not configured (e.g. local dev
 /// without `FRESHCREDIT_TOKEN_ENCRYPTION_KEY`) so behavior matches the
 /// pre-encryption storage format.
-pub(crate) fn encrypt_refresh_token_for_storage(token: &str) -> String {
+pub fn encrypt_refresh_token_for_storage(token: &str) -> String {
     encrypt_for_storage_with(freshcredit_security::get_encryption_config(), token)
 }
 
@@ -24,7 +24,7 @@ pub(crate) fn encrypt_refresh_token_for_storage(token: &str) -> String {
 ///
 /// Legacy plaintext values (or any value that fails decryption) are returned
 /// as-is so pre-encryption sessions keep working.
-pub(crate) fn decrypt_refresh_token_from_storage(stored: &str) -> String {
+pub fn decrypt_refresh_token_from_storage(stored: &str) -> String {
     decrypt_from_storage_with(freshcredit_security::get_encryption_config(), stored)
 }
 
@@ -42,24 +42,25 @@ fn encrypt_for_storage_with(config: &EncryptionConfig, token: &str) -> String {
 }
 
 fn decrypt_from_storage_with(config: &EncryptionConfig, stored: &str) -> String {
-    match config.decrypt(stored) {
-        Ok(plaintext) => plaintext,
-        Err(_) => {
+    config.decrypt(stored).map_or_else(
+        |_| {
             // Not decryptable with the configured key: treat as legacy
             // plaintext written before at-rest encryption was enabled.
             debug!("stored refresh token is not encrypted; using legacy plaintext");
             stored.to_string()
-        }
-    }
+        },
+        std::convert::identity,
+    )
 }
 
 /// Encrypt an optional refresh token (write path helper).
-pub(crate) fn encrypt_optional_refresh_token(token: Option<&str>) -> Option<String> {
+pub fn encrypt_optional_refresh_token(token: Option<&str>) -> Option<String> {
     token.map(encrypt_refresh_token_for_storage)
 }
 
 /// Decrypt an optional stored refresh token (read path helper).
-pub(crate) fn decrypt_optional_refresh_token(stored: Option<String>) -> Option<String> {
+#[allow(clippy::single_option_map)] // named read-path helper mirroring `encrypt_optional_refresh_token`; it is public API and its sole job is the Option mapping
+pub fn decrypt_optional_refresh_token(stored: Option<String>) -> Option<String> {
     stored.map(|t| decrypt_refresh_token_from_storage(&t))
 }
 
