@@ -2,7 +2,7 @@
 //!
 //! Edge-side physiological, financial, and linguistic stability streams plus the
 //! composite trust index. Mirrors Appendix C.2 of the GTT whitepaper and the
-//! A.11 pre-analysis plan (User_Meta, labels).
+//! A.11 pre-analysis plan (`User_Meta`, labels).
 //!
 //! COMPLIANCE: §10 Unified Database Schema Architecture
 
@@ -11,15 +11,8 @@ use libsql::Connection;
 use tracing::info;
 
 // TAG: surface=database owner=platform-team rule=DB-001
-/// Initialize GTT trust-score tables
-/// # Errors
-///
-/// Returns an error if the operation fails.
-pub async fn initialize_trust_score_tables(conn: &Connection) -> Result<()> {
-    info!("[ARCH-007] Initializing GTT trust-score tables");
-
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS gtt_physio_stream (
+const TRUST_SCORE_TABLE_DDL: &[&str] = &[
+    "CREATE TABLE IF NOT EXISTS gtt_physio_stream (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
             ts_utc DATETIME NOT NULL,
@@ -36,12 +29,7 @@ pub async fn initialize_trust_score_tables(conn: &Connection) -> Result<()> {
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
-        (),
-    )
-    .await?;
-
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS gtt_fin_stream (
+    "CREATE TABLE IF NOT EXISTS gtt_fin_stream (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
             ts_utc DATETIME NOT NULL,
@@ -63,12 +51,7 @@ pub async fn initialize_trust_score_tables(conn: &Connection) -> Result<()> {
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
-        (),
-    )
-    .await?;
-
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS gtt_ling_stream (
+    "CREATE TABLE IF NOT EXISTS gtt_ling_stream (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
             ts_utc DATETIME NOT NULL,
@@ -93,12 +76,7 @@ pub async fn initialize_trust_score_tables(conn: &Connection) -> Result<()> {
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
-        (),
-    )
-    .await?;
-
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS gtt_composite_index (
+    "CREATE TABLE IF NOT EXISTS gtt_composite_index (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
             ts_utc DATETIME NOT NULL,
@@ -114,12 +92,7 @@ pub async fn initialize_trust_score_tables(conn: &Connection) -> Result<()> {
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
-        (),
-    )
-    .await?;
-
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS gtt_model_metadata (
+    "CREATE TABLE IF NOT EXISTS gtt_model_metadata (
             id TEXT PRIMARY KEY,
             model_hash TEXT,
             model_version TEXT,
@@ -132,12 +105,7 @@ pub async fn initialize_trust_score_tables(conn: &Connection) -> Result<()> {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )",
-        (),
-    )
-    .await?;
-
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS gtt_user_meta (
+    "CREATE TABLE IF NOT EXISTS gtt_user_meta (
             user_id TEXT PRIMARY KEY,
             device_id TEXT,
             hardware_model TEXT,
@@ -149,12 +117,7 @@ pub async fn initialize_trust_score_tables(conn: &Connection) -> Result<()> {
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
-        (),
-    )
-    .await?;
-
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS gtt_user_baseline (
+    "CREATE TABLE IF NOT EXISTS gtt_user_baseline (
             user_id TEXT PRIMARY KEY,
             hr_rest_mean REAL,
             hr_rest_sd REAL,
@@ -167,12 +130,7 @@ pub async fn initialize_trust_score_tables(conn: &Connection) -> Result<()> {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
-        (),
-    )
-    .await?;
-
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS gtt_labels (
+    "CREATE TABLE IF NOT EXISTS gtt_labels (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
             ts_utc DATETIME NOT NULL,
@@ -181,12 +139,7 @@ pub async fn initialize_trust_score_tables(conn: &Connection) -> Result<()> {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
-        (),
-    )
-    .await?;
-
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS gtt_balance_snapshots (
+    "CREATE TABLE IF NOT EXISTS gtt_balance_snapshots (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
             date TEXT NOT NULL,
@@ -194,9 +147,30 @@ pub async fn initialize_trust_score_tables(conn: &Connection) -> Result<()> {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
-        (),
-    )
-    .await?;
+];
+
+const TRUST_SCORE_INDEX_DDL: &[&str] = &[
+    "CREATE INDEX IF NOT EXISTS idx_gtt_physio_stream_user_ts ON gtt_physio_stream(user_id, ts_utc)",
+    "CREATE INDEX IF NOT EXISTS idx_gtt_fin_stream_user_ts ON gtt_fin_stream(user_id, ts_utc)",
+    "CREATE INDEX IF NOT EXISTS idx_gtt_ling_stream_user_ts ON gtt_ling_stream(user_id, ts_utc)",
+    "CREATE INDEX IF NOT EXISTS idx_gtt_composite_index_user_ts ON gtt_composite_index(user_id, ts_utc)",
+    "CREATE INDEX IF NOT EXISTS idx_gtt_model_metadata_hash ON gtt_model_metadata(model_hash)",
+    "CREATE INDEX IF NOT EXISTS idx_gtt_user_meta_user ON gtt_user_meta(user_id)",
+    "CREATE INDEX IF NOT EXISTS idx_gtt_user_baseline_user ON gtt_user_baseline(user_id)",
+    "CREATE INDEX IF NOT EXISTS idx_gtt_labels_user_ts ON gtt_labels(user_id, ts_utc)",
+    "CREATE INDEX IF NOT EXISTS idx_gtt_balance_snapshots_user_date ON gtt_balance_snapshots(user_id, date)",
+];
+
+/// Initialize GTT trust-score tables
+/// # Errors
+///
+/// Returns an error if the operation fails.
+pub async fn initialize_trust_score_tables(conn: &Connection) -> Result<()> {
+    info!("[ARCH-007] Initializing GTT trust-score tables");
+
+    for sql in TRUST_SCORE_TABLE_DDL {
+        conn.execute(sql, ()).await?;
+    }
 
     initialize_trust_score_indexes(conn).await?;
 
@@ -210,52 +184,9 @@ pub async fn initialize_trust_score_tables(conn: &Connection) -> Result<()> {
 pub async fn initialize_trust_score_indexes(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing GTT trust-score indexes");
 
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_gtt_physio_stream_user_ts ON gtt_physio_stream(user_id, ts_utc)",
-        (),
-    )
-    .await?;
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_gtt_fin_stream_user_ts ON gtt_fin_stream(user_id, ts_utc)",
-        (),
-    )
-    .await?;
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_gtt_ling_stream_user_ts ON gtt_ling_stream(user_id, ts_utc)",
-        (),
-    )
-    .await?;
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_gtt_composite_index_user_ts ON gtt_composite_index(user_id, ts_utc)",
-        (),
-    )
-    .await?;
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_gtt_model_metadata_hash ON gtt_model_metadata(model_hash)",
-        (),
-    )
-    .await?;
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_gtt_user_meta_user ON gtt_user_meta(user_id)",
-        (),
-    )
-    .await?;
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_gtt_user_baseline_user ON gtt_user_baseline(user_id)",
-        (),
-    )
-    .await?;
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_gtt_labels_user_ts ON gtt_labels(user_id, ts_utc)",
-        (),
-    )
-    .await?;
-
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_gtt_balance_snapshots_user_date ON gtt_balance_snapshots(user_id, date)",
-        (),
-    )
-    .await?;
+    for sql in TRUST_SCORE_INDEX_DDL {
+        conn.execute(sql, ()).await?;
+    }
 
     Ok(())
 }

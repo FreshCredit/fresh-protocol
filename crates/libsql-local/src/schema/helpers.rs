@@ -4,7 +4,7 @@ use libsql::Connection;
 
 /// Add a column to a table only if it does not already exist.
 ///
-/// This avoids the SQLite "duplicate column name" error that breaks Hrana
+/// This avoids the `SQLite` "duplicate column name" error that breaks Hrana
 /// streams on Turso cloud, which in turn aborts in-flight requests such as
 /// the AI assistant chat loop.
 ///

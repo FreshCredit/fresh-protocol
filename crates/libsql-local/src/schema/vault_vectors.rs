@@ -2,7 +2,7 @@
 //!
 //! Stores deterministic, category-specific feature vectors computed from the
 //! user's vault contents. Vectors are fixed-length `F32_BLOB`s and are indexed
-//! with libSQL's native DiskANN vector index so category similarity search is
+//! with libSQL's native `DiskANN` vector index so category similarity search is
 //! fast without an external embedding service.
 //!
 //! COMPLIANCE: §10 Unified Database Schema Architecture
@@ -30,12 +30,11 @@ pub async fn initialize_vault_vector_tables(conn: &Connection) -> Result<()> {
             scope TEXT NOT NULL,
             category TEXT NOT NULL,
             source_ids TEXT NOT NULL DEFAULT '[]',
-            vector F32_BLOB({}),
+            vector F32_BLOB({VAULT_VECTOR_DIM}),
             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(user_id, scope, category)
-        )",
-            VAULT_VECTOR_DIM
+        )"
         ),
         (),
     )

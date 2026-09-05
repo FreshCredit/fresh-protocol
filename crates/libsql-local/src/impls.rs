@@ -13,7 +13,7 @@ pub struct LocalClient {
     connection: Mutex<libsql::Connection>,
     /// Parent database used to recreate a connection if the Hrana stream is lost.
     /// `None` for clients created from a file path, where reconnection is not
-    /// meaningful (local SQLite connections do not suffer from remote stream
+    /// meaningful (local `SQLite` connections do not suffer from remote stream
     /// timeouts).
     database: Option<Arc<libsql::Database>>,
 }
@@ -81,17 +81,19 @@ impl LocalClient {
     pub fn connection(&self) -> libsql::Connection {
         if let Some(db) = self.database.as_ref() {
             if let Ok(fresh) = db.connect() {
-                let mut guard = self
-                    .connection
-                    .lock()
-                    .unwrap_or_else(|poisoned| poisoned.into_inner());
-                *guard = fresh.clone();
+                {
+                    let mut guard = self
+                        .connection
+                        .lock()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner);
+                    *guard = fresh.clone();
+                }
                 return fresh;
             }
         }
         self.connection
             .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
             .clone()
     }
 
@@ -274,11 +276,13 @@ impl LocalClient {
             .as_ref()
             .ok_or_else(|| anyhow::anyhow!("No parent database available to reconnect"))?;
         let new_conn = db.connect()?;
-        let mut guard = self
-            .connection
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        *guard = new_conn.clone();
+        {
+            let mut guard = self
+                .connection
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            *guard = new_conn.clone();
+        }
         Ok(new_conn)
     }
 

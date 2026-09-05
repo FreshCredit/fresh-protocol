@@ -177,10 +177,29 @@ impl LocalClient {
     /// a browser-side writer), which aborts the process. Default instead.
     async fn parse_profile_row(&self, rows: &mut libsql::Rows) -> Result<Option<UserProfile>> {
         fn tolerant_i64(row: &libsql::Row, idx: i32) -> Option<i64> {
+            /// Convert a REAL to i64 with the same semantics as `f as i64`
+            /// (NaN -> 0, out-of-range saturates, fractions truncate) without
+            /// an unguarded lossy cast.
+            // The cast below cannot truncate: NaN and out-of-range values are
+            // handled by the preceding branches, and `trunc` leaves in-range
+            // values integral.
+            #[allow(clippy::cast_possible_truncation)]
+            fn real_to_i64(f: f64) -> i64 {
+                let t = f.trunc();
+                if t.is_nan() {
+                    0
+                } else if t >= 9_223_372_036_854_775_808.0 {
+                    i64::MAX
+                } else if t <= -9_223_372_036_854_775_808.0 {
+                    i64::MIN
+                } else {
+                    t as i64
+                }
+            }
             match row.get_value(idx) {
                 Ok(libsql::Value::Integer(i)) => Some(i),
                 Ok(libsql::Value::Text(s)) => s.parse::<i64>().ok(),
-                Ok(libsql::Value::Real(f)) => Some(f as i64),
+                Ok(libsql::Value::Real(f)) => Some(real_to_i64(f)),
                 _ => None,
             }
         }

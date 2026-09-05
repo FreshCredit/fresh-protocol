@@ -16,7 +16,7 @@ pub const SYNC_DELETIONS_UPSERT_SQL: &str =
 /// Validate a table name before interpolating it into SQL.
 ///
 /// Table names cannot be bind-parameterized, so this is the SQL-injection
-/// guard for the tombstone helpers: only lowercase SQLite identifiers that
+/// guard for the tombstone helpers: only lowercase `SQLite` identifiers that
 /// are not system tables are accepted.
 #[must_use]
 pub fn is_valid_sync_table_name(table_name: &str) -> bool {

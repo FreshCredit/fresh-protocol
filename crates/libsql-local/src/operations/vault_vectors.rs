@@ -3,7 +3,7 @@
 //! Each user receives one row per vault category (`financial`, `professional`,
 //! `personal`, `health`, `identity`, ...) containing a deterministic feature
 //! vector derived from the user's vault contents. Vectors are stored as native
-//! libSQL `F32_BLOB`s and queried through the `vector_top_k` DiskANN index.
+//! libSQL `F32_BLOB`s and queried through the `vector_top_k` `DiskANN` index.
 //!
 //! COMPLIANCE: §10 Unified Database Schema Architecture
 
@@ -62,12 +62,11 @@ impl LocalClient {
         let sql = format!(
             "INSERT INTO vault_category_vectors
              (user_id, scope, category, source_ids, vector, updated_at, created_at)
-             VALUES (?1, ?2, ?3, ?4, vector32({}), ?5, ?5)
+             VALUES (?1, ?2, ?3, ?4, vector32({vector_literal}), ?5, ?5)
              ON CONFLICT(user_id, scope, category) DO UPDATE SET
                  source_ids = excluded.source_ids,
                  vector = excluded.vector,
-                 updated_at = excluded.updated_at",
-            vector_literal
+                 updated_at = excluded.updated_at"
         );
         self.connection()
             .execute(
@@ -101,7 +100,7 @@ impl LocalClient {
             .await?;
         let mut out = Vec::new();
         while let Some(row) = rows.next().await? {
-            out.push(parse_vector_row(row)?);
+            out.push(parse_vector_row(&row)?);
         }
         Ok(out)
     }
@@ -128,7 +127,7 @@ impl LocalClient {
             )
             .await?;
         let row = rows.next().await?;
-        row.map(parse_vector_row).transpose()
+        row.as_ref().map(parse_vector_row).transpose()
     }
 
     /// Delete all category vectors for a user/scope.
@@ -162,14 +161,13 @@ impl LocalClient {
         let sql = format!(
             "SELECT id, user_id, scope, category, source_ids,
                     vector_extract(vector), updated_at,
-                    vector_distance_cos(vector, vector32({})) AS distance
+                    vector_distance_cos(vector, vector32({vector_literal})) AS distance
              FROM vault_category_vectors
              WHERE rowid IN (
-                 SELECT id FROM vector_top_k('vault_category_vectors_idx', vector32({}), {})
+                 SELECT id FROM vector_top_k('vault_category_vectors_idx', vector32({vector_literal}), {k})
              )
              ORDER BY distance ASC
-             LIMIT {}",
-            vector_literal, vector_literal, k, k
+             LIMIT {k}"
         );
         info!("[vault_vectors] ANN search k={}", k);
         let mut rows = self.connection().query(&sql, ()).await?;
@@ -177,7 +175,7 @@ impl LocalClient {
         while let Some(row) = rows.next().await? {
             let distance: f64 = row.get(7)?;
             out.push(VaultVectorSearchResult {
-                vector: parse_vector_row(row)?,
+                vector: parse_vector_row(&row)?,
                 distance,
             });
         }
@@ -189,14 +187,14 @@ impl LocalClient {
 fn format_vector32_literal(vector: &[f32]) -> String {
     let values = vector
         .iter()
-        .map(|v| format!("{:.6}", v))
+        .map(|v| format!("{v:.6}"))
         .collect::<Vec<_>>()
         .join(",");
-    format!("'[{}]'", values)
+    format!("'[{values}]'")
 }
 
 /// Parse a vector row. Column layout must match the SELECT lists above.
-fn parse_vector_row(row: libsql::Row) -> Result<VaultCategoryVector> {
+fn parse_vector_row(row: &libsql::Row) -> Result<VaultCategoryVector> {
     let vector_text: String = row.get(5)?;
     let vector = parse_vector_text(&vector_text)?;
     Ok(VaultCategoryVector {
@@ -233,7 +231,8 @@ mod tests {
     use super::*;
 
     fn test_vector() -> Vec<f32> {
-        (0..VAULT_VECTOR_DIM).map(|i| (i as f32) * 0.05).collect()
+        let dim = u16::try_from(VAULT_VECTOR_DIM).expect("test vector dim fits u16");
+        (0..dim).map(|i| f32::from(i) * 0.05).collect()
     }
 
     #[tokio::test]

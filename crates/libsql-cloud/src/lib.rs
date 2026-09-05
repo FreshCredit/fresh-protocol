@@ -60,7 +60,7 @@ impl CloudClient {
     fn connection(&self) -> libsql::Connection {
         self.connection
             .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
             .clone()
     }
 
@@ -105,11 +105,10 @@ impl CloudClient {
     /// Recreate the underlying connection from the parent database.
     fn reconnect(&self) -> Result<libsql::Connection> {
         let new_conn = self.database.connect()?;
-        let mut guard = self
+        *self
             .connection
             .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        *guard = new_conn.clone();
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = new_conn.clone();
         Ok(new_conn)
     }
 
@@ -137,7 +136,7 @@ impl CloudClient {
                 .query(
                     "SELECT name FROM sqlite_master WHERE type='table' AND name = ?",
                     // TAG: surface=database owner=platform-team rule=GENERAL-001
-                    cloud_params![table.to_string()],
+                    cloud_params![(*table).to_string()],
                 )
                 .await?;
 

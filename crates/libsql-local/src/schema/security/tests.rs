@@ -287,7 +287,8 @@ async fn test_compliance_digests_crud_operations() {
         .await
         .unwrap();
     let row = result.next().await.unwrap().unwrap();
-    assert_eq!(row.get::<f64>(0).unwrap(), 95.5);
+    // 95.5 is exactly representable; epsilon comparison satisfies float_cmp.
+    assert!((row.get::<f64>(0).unwrap() - 95.5).abs() < f64::EPSILON);
     assert_eq!(row.get::<i64>(1).unwrap(), 0);
     assert_eq!(row.get::<i64>(2).unwrap(), 10);
 }

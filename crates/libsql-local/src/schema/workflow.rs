@@ -126,7 +126,7 @@ mod tests {
     }
 
     /// Create the legacy Rust-shaped workflows table (pre-canonical schema
-    /// drift: `status`/`raw_workflow_data`, no workflow_status/workflow_data).
+    /// drift: `status`/`raw_workflow_data`, no `workflow_status/workflow_data`).
     async fn create_legacy_workflows_table(conn: &Connection) {
         conn.execute(
             "CREATE TABLE workflows (
