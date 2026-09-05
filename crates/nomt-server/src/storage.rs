@@ -90,6 +90,11 @@ impl LegacyStorage {
     /// # Errors
     ///
     /// Returns an error if the operation fails.
+    // Allow: the read guard is deliberately held across the `fs::write` below so
+    // the serialized snapshot and the in-memory state cannot interleave with a
+    // concurrent `store` (blockchain anchoring consistency). Tightening the drop
+    // would narrow that critical section.
+    #[allow(clippy::significant_drop_tightening)]
     pub async fn save(&self) -> Result<(), ServerError> {
         let state_file = self.data_dir.join("state.json");
 
@@ -146,6 +151,10 @@ impl Storage for LegacyStorage {
         // TAG: surface=blockchain owner=blockchain-team rule=BC-001
     }
 
+    // Allow: the explicit match keeps the found/not-found verification branches
+    // symmetric and auditable for anchoring review; folding them into
+    // `map_or_else` closures would obscure the two VerifyResponse shapes.
+    #[allow(clippy::option_if_let_else)]
     async fn verify(&self, request: VerifyRequest) -> Result<VerifyResponse, ServerError> {
         let state = self.state.read().await;
 
