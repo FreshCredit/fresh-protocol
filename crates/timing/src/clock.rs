@@ -35,7 +35,7 @@ use std::time::{Duration, Instant};
 /// Source of truth for a clock reading.
 ///
 /// Production deployments should rely on `Ntp` (Google internal NTP on GCP)
-/// or, for strict cross-region serializability, `Spanner`/TrueTime. See
+/// or, for strict cross-region serializability, `Spanner`/`TrueTime`. See
 /// `docs/application/planning/global-clock-plan.md`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TimeSource {

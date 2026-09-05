@@ -325,7 +325,7 @@ mod tests {
 
     #[test]
     fn test_default_calendar() {
-        let calendar: BusinessDayCalendar = Default::default();
+        let calendar: BusinessDayCalendar = BusinessDayCalendar::default();
         let monday = NaiveDate::from_ymd_opt(2025, 1, 6).unwrap();
         assert!(calendar.is_business_day(monday));
     }

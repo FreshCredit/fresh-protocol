@@ -418,7 +418,7 @@ mod tests {
 
         let json = serde_json::to_string(&transaction).unwrap();
         let parsed: Transaction = serde_json::from_str(&json).unwrap();
-        assert_eq!(parsed.amount, -50.00);
+        assert!((parsed.amount - (-50.00)).abs() < f64::EPSILON);
         assert_eq!(parsed.merchant_name, Some("Starbucks".to_string()));
     }
 

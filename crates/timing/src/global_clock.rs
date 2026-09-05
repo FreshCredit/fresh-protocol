@@ -28,7 +28,7 @@ use std::time::{Duration, Instant};
 use crate::clock::{Clock, TimeSource};
 
 /// Difference between the NTP epoch (1900-01-01) and the Unix epoch (1970-01-01).
-const NTP_UNIX_OFFSET_SECONDS: u64 = 2_208_988_800;
+const NTP_UNIX_OFFSET_SECONDS: u32 = 2_208_988_800;
 
 /// Default NTP server. Google public NTP smears leap seconds; this avoids a
 /// 61-second minute and keeps monotonic sleep deadlines stable across them.
@@ -65,17 +65,14 @@ impl Timestamp {
     /// Always true for host clocks (uncertainty is `None`).
     #[must_use]
     pub fn is_within_uncertainty(&self, other: DateTime<Utc>) -> bool {
-        match self.uncertainty {
-            Some(delta) => {
-                let diff = (other - self.wall_utc).abs();
-                diff.to_std().map(|d| d <= delta).unwrap_or(false)
-            }
-            None => true,
-        }
+        self.uncertainty.map_or(true, |delta| {
+            let diff = (other - self.wall_utc).abs();
+            diff.to_std().map(|d| d <= delta).unwrap_or(false)
+        })
     }
 }
 
-/// Clock abstraction suitable for distributed FreshCredit components.
+/// Clock abstraction suitable for distributed `FreshCredit` components.
 ///
 /// Inherits the basic `Clock` operations and adds a structured `Timestamp`
 /// snapshot plus monotonic deadline helpers.
@@ -371,11 +368,11 @@ impl NtpGlobalClock {
         let fraction = u32::from_be_bytes([response[44], response[45], response[46], response[47]]);
 
         let unix_seconds = seconds
-            .checked_sub(NTP_UNIX_OFFSET_SECONDS as u32)
+            .checked_sub(NTP_UNIX_OFFSET_SECONDS)
             .ok_or(NtpError::InvalidTimestamp)?;
-        let nanos = ((fraction as u64) * 1_000_000_000 / (1u64 << 32)) as u32;
+        let nanos = (u64::from(fraction) * 1_000_000_000 / (1u64 << 32)) as u32;
 
-        let server_wall = DateTime::from_timestamp(unix_seconds as i64, nanos)
+        let server_wall = DateTime::from_timestamp(i64::from(unix_seconds), nanos)
             .ok_or(NtpError::InvalidTimestamp)?;
 
         // Crude uncertainty: half RTT.
@@ -423,11 +420,10 @@ impl NtpGlobalClock {
 
     fn current_uncertainty(&self) -> Option<Duration> {
         let us = self.uncertainty_us.load(Ordering::Relaxed);
-        if us <= 0 {
-            None
-        } else {
-            Some(Duration::from_micros(us as u64))
-        }
+        u64::try_from(us)
+            .ok()
+            .filter(|&us| us > 0)
+            .map(Duration::from_micros)
     }
 }
 
@@ -469,6 +465,7 @@ impl GlobalClock for NtpGlobalClock {
 /// `NtpGlobalClock`; otherwise falls back to `HostGlobalClock`. This lets
 /// deployments opt into NTP synchronization without failing startup when the
 /// network is temporarily unavailable.
+#[derive(Debug)]
 pub struct GlobalClockFactory;
 
 impl GlobalClockFactory {
@@ -543,7 +540,7 @@ mod tests {
     fn test_ntp_packet_parsing_happy_path() {
         // Build a synthetic NTP response with a known transmit timestamp.
         // Transmit timestamp seconds = NTP_UNIX_OFFSET + 1_000_000_000
-        let seconds = (NTP_UNIX_OFFSET_SECONDS + 1_000_000_000) as u32;
+        let seconds = NTP_UNIX_OFFSET_SECONDS + 1_000_000_000;
         let fraction = 0u32;
         let mut response = [0u8; 48];
         response[0] = 0x1C; // stratum 1, version 4, mode 4 (server)
@@ -554,7 +551,7 @@ mod tests {
         // Verify the byte math that `sync_once` would apply.
         let parsed_seconds =
             u32::from_be_bytes([response[40], response[41], response[42], response[43]]);
-        let parsed_unix = parsed_seconds - NTP_UNIX_OFFSET_SECONDS as u32;
+        let parsed_unix = parsed_seconds - NTP_UNIX_OFFSET_SECONDS;
         assert_eq!(parsed_unix, 1_000_000_000);
     }
 

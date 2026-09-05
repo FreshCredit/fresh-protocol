@@ -104,6 +104,7 @@ impl SettlementCalculator {
     }
 
     /// Check if payment should be settled by now using the system wall-clock.
+    #[must_use]
     pub fn is_settlement_overdue(
         &self,
         initiated_at: DateTime<Utc>,
@@ -354,7 +355,7 @@ mod tests {
 
     #[test]
     fn test_settlement_calculator_default() {
-        let calculator: SettlementCalculator = Default::default();
+        let calculator: SettlementCalculator = SettlementCalculator::default();
         let initiated = Utc.with_ymd_and_hms(2025, 1, 6, 10, 0, 0).unwrap();
         let result = calculator.calculate_settlement_date(initiated, AchSettlementType::NextDay);
         assert_eq!(result.business_days, 1);

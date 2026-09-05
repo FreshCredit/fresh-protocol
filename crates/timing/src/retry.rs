@@ -367,7 +367,7 @@ mod tests {
         );
         assert_eq!(strategy.max_delay, std::time::Duration::from_millis(60000));
         assert_eq!(strategy.max_attempts, 3);
-        assert_eq!(strategy.jitter_percentage, 0.2);
+        assert!((strategy.jitter_percentage - 0.2).abs() < f64::EPSILON);
     }
 
     #[test]
@@ -384,7 +384,7 @@ mod tests {
         );
         assert_eq!(strategy.max_delay, std::time::Duration::from_secs(30));
         assert_eq!(strategy.max_attempts, 5);
-        assert_eq!(strategy.jitter_percentage, 0.1);
+        assert!((strategy.jitter_percentage - 0.1).abs() < f64::EPSILON);
     }
     // TAG: surface=api owner=platform-team rule=API-001
 }
