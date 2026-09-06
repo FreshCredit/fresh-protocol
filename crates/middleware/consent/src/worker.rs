@@ -49,6 +49,7 @@ impl<S: ConsentStorage> ConsentCleanupWorker<S> {
 
         let mut ticker = interval(self.cleanup_interval);
 
+        // P10-R4: intentionally unbounded worker loop — select! terminates on shutdown_rx; each arm is a bounded cleanup call.
         loop {
             tokio::select! {
                 _ = ticker.tick() => {
