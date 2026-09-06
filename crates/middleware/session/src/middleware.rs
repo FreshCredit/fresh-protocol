@@ -42,12 +42,12 @@ impl<S: SessionStorage> SessionMiddleware<S> {
             Some(session) => {
                 // Check if expired after refresh
                 if session.is_expired() {
-                    let _ = self.storage.delete(session_id).await;
+                    let _ = self.storage.delete(session_id).await; // AUDIT-OK(fire-and-forget): best-effort cleanup of expired session; session already unusable
                     return Err(SessionError::Expired);
                 }
                 // Check max age
                 if session.is_max_age_exceeded(self.config.max_age) {
-                    let _ = self.storage.delete(session_id).await;
+                    let _ = self.storage.delete(session_id).await; // AUDIT-OK(fire-and-forget): best-effort cleanup of over-max-age session
                     return Err(SessionError::MaxAgeExceeded);
                 }
                 Ok(session)

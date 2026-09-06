@@ -4,6 +4,8 @@
 //! Ensures that duplicate requests with the same idempotency key return the same response,
 //! preventing duplicate operations (e.g., double payments, duplicate reports).
 
+#![forbid(unsafe_code)]
+
 pub mod config;
 pub mod middleware;
 pub mod store;

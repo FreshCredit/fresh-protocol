@@ -68,6 +68,8 @@
 //! }
 //! ```
 
+#![forbid(unsafe_code)]
+
 pub mod libsql_storage;
 pub mod middleware;
 pub mod rules;

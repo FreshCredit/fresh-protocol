@@ -47,6 +47,8 @@
 //! }
 //! ```
 
+#![forbid(unsafe_code)]
+
 pub mod config;
 pub mod libsql_storage;
 pub mod middleware;

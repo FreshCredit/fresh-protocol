@@ -222,7 +222,7 @@ impl SessionStorage for LibSqlSessionStorage {
                 UNIQUE(session_id, ip_address)
             )
         "#;
-        let _ = self.conn.execute(create_table, ()).await;
+        let _ = self.conn.execute(create_table, ()).await; // AUDIT-OK(fire-and-forget): lazy idempotent DDL; failure surfaces in the follow-up query
 
         let query = r#"
             SELECT attempt_count, blocked_until

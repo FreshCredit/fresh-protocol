@@ -24,6 +24,7 @@
 //! ```
 
 #![allow(clippy::wildcard_imports)]
+#![forbid(unsafe_code)]
 
 pub mod config;
 pub mod limiter;

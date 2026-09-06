@@ -11,6 +11,7 @@ impl LibSqlSessionStorage {
     /// # Errors
     ///
     /// Returns an error if the operation fails.
+    #[allow(clippy::too_many_lines)] // Sequential DDL: one statement per migration step.
     pub async fn init(&self) -> Result<(), SessionError> {
         // Create the sessions table with device info and refresh token support
         // TAG: surface=security owner=security-team rule=SEC-001
@@ -44,35 +45,47 @@ impl LibSqlSessionStorage {
         self.migrate_sessions_columns().await?;
 
         // Create indexes separately (SQLite doesn't support inline INDEX)
-        let _ = self
+        if let Err(e) = self
             .conn
             .execute(
                 "CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id)",
                 (),
             )
-            .await;
-        let _ = self
+            .await
+        {
+            tracing::warn!(error = %e, "failed to create idx_sessions_user_id");
+        }
+        if let Err(e) = self
             .conn
             .execute(
                 "CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at)",
                 (),
             )
-            .await;
-        let _ = self
+            .await
+        {
+            tracing::warn!(error = %e, "failed to create idx_sessions_expires_at");
+        }
+        if let Err(e) = self
             .conn
             .execute(
                 "CREATE INDEX IF NOT EXISTS idx_sessions_access_token ON sessions(access_token)",
                 (),
             )
-            .await;
-        let _ = self
+            .await
+        {
+            tracing::warn!(error = %e, "failed to create idx_sessions_access_token");
+        }
+        if let Err(e) = self
             .conn
             .execute(
                 "CREATE INDEX IF NOT EXISTS idx_sessions_refresh_expires ON sessions(refresh_token_expires_at) WHERE refresh_token_encrypted IS NOT NULL",
                 (),
             // TAG: surface=security owner=platform-team rule=GENERAL-001
             )
-            .await;
+            .await
+        {
+            tracing::warn!(error = %e, "failed to create idx_sessions_refresh_expires");
+        }
 
         // Create session artifacts table
         let create_artifacts_table = r"
@@ -89,28 +102,37 @@ impl LibSqlSessionStorage {
         self.conn.execute(create_artifacts_table, ()).await?;
 
         // Create indexes for artifacts
-        let _ = self
+        if let Err(e) = self
             .conn
             .execute(
                 "CREATE INDEX IF NOT EXISTS idx_artifacts_session_id ON session_artifacts(session_id)",
                 (),
             )
-            .await;
-        let _ = self
+            .await
+        {
+            tracing::warn!(error = %e, "failed to create idx_artifacts_session_id");
+        }
+        if let Err(e) = self
             .conn
             .execute(
                 "CREATE INDEX IF NOT EXISTS idx_artifacts_user_id ON session_artifacts(user_id)",
                 (),
             )
                 // TAG: surface=security owner=platform-team rule=MID-001
-            .await;
-        let _ = self
+            .await
+        {
+            tracing::warn!(error = %e, "failed to create idx_artifacts_user_id");
+        }
+        if let Err(e) = self
             .conn
             .execute(
                 "CREATE INDEX IF NOT EXISTS idx_artifacts_created_at ON session_artifacts(created_at)",
                 (),
             )
-            .await;
+            .await
+        {
+            tracing::warn!(error = %e, "failed to create idx_artifacts_created_at");
+        }
 
         info!("Sessions and artifacts tables initialized");
         Ok(())
