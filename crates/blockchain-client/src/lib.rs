@@ -16,6 +16,8 @@
 // HARDCODED_CONFIG: Metadata file version - must match current pallet-freshcredit runtime
 // To update: Run `subxt metadata --url http://localhost:9944 -f bytes > freshcredit_metadata_v{N}.scale`
 // Then update the path below and bump the version number
+#![forbid(unsafe_code)]
+
 #[subxt::subxt(runtime_metadata_path = "freshcredit_metadata_v1.scale")]
 pub mod freshcredit_runtime {}
 

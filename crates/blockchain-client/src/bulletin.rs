@@ -122,7 +122,7 @@ impl BulletinClient {
                 warn!("Failed to load Bulletin signer: {}", e);
                 e
             })
-            .ok();
+            .ok(); // AUDIT-OK(fire-and-forget): signer absence handled downstream; failure already logged above
 
         Ok(Self {
             config,
