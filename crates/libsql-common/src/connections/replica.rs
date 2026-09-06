@@ -100,6 +100,7 @@ impl ReplicaConnection {
         let handle = tokio::spawn(async move {
             let mut interval = tokio::time::interval(std::time::Duration::from_secs(interval_secs));
 
+            // P10-R4: intentionally unbounded service loop — replica sync ticks until the spawned task is aborted at shutdown.
             loop {
                 interval.tick().await;
 

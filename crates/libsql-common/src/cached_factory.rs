@@ -289,6 +289,7 @@ impl CachedConnectionFactory {
         let handle = tokio::spawn(async move {
             let mut interval = interval(interval_duration);
 
+            // P10-R4: intentionally unbounded service loop — TTL cleanup ticks until the spawned task is aborted at shutdown.
             loop {
                 interval.tick().await;
 

@@ -88,6 +88,7 @@ fn parse_args_from(args: &[String]) -> Result<MigrationArgs> {
 
     // TAG: surface=database owner=platform-team rule=DB-001
     let mut i = 1;
+    // P10-R4: bounded — i advances through argv; exits when i reaches args.len().
     while i < args.len() {
         match args.get(i).map(std::string::String::as_str) {
             Some("--local") => {

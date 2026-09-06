@@ -133,6 +133,7 @@ impl TursoUrlBuilder {
         }
 
         // Trim trailing dashes introduced by special chars or truncation.
+        // P10-R4: bounded — each iteration pops one char; ends when no trailing dash remains (at most len pops).
         while sanitized.ends_with('-') {
             sanitized.pop();
         }
@@ -140,6 +141,7 @@ impl TursoUrlBuilder {
         // Truncate to the allowed length, then trim any trailing dash left by the cut.
         if sanitized.len() > Self::MAX_USER_ID_LENGTH {
             let mut truncated = sanitized[..Self::MAX_USER_ID_LENGTH].to_string();
+            // P10-R4: bounded — pops at most MAX_USER_ID_LENGTH trailing dashes.
             while truncated.ends_with('-') {
                 truncated.pop();
             }
