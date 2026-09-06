@@ -9,11 +9,19 @@ use crate::{
 // TAG: surface=database owner=platform-team rule=DB-001
 static CRYPTO_PROVIDER_INIT: std::sync::Once = std::sync::Once::new();
 
+/// Ensures a process-level rustls `CryptoProvider` is installed.
+///
+/// rustls is built with both the `ring` and `aws-lc-rs` features in this
+/// dependency graph, so it cannot auto-select a process default and
+/// `ClientConfig::builder()` panics unless one is installed first. The
+/// provider is global per-process state: a lost install race is fine, any
+/// installed provider satisfies rustls.
 fn ensure_crypto_provider() {
+    if rustls::crypto::CryptoProvider::get_default().is_some() {
+        return;
+    }
     CRYPTO_PROVIDER_INIT.call_once(|| {
-        rustls::crypto::ring::default_provider()
-            .install_default()
-            .ok();
+        let _ = rustls::crypto::ring::default_provider().install_default();
     });
 }
 
@@ -449,6 +457,7 @@ async fn test_create_local_with_path() {
 }
 
 #[tokio::test]
+#[serial_test::serial(remote_connector)]
 async fn test_remote_connection_new_and_query_fails() {
     ensure_crypto_provider();
     // Builder succeeds even with bad URL; connection is lazy
@@ -473,6 +482,7 @@ async fn test_remote_connection_new_and_query_fails() {
 
 // TAG: surface=database owner=platform-team rule=DB-001
 #[tokio::test]
+#[serial_test::serial(remote_connector)]
 async fn test_create_remote_with_url_query_fails() {
     ensure_crypto_provider();
     let conn = ConnectionFactory::create_remote_with_url("http://localhost:1", "token")
@@ -538,6 +548,7 @@ async fn test_create_with_cb_and_fallback_primary_succeeds() {
 }
 
 #[tokio::test]
+#[serial_test::serial(remote_connector)]
 async fn test_create_remote_fails() {
     ensure_crypto_provider();
     let config = ConnectionConfig {
@@ -608,6 +619,7 @@ async fn test_replica_connection_with_local_db() {
 }
 
 #[tokio::test]
+#[serial_test::serial(remote_connector)]
 async fn test_create_replica_fails() {
     ensure_crypto_provider();
     let config = ConnectionConfig {
@@ -622,6 +634,7 @@ async fn test_create_replica_fails() {
 }
 
 #[tokio::test]
+#[serial_test::serial(remote_connector)]
 async fn test_create_replica_with_params_fails() {
     ensure_crypto_provider();
     let result = ConnectionFactory::create_replica_with_params(
