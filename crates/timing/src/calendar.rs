@@ -65,6 +65,7 @@ impl BusinessDayCalendar {
         let mut remaining = days.abs();
         let direction = if days >= 0 { 1 } else { -1 };
 
+        // P10-R4: bounded — remaining decrements on every business day, reaching zero within |days| iterations.
         while remaining > 0 {
             current += Duration::days(direction);
             if self.is_business_day(current) {
@@ -109,6 +110,7 @@ impl BusinessDayCalendar {
         let mut count = 0;
         let mut current = start;
 
+        // P10-R4: bounded — current advances one day per iteration until it reaches end.
         while current < end {
             if self.is_business_day(current) {
                 count += 1;
@@ -216,6 +218,7 @@ impl BusinessDayCalendar {
         // TAG: surface=api owner=platform-team rule=API-001
 
         let mut current = last_of_month;
+        // P10-R4: bounded — walking back from month-end reaches the target weekday within 7 iterations.
         while current.weekday() != weekday {
             current -= Duration::days(1);
         }

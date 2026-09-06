@@ -403,6 +403,7 @@ impl NtpGlobalClock {
     }
 
     async fn sync_loop(self: Arc<Self>) {
+        // P10-R4: intentionally unbounded service loop — NTP re-sync runs for the process lifetime; cancelled when the owning task is aborted at shutdown.
         loop {
             tokio::time::sleep(self.sync_interval).await;
             match self.sync_once().await {
