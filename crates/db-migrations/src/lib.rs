@@ -467,11 +467,15 @@ fn parse_migration_filename(filename: &str) -> Result<(i64, String)> {
             "Invalid migration filename format: {filename}. Expected: {{version}}_{{name}}"
         ));
     }
-    let version: i64 = parts[0]
-        .parse()
-        .with_context(|| format!("Invalid version number: {}", parts[0]))?;
+    let version: i64 = parse_migration_version(parts[0])?;
     let name = parts[1].to_string();
     Ok((version, name))
+}
+
+/// Parse the numeric version prefix of a migration filename.
+fn parse_migration_version(raw: &str) -> Result<i64> {
+    raw.parse()
+        .with_context(|| format!("Invalid version number: {raw}"))
 }
 
 /// Compute SHA-256 checksum of SQL content

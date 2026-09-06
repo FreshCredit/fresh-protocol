@@ -22,14 +22,25 @@ pub const SYNC_DELETIONS_UPSERT_SQL: &str =
 pub fn is_valid_sync_table_name(table_name: &str) -> bool {
     !table_name.is_empty()
         && !table_name.starts_with("sqlite_")
-        && table_name
-            .chars()
-            .enumerate()
-            .all(|(i, c)| c.is_ascii_lowercase() || c == '_' || (i > 0 && c.is_ascii_digit()))
-        && table_name
-            .chars()
-            .next()
-            .is_some_and(|c| c.is_ascii_lowercase() || c == '_')
+        && has_valid_table_name_chars(table_name)
+        && starts_with_valid_table_name_char(table_name)
+}
+
+/// Every character must be a lowercase ASCII letter, `_`, or (except in the
+/// first position) an ASCII digit.
+fn has_valid_table_name_chars(table_name: &str) -> bool {
+    table_name
+        .chars()
+        .enumerate()
+        .all(|(i, c)| c.is_ascii_lowercase() || c == '_' || (i > 0 && c.is_ascii_digit()))
+}
+
+/// The first character must be a lowercase ASCII letter or `_`.
+fn starts_with_valid_table_name_char(table_name: &str) -> bool {
+    table_name
+        .chars()
+        .next()
+        .is_some_and(|c| c.is_ascii_lowercase() || c == '_')
 }
 
 /// Create the `sync_deletions` ledger if it does not exist yet.

@@ -373,78 +373,91 @@ async fn create_api_keys_table(conn: &Connection) -> Result<()> {
 
     // Migration: rebuild api_keys if it was created with the old schema
     // (user_id/key_name instead of user_email/name).
-    let api_keys_exists = {
-        let mut rows = conn
-            .query(
-                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='api_keys'",
-                (),
-            )
-            .await?;
-        let exists = rows.next().await?.is_some();
-        // Drain remaining rows so the connection can be reused.
-        while rows.next().await?.is_some() {}
-        exists
-    };
-    if api_keys_exists {
-        let mut rows = conn
-            .query(
-                "SELECT COUNT(*) FROM pragma_table_info('api_keys') WHERE name = 'user_email'",
-                (),
-            )
-            .await?;
-        let has_user_email: i64 = if let Some(row) = rows.next().await? {
-            let v: i64 = row.get(0)?;
-            while rows.next().await?.is_some() {}
-            v
-        } else {
-            0
-        };
+    if api_keys_table_exists(conn).await? {
+        let has_user_email = api_keys_user_email_column_count(conn).await?;
         if has_user_email == 0 {
-            conn.execute("ALTER TABLE api_keys RENAME TO api_keys_old", ())
-                .await?;
-            // Backfill any columns that may be missing on very old tables before copying.
-            add_column_if_not_exists(conn, "api_keys_old", "permissions", "TEXT DEFAULT 'read'")
-                .await?;
-            add_column_if_not_exists(conn, "api_keys_old", "is_revoked", "BOOLEAN DEFAULT FALSE")
-                .await?;
-            add_column_if_not_exists(conn, "api_keys_old", "last_used_at", "DATETIME").await?;
-            add_column_if_not_exists(conn, "api_keys_old", "expires_at", "DATETIME").await?;
-            add_column_if_not_exists(conn, "api_keys_old", "updated_at", "DATETIME").await?;
-            conn.execute(
-                "CREATE TABLE api_keys (
-                    id TEXT PRIMARY KEY,
-                    user_email TEXT NOT NULL,
-                    name TEXT NOT NULL,
-                    key_hash TEXT NOT NULL,
-                    key_prefix TEXT NOT NULL,
-                    permissions TEXT NOT NULL DEFAULT 'read',
-                    last_used_at DATETIME,
-                    expires_at DATETIME,
-                    is_revoked BOOLEAN DEFAULT FALSE,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    revoked_at DATETIME,
-                    revoked_reason TEXT,
-                    rotated_at DATETIME
-                )",
-                (),
-            )
-            .await?;
-            conn.execute(
-                "INSERT INTO api_keys (id, user_email, name, key_hash, key_prefix, permissions, last_used_at, expires_at, is_revoked, created_at, updated_at)
-                 SELECT id, user_id, key_name, key_hash, key_prefix,
-                        COALESCE(permissions, 'read'),
-                        last_used_at, expires_at,
-                        COALESCE(is_revoked, FALSE),
-                        COALESCE(created_at, CURRENT_TIMESTAMP),
-                        COALESCE(updated_at, created_at, CURRENT_TIMESTAMP)
-                 FROM api_keys_old",
-                (),
-            )
-            .await?;
-            conn.execute("DROP TABLE api_keys_old", ()).await?;
+            rebuild_api_keys_for_legacy_schema(conn).await?;
         }
     }
+    Ok(())
+}
+
+/// Whether the `api_keys` table is present in `sqlite_master`.
+async fn api_keys_table_exists(conn: &Connection) -> Result<bool> {
+    let mut rows = conn
+        .query(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='api_keys'",
+            (),
+        )
+        .await?;
+    let exists = rows.next().await?.is_some();
+    // Drain remaining rows so the connection can be reused.
+    while rows.next().await?.is_some() {}
+    Ok(exists)
+}
+
+/// Count of `user_email` columns on `api_keys` (0 when the legacy schema is
+/// in place).
+async fn api_keys_user_email_column_count(conn: &Connection) -> Result<i64> {
+    let mut rows = conn
+        .query(
+            "SELECT COUNT(*) FROM pragma_table_info('api_keys') WHERE name = 'user_email'",
+            (),
+        )
+        .await?;
+    if let Some(row) = rows.next().await? {
+        let v: i64 = row.get(0)?;
+        while rows.next().await?.is_some() {}
+        Ok(v)
+    } else {
+        Ok(0)
+    }
+}
+
+/// Rebuild `api_keys` from the legacy (`user_id`/`key_name`) layout into the
+/// current (`user_email`/`name`) layout, preserving existing rows.
+async fn rebuild_api_keys_for_legacy_schema(conn: &Connection) -> Result<()> {
+    conn.execute("ALTER TABLE api_keys RENAME TO api_keys_old", ())
+        .await?;
+    // Backfill any columns that may be missing on very old tables before copying.
+    add_column_if_not_exists(conn, "api_keys_old", "permissions", "TEXT DEFAULT 'read'").await?;
+    add_column_if_not_exists(conn, "api_keys_old", "is_revoked", "BOOLEAN DEFAULT FALSE").await?;
+    add_column_if_not_exists(conn, "api_keys_old", "last_used_at", "DATETIME").await?;
+    add_column_if_not_exists(conn, "api_keys_old", "expires_at", "DATETIME").await?;
+    add_column_if_not_exists(conn, "api_keys_old", "updated_at", "DATETIME").await?;
+    conn.execute(
+        "CREATE TABLE api_keys (
+            id TEXT PRIMARY KEY,
+            user_email TEXT NOT NULL,
+            name TEXT NOT NULL,
+            key_hash TEXT NOT NULL,
+            key_prefix TEXT NOT NULL,
+            permissions TEXT NOT NULL DEFAULT 'read',
+            last_used_at DATETIME,
+            expires_at DATETIME,
+            is_revoked BOOLEAN DEFAULT FALSE,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            revoked_at DATETIME,
+            revoked_reason TEXT,
+            rotated_at DATETIME
+        )",
+        (),
+    )
+    .await?;
+    conn.execute(
+        "INSERT INTO api_keys (id, user_email, name, key_hash, key_prefix, permissions, last_used_at, expires_at, is_revoked, created_at, updated_at)
+         SELECT id, user_id, key_name, key_hash, key_prefix,
+                COALESCE(permissions, 'read'),
+                last_used_at, expires_at,
+                COALESCE(is_revoked, FALSE),
+                COALESCE(created_at, CURRENT_TIMESTAMP),
+                COALESCE(updated_at, created_at, CURRENT_TIMESTAMP)
+         FROM api_keys_old",
+        (),
+    )
+    .await?;
+    conn.execute("DROP TABLE api_keys_old", ()).await?;
     Ok(())
 }
 
