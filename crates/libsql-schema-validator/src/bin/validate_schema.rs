@@ -87,6 +87,7 @@ fn parse_cli_args() -> CliArgs {
 
     // TAG: surface=database owner=platform-team rule=DB-001
     let mut i = 1;
+    // P10-R4: bounded — i advances through argv; exits when i reaches args.len().
     while i < args.len() {
         match args[i].as_str() {
             "--staging" => {
