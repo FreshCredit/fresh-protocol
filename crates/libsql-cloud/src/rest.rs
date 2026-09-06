@@ -127,23 +127,29 @@ impl CloudClient {
             .column_exists("user_preferences", "vault_key_acknowledged")
             .await
         {
-            let _ = self
+            if let Err(e) = self
                 .execute(
                     "ALTER TABLE user_preferences ADD COLUMN vault_key_acknowledged BOOLEAN DEFAULT FALSE",
                     cloud_params![],
                 )
-                .await;
+                .await
+            {
+                tracing::error!(error = %e, "failed to add vault_key_acknowledged column to user_preferences");
+            }
         }
         if !self
             .column_exists("user_preferences", "backup_sync_chosen")
             .await
         {
-            let _ = self
+            if let Err(e) = self
                 .execute(
                     "ALTER TABLE user_preferences ADD COLUMN backup_sync_chosen BOOLEAN DEFAULT FALSE",
                     cloud_params![],
                 )
-                .await;
+                .await
+            {
+                tracing::error!(error = %e, "failed to add backup_sync_chosen column to user_preferences");
+            }
         }
     }
 
@@ -155,23 +161,29 @@ impl CloudClient {
             .column_exists("user_preferences", "assistant_data_consent")
             .await
         {
-            let _ = self
+            if let Err(e) = self
                 .execute(
                     "ALTER TABLE user_preferences ADD COLUMN assistant_data_consent BOOLEAN DEFAULT FALSE",
                     cloud_params![],
                 )
-                .await;
+                .await
+            {
+                tracing::error!(error = %e, "failed to add assistant_data_consent column to user_preferences");
+            }
         }
         if !self
             .column_exists("user_preferences", "assistant_model")
             .await
         {
-            let _ = self
+            if let Err(e) = self
                 .execute(
                     "ALTER TABLE user_preferences ADD COLUMN assistant_model TEXT",
                     cloud_params![],
                 )
-                .await;
+                .await
+            {
+                tracing::error!(error = %e, "failed to add assistant_model column to user_preferences");
+            }
         }
     }
 

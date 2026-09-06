@@ -118,7 +118,7 @@ impl ReplicaConnection {
         // Store handle (in a real implementation, you'd want to handle this properly)
         let _ = self.background_sync_handle.try_write().map(|mut guard| {
             *guard = Some(handle);
-        });
+        }); // AUDIT-REVIEW: lock acquisition failure silently drops the background sync handle; tolerated today but should be logged or retried
     }
 
     // TAG: surface=database owner=platform-team rule=DB-001

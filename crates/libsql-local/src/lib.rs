@@ -33,6 +33,7 @@
 
 // Submodules for incremental extraction
 #![allow(clippy::wildcard_imports)]
+#![forbid(unsafe_code)]
 
 // TAG: surface=database owner=platform-team rule=DB-001
 /// Helper utilities for local `LibSQL` operations

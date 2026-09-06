@@ -25,9 +25,23 @@ use tracing::info;
 /// # Errors
 ///
 /// Returns an error if the operation fails.
-#[allow(clippy::too_many_lines)]
 pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing core tables");
+    create_user_profile_table(conn).await?;
+    create_user_identities_table(conn).await?;
+    migrate_user_profile_columns(conn).await?;
+    create_user_preferences_schema(conn).await?;
+    create_api_keys_table(conn).await?;
+    migrate_api_keys_columns(conn).await?;
+    create_webauthn_and_kilt_schema(conn).await?;
+    create_integration_tables(conn).await?;
+    create_vault_sync_tables(conn).await?;
+    Ok(())
+}
+
+// TAG: surface=database owner=platform-team rule=DB-001
+/// Creates the `user_profile` table.
+async fn create_user_profile_table(conn: &Connection) -> Result<()> {
     // Create user_profile table first (referenced by other tables)
     // P0p: Added is_admin column for first provider user admin rule (§27.4)
     // P0g: Added provider_onboarding_complete for §28.1 nav visibility
@@ -82,7 +96,12 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
         (),
     )
     .await?;
+    Ok(())
+}
 
+/// Creates `user_identities` (linked sign-in identities), its indexes, and
+/// the `is_primary` backfill migration.
+async fn create_user_identities_table(conn: &Connection) -> Result<()> {
     // Linked sign-in identities (see schema_manager core.rs): provider subject ->
     // owning profile, enabling verified-email account linking across providers.
     conn.execute(
@@ -134,7 +153,11 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
             (),
         )
         .await;
+    Ok(())
+}
 
+/// Idempotent column migrations for existing `user_profile` databases.
+async fn migrate_user_profile_columns(conn: &Connection) -> Result<()> {
     // Migrations for existing databases
     // CHATBOT-FIX: platform_user_id is required by RBAC middleware queries
     // This column was added to the schema but existing databases may not have it
@@ -210,6 +233,11 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
     )
     .await?;
 
+    Ok(())
+}
+
+/// Creates `user_preferences` plus its migrations.
+async fn create_user_preferences_schema(conn: &Connection) -> Result<()> {
     // TAG: surface=database owner=platform-team rule=DB-001
     // Create user_preferences table (matches production Turso schema)
     // P0g: Includes onboarding dismissal fields for §27.3 onboarding flow rules
@@ -312,6 +340,12 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
     .await?;
     add_column_if_not_exists(conn, "user_preferences", "assistant_model", "TEXT").await?;
 
+    Ok(())
+}
+
+/// Creates `api_keys` and rebuilds tables created with the legacy
+/// (`user_id`/`key_name`) schema.
+async fn create_api_keys_table(conn: &Connection) -> Result<()> {
     // Create api_keys table for API key management
     conn.execute(
         "CREATE TABLE IF NOT EXISTS api_keys (
@@ -411,7 +445,11 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
             conn.execute("DROP TABLE api_keys_old", ()).await?;
         }
     }
+    Ok(())
+}
 
+/// Idempotent column migrations bringing `api_keys` up to the union schema.
+async fn migrate_api_keys_columns(conn: &Connection) -> Result<()> {
     // Ensure all columns exist for tables that may have been created with an
     // older version of the correct schema.
     add_column_if_not_exists(conn, "api_keys", "is_revoked", "BOOLEAN DEFAULT FALSE").await?;
@@ -442,6 +480,11 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
     add_column_if_not_exists(conn, "api_keys", "rate_limit", "INTEGER DEFAULT 1000").await?;
     add_column_if_not_exists(conn, "api_keys", "is_active", "BOOLEAN DEFAULT TRUE").await?;
 
+    Ok(())
+}
+
+/// Creates `webauthn_credentials` and `kilt_dids`.
+async fn create_webauthn_and_kilt_schema(conn: &Connection) -> Result<()> {
     // Create webauthn_credentials table for FIDO2/passkey biometric authentication
     conn.execute(
         "CREATE TABLE IF NOT EXISTS webauthn_credentials (
@@ -482,6 +525,13 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
     )
     .await?;
 
+    Ok(())
+}
+
+/// Creates integration tables (`revery_consumers`, `verified_id_verifications`,
+/// Creates integration tables (`revery_consumers`, `verified_id_verifications`,
+/// `plaid_items`, `user_connections`).
+async fn create_integration_tables(conn: &Connection) -> Result<()> {
     // White-labeled consumer credit enrollment state (per-user; mirrors
     // migration 004_revery_consumers; consumer token AES-256-GCM encrypted,
     // no SSN or full reports ever persisted)
@@ -567,7 +617,11 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
         (),
     )
     .await?;
+    Ok(())
+}
 
+/// Creates the vault-backed `approved_data` and `sync_deletions` tables.
+async fn create_vault_sync_tables(conn: &Connection) -> Result<()> {
     // V2 consumer approved data items. Mirrors the shared_db `approved_data`
     // table (schema_manager impls/core.rs): finalized approved staged rows
     // are written here so the browser vault sync can read them locally and
@@ -618,7 +672,6 @@ pub async fn initialize_core_tables(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
-// TAG: surface=database owner=platform-team rule=DB-001
 /// Initialize core table indexes
 /// # Errors
 ///

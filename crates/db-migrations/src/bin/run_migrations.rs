@@ -14,7 +14,7 @@ use std::path::PathBuf;
 #[tokio::main]
 async fn main() -> Result<()> {
     // Install rustls ring crypto provider before any libsql/TLS connection is made.
-    let _ = rustls::crypto::ring::default_provider().install_default();
+    let _ = rustls::crypto::ring::default_provider().install_default(); // AUDIT-OK(fire-and-forget): only error is provider already installed, which is fine
     tracing_subscriber::fmt::init();
 
     let args = parse_args()?;

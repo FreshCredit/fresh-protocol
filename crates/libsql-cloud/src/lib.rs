@@ -5,6 +5,7 @@
 //! Cloud databases are per-user Turso instances with identical schema to local.
 
 #![allow(clippy::wildcard_imports)]
+#![forbid(unsafe_code)]
 
 use anyhow::Result;
 use freshcredit_types::{Account, FinancialReport, FreshCreditResult, Transaction, UserId};

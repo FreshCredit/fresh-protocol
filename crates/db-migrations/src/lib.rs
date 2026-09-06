@@ -10,6 +10,8 @@
 //! - `{version}_{name}.up.sql` - Forward migration
 //! - `{version}_{name}.down.sql` - Rollback migration (optional)
 
+#![forbid(unsafe_code)]
+
 use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
