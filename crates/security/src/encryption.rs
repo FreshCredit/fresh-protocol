@@ -242,6 +242,8 @@ impl TokenEncryptor {
         let mut stored_key = [0u8; KEY_SIZE];
         stored_key.copy_from_slice(key);
 
+        // Key length was validated above: copy into the fixed-size buffer is exact.
+        debug_assert_eq!(stored_key.len(), KEY_SIZE);
         Ok(Self {
             cipher,
             key: stored_key,
@@ -299,6 +301,8 @@ impl TokenEncryptor {
         combined.extend_from_slice(&nonce_bytes);
         combined.extend_from_slice(&ciphertext);
 
+        // Output layout must be exactly nonce-prefixed ciphertext before encoding.
+        debug_assert_eq!(combined.len(), NONCE_SIZE + ciphertext.len());
         Ok(BASE64.encode(&combined))
     }
 
@@ -319,6 +323,8 @@ impl TokenEncryptor {
             return Err(anyhow!("Ciphertext too short"));
         }
 
+        // Length was validated above: nonce split and decrypt cannot underflow.
+        debug_assert!(combined.len() >= NONCE_SIZE + 16);
         let nonce = Nonce::from_slice(&combined[..NONCE_SIZE]);
         let ciphertext_bytes = &combined[NONCE_SIZE..];
 

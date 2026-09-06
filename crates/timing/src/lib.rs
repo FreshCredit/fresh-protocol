@@ -15,6 +15,8 @@
 //! - `calendar`: Business day calendar for settlement calculations
 //! - `settlement`: ACH settlement timing calculations
 
+#![cfg_attr(not(test), forbid(unsafe_code))]
+
 pub mod calendar;
 pub mod clock;
 pub mod freshness;

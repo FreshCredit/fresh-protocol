@@ -4,6 +4,8 @@
 //! P1 FIX: Cross-language type sync with ts-rs
 //! Generate TypeScript types: cargo test --features typescript
 
+#![forbid(unsafe_code)]
+
 pub mod api_response;
 pub mod domain;
 pub mod problem;
