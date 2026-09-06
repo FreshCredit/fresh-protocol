@@ -13,6 +13,8 @@
 //! Run the validator binary: `cargo run --bin validate-schema`
 //! Or use the library programmatically in tests.
 
+#![forbid(unsafe_code)]
+
 /// Schema synchronization tests
 pub mod tests;
 /// Schema validation types
