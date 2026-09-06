@@ -20,6 +20,7 @@
 
 #![allow(clippy::wildcard_imports)]
 #![allow(clippy::significant_drop_tightening)]
+#![forbid(unsafe_code)]
 
 mod cli;
 mod config;

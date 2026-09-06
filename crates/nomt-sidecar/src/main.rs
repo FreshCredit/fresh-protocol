@@ -14,6 +14,7 @@
 
 #![allow(clippy::wildcard_imports)]
 #![allow(clippy::significant_drop_tightening)]
+#![forbid(unsafe_code)]
 
 use axum::{
     routing::{get, post},
@@ -227,7 +228,7 @@ fn init_tracing() {
 /// Load `.env` overrides when not running in production.
 fn load_dotenv() {
     if std::env::var("ENVIRONMENT").unwrap_or_default() != "production" {
-        dotenvy::dotenv().ok();
+        dotenvy::dotenv().ok(); // AUDIT-OK(fire-and-forget): .env is a dev convenience; absence is normal
     }
 }
 

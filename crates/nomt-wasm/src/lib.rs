@@ -14,6 +14,8 @@
 //! Note: NOMT uses Binary Merkle Trie (2 children per node), which is different
 //! from Substrate's Patricia Merkle Trie (16 children with path compression).
 
+#![forbid(unsafe_code)]
+
 use sha2::{Digest, Sha256};
 use wasm_bindgen::prelude::*;
 
