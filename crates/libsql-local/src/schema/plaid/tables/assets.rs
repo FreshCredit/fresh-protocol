@@ -9,7 +9,8 @@ use tracing::info;
 /// Returns an error if the operation fails.
 pub async fn initialize_plaid_assets_tables(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing plaid tables");
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS assets (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -25,12 +26,12 @@ pub async fn initialize_plaid_assets_tables(conn: &Connection) -> Result<()> {
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 
     // TAG: surface=database owner=data-team rule=DB-001
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS balances (
             id TEXT PRIMARY KEY,
             account_id TEXT NOT NULL,
@@ -49,7 +50,6 @@ pub async fn initialize_plaid_assets_tables(conn: &Connection) -> Result<()> {
             FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 

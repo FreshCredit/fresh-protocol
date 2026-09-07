@@ -22,7 +22,8 @@ use tracing::info;
 // ────────────────────────────────────────────────────────────
 
 async fn create_ucp_checkout_sessions_table(conn: &Connection) -> Result<()> {
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS ucp_checkout_sessions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             session_id TEXT NOT NULL UNIQUE,
@@ -45,16 +46,13 @@ async fn create_ucp_checkout_sessions_table(conn: &Connection) -> Result<()> {
             completed_at DATETIME,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
-        // TAG: surface=database owner=data-team rule=DB-001
-        (),
     )
     .await?;
     Ok(())
 }
 
 async fn create_ucp_orders_table(conn: &Connection) -> Result<()> {
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS ucp_orders (
+    freshcredit_libsql_common::schema::ensure_table_ddl(conn, "CREATE TABLE IF NOT EXISTS ucp_orders (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             order_id TEXT NOT NULL UNIQUE,
             user_id TEXT NOT NULL,
@@ -75,16 +73,14 @@ async fn create_ucp_orders_table(conn: &Connection) -> Result<()> {
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
             FOREIGN KEY (checkout_session_id) REFERENCES ucp_checkout_sessions (session_id) ON DELETE CASCADE
-        )",
-        (),
-    )
-    .await?;
+        )").await?;
     Ok(())
 }
 
 // TAG: surface=database owner=platform-team rule=DB-001
 async fn create_ucp_identity_links_table(conn: &Connection) -> Result<()> {
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS ucp_identity_links (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             link_id TEXT NOT NULL UNIQUE,
@@ -103,14 +99,14 @@ async fn create_ucp_identity_links_table(conn: &Connection) -> Result<()> {
             revoked_at DATETIME,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
     Ok(())
 }
 
 async fn create_user_offer_engagements_table(conn: &Connection) -> Result<()> {
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS user_offer_engagements (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -143,7 +139,6 @@ async fn create_user_offer_engagements_table(conn: &Connection) -> Result<()> {
             FOREIGN KEY (checkout_session_id) REFERENCES ucp_checkout_sessions (session_id),
             FOREIGN KEY (ucp_order_id) REFERENCES ucp_orders (order_id)
         )",
-        (),
     )
     .await?;
     Ok(())
@@ -151,7 +146,8 @@ async fn create_user_offer_engagements_table(conn: &Connection) -> Result<()> {
 
 async fn create_ucp_merchants_table(conn: &Connection) -> Result<()> {
     // TAG: surface=database owner=platform-team rule=DB-001
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS ucp_merchants (
             id TEXT PRIMARY KEY,
             domain TEXT NOT NULL UNIQUE,
@@ -162,7 +158,6 @@ async fn create_ucp_merchants_table(conn: &Connection) -> Result<()> {
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
             updated_at TEXT NOT NULL DEFAULT (datetime('now'))
         )",
-        (),
     )
     .await?;
     Ok(())

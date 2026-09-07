@@ -7,7 +7,8 @@ use libsql::Connection;
 ///
 /// Returns an error if the operation fails.
 pub async fn initialize_plaid_investments_tables(conn: &Connection) -> Result<()> {
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS investments_holdings (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -31,7 +32,6 @@ pub async fn initialize_plaid_investments_tables(conn: &Connection) -> Result<()
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
             FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 
@@ -68,7 +68,8 @@ pub async fn initialize_plaid_investments_tables(conn: &Connection) -> Result<()
     .await?;
 
     // TAG: surface=database owner=data-team rule=DB-001
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS investments_transactions (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -91,7 +92,6 @@ pub async fn initialize_plaid_investments_tables(conn: &Connection) -> Result<()
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
             FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 

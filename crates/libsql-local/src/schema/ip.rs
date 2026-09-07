@@ -28,7 +28,8 @@ use tracing::info;
 ///
 /// Returns an error if the operation fails.
 pub async fn initialize_ip_records_table(conn: &Connection) -> Result<()> {
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS ip_records (
             id TEXT PRIMARY KEY,
             ip_type TEXT NOT NULL CHECK(ip_type IN ('patent', 'trademark', 'copyright')),
@@ -45,7 +46,6 @@ pub async fn initialize_ip_records_table(conn: &Connection) -> Result<()> {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )",
-        (),
     )
     .await?;
 
@@ -69,8 +69,7 @@ pub async fn initialize_ip_records_table(conn: &Connection) -> Result<()> {
 ///
 /// Returns an error if the operation fails.
 pub async fn initialize_ip_claims_table(conn: &Connection) -> Result<()> {
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS ip_claims (
+    freshcredit_libsql_common::schema::ensure_table_ddl(conn, "CREATE TABLE IF NOT EXISTS ip_claims (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
             ip_record_id TEXT NOT NULL,
@@ -86,10 +85,7 @@ pub async fn initialize_ip_claims_table(conn: &Connection) -> Result<()> {
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
             FOREIGN KEY (ip_record_id) REFERENCES ip_records (id)
-        )",
-        (),
-    )
-    .await?;
+        )").await?;
 
     try_create_index(
         conn,
@@ -111,7 +107,8 @@ pub async fn initialize_ip_claims_table(conn: &Connection) -> Result<()> {
 ///
 /// Returns an error if the operation fails.
 pub async fn initialize_ip_evidence_table(conn: &Connection) -> Result<()> {
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS ip_evidence (
             id TEXT PRIMARY KEY,
             claim_id TEXT NOT NULL,
@@ -123,7 +120,6 @@ pub async fn initialize_ip_evidence_table(conn: &Connection) -> Result<()> {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (claim_id) REFERENCES ip_claims (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 
@@ -142,7 +138,8 @@ pub async fn initialize_ip_evidence_table(conn: &Connection) -> Result<()> {
 ///
 /// Returns an error if the operation fails.
 pub async fn initialize_ip_events_table(conn: &Connection) -> Result<()> {
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS ip_events (
             id TEXT PRIMARY KEY,
             claim_id TEXT,
@@ -152,7 +149,6 @@ pub async fn initialize_ip_events_table(conn: &Connection) -> Result<()> {
             actor_id TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )",
-        (),
     )
     .await?;
 
@@ -176,8 +172,7 @@ pub async fn initialize_ip_events_table(conn: &Connection) -> Result<()> {
 ///
 /// Returns an error if the operation fails.
 pub async fn initialize_ip_disputes_table(conn: &Connection) -> Result<()> {
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS ip_disputes (
+    freshcredit_libsql_common::schema::ensure_table_ddl(conn, "CREATE TABLE IF NOT EXISTS ip_disputes (
             id TEXT PRIMARY KEY,
             claim_id TEXT NOT NULL,
             dispute_type TEXT NOT NULL,
@@ -187,10 +182,7 @@ pub async fn initialize_ip_disputes_table(conn: &Connection) -> Result<()> {
             submitted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             resolved_at DATETIME,
             FOREIGN KEY (claim_id) REFERENCES ip_claims (id)
-        )",
-        (),
-    )
-    .await?;
+        )").await?;
 
     Ok(())
 }

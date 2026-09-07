@@ -9,7 +9,8 @@ use tracing::info;
 pub async fn initialize_plaid_auth_tables(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing plaid tables");
     // Create auth table for account authentication data
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS auth (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -24,12 +25,12 @@ pub async fn initialize_plaid_auth_tables(conn: &Connection) -> Result<()> {
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
             FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 
     // Create identities table for Plaid Identity data per account
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS identities (
             id TEXT PRIMARY KEY,
             account_id TEXT NOT NULL,
@@ -63,7 +64,6 @@ pub async fn initialize_plaid_auth_tables(conn: &Connection) -> Result<()> {
             FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 

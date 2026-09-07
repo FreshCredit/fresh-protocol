@@ -18,7 +18,8 @@ use tracing::info;
 pub async fn initialize_identity_tables(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing identity tables");
     // Create identity_verification table for Plaid IDV (singular)
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS identity_verification (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -46,7 +47,6 @@ pub async fn initialize_identity_tables(conn: &Connection) -> Result<()> {
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 
@@ -57,7 +57,8 @@ pub async fn initialize_identity_tables(conn: &Connection) -> Result<()> {
     // idempotent ALTERs converge either creation order to the union of both
     // column sets (this site's extras: `blockchain_hash`, `block_number`;
     // that site's extras: `revocation_id`, `credential_data`).
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS verified_credentials (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -76,7 +77,6 @@ pub async fn initialize_identity_tables(conn: &Connection) -> Result<()> {
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 

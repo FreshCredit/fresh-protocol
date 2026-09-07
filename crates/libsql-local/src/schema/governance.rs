@@ -24,7 +24,8 @@ use tracing::info;
 pub async fn initialize_governance_tables(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing governance tables");
     // Governance proposals table
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS governance_proposals (
             id TEXT PRIMARY KEY,
             title TEXT NOT NULL,
@@ -45,7 +46,6 @@ pub async fn initialize_governance_tables(conn: &Connection) -> Result<()> {
             executed_at DATETIME,
             FOREIGN KEY (author_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 
@@ -70,7 +70,8 @@ pub async fn initialize_governance_tables(conn: &Connection) -> Result<()> {
     .await?;
 
     // Governance delegations table
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS governance_delegations (
             id TEXT PRIMARY KEY,
             delegator_id TEXT NOT NULL,
@@ -83,13 +84,13 @@ pub async fn initialize_governance_tables(conn: &Connection) -> Result<()> {
             FOREIGN KEY (delegate_id) REFERENCES user_profile (id) ON DELETE CASCADE,
             UNIQUE (delegator_id, delegate_id)
         )",
-        (),
     )
     .await?;
 
     // TAG: surface=database owner=platform-team rule=DB-001
     // Governance treasury table
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS governance_treasury (
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
@@ -103,12 +104,12 @@ pub async fn initialize_governance_tables(conn: &Connection) -> Result<()> {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )",
-        (),
     )
     .await?;
 
     // Governance treasury transactions table
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS governance_treasury_transactions (
             id TEXT PRIMARY KEY,
             treasury_id TEXT NOT NULL,
@@ -122,13 +123,13 @@ pub async fn initialize_governance_tables(conn: &Connection) -> Result<()> {
             FOREIGN KEY (proposal_id) REFERENCES governance_proposals (id) ON DELETE SET NULL,
             FOREIGN KEY (executed_by) REFERENCES user_profile (id) ON DELETE SET NULL
         )",
-        (),
     )
     .await?;
 
     // TAG: surface=database owner=platform-team rule=DB-001
     // Governance stewards table
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS governance_stewards (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL UNIQUE,
@@ -142,7 +143,6 @@ pub async fn initialize_governance_tables(conn: &Connection) -> Result<()> {
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
             FOREIGN KEY (appointed_by) REFERENCES user_profile (id) ON DELETE SET NULL
         )",
-        (),
     )
     .await?;
 

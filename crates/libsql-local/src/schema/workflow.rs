@@ -21,7 +21,8 @@ pub async fn initialize_workflow_tables(conn: &Connection) -> Result<()> {
     // Canonical columns (workflow_status, workflow_data, is_active, next_run_at)
     // match migrations/unified_schema.sql; the extra legacy columns (status,
     // raw_workflow_data, windmill fields, ...) are kept for backwards compat.
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS workflows (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -52,7 +53,6 @@ pub async fn initialize_workflow_tables(conn: &Connection) -> Result<()> {
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 

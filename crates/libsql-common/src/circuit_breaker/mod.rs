@@ -76,4 +76,5 @@ pub enum CircuitBreakerState {
 
 /// Circuit breaker implementations
 pub mod impls;
+pub mod service;
 pub use impls::*;

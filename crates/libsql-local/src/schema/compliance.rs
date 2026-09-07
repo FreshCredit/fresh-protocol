@@ -23,7 +23,8 @@ use tracing::info;
 #[allow(clippy::too_many_lines)]
 pub async fn initialize_compliance_tables(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing compliance tables");
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS compliance_scans (
             id TEXT PRIMARY KEY,
             scan_type TEXT NOT NULL,
@@ -34,11 +35,11 @@ pub async fn initialize_compliance_tables(conn: &Connection) -> Result<()> {
             findings_count INTEGER DEFAULT 0,
             triggered_by TEXT
         )",
-        (),
     )
     .await?;
 
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS compliance_rules (
             id TEXT PRIMARY KEY,
             framework TEXT NOT NULL,
@@ -51,11 +52,11 @@ pub async fn initialize_compliance_tables(conn: &Connection) -> Result<()> {
             is_active INTEGER NOT NULL DEFAULT 1,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )",
-        (),
     )
     .await?;
 
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS compliance_findings (
             id TEXT PRIMARY KEY,
             scan_id TEXT NOT NULL,
@@ -73,12 +74,12 @@ pub async fn initialize_compliance_tables(conn: &Connection) -> Result<()> {
             FOREIGN KEY (rule_id) REFERENCES compliance_rules (id) ON DELETE CASCADE,
             FOREIGN KEY (resolved_by) REFERENCES user_profile (id) ON DELETE SET NULL
         )",
-        (),
     )
     .await?;
 
     // TAG: surface=database owner=platform-team rule=DB-001
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS compliance_evidence (
             id TEXT PRIMARY KEY,
             finding_id TEXT NOT NULL,
@@ -87,14 +88,12 @@ pub async fn initialize_compliance_tables(conn: &Connection) -> Result<()> {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (finding_id) REFERENCES compliance_findings (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 
     // Enhanced audit events table for comprehensive data access tracking
     // Per Phase 2.4: Enhanced Audit Logging requirements
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS audit_events (
+    freshcredit_libsql_common::schema::ensure_table_ddl(conn, "CREATE TABLE IF NOT EXISTS audit_events (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
             user_email TEXT,
@@ -125,10 +124,7 @@ pub async fn initialize_compliance_tables(conn: &Connection) -> Result<()> {
             -- Timestamps
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
-        )",
-        (),
-    )
-    .await?;
+        )").await?;
 
     // Create indexes for audit_events queries
     conn.execute(

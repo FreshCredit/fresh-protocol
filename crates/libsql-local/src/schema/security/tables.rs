@@ -13,7 +13,8 @@ pub async fn initialize_security_tables(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing security tables");
     // Sessions table for server-side session storage
     // Used in conjunction with JWT tokens for session activity tracking
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS sessions (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -25,12 +26,12 @@ pub async fn initialize_security_tables(conn: &Connection) -> Result<()> {
             user_agent TEXT,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 
     // IP blocks table for brute force protection
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS ip_blocks (
             id TEXT PRIMARY KEY,
             ip_address TEXT NOT NULL,
@@ -40,13 +41,13 @@ pub async fn initialize_security_tables(conn: &Connection) -> Result<()> {
             fail_count INTEGER DEFAULT 0,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )",
-        (),
     )
     .await?;
 
     // TAG: surface=database owner=platform-team rule=DB-001
     // Rate limit events table
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS rate_limit_events (
             id TEXT PRIMARY KEY,
             ip_address TEXT NOT NULL,
@@ -54,13 +55,11 @@ pub async fn initialize_security_tables(conn: &Connection) -> Result<()> {
             window_minutes INTEGER NOT NULL,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )",
-        (),
     )
     .await?;
 
     // Step-up authentication requests for sensitive actions from new devices
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS step_up_auth_requests (
+    freshcredit_libsql_common::schema::ensure_table_ddl(conn, "CREATE TABLE IF NOT EXISTS step_up_auth_requests (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
             audit_event_id TEXT,
@@ -73,13 +72,11 @@ pub async fn initialize_security_tables(conn: &Connection) -> Result<()> {
             verified_at DATETIME,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
             FOREIGN KEY (audit_event_id) REFERENCES audit_events (id) ON DELETE SET NULL
-        )",
-        (),
-    )
-    .await?;
+        )").await?;
 
     // User devices table for device fingerprinting
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS user_devices (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -94,13 +91,13 @@ pub async fn initialize_security_tables(conn: &Connection) -> Result<()> {
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
             UNIQUE(user_id, device_fingerprint)
         )",
-        (),
     )
     .await?;
 
     // TAG: surface=database owner=platform-team rule=DB-001
     // Compliance digests table for weekly reports
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS compliance_digests (
             id TEXT PRIMARY KEY,
             generated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -118,7 +115,6 @@ pub async fn initialize_security_tables(conn: &Connection) -> Result<()> {
             digest_html TEXT,
             sent_at DATETIME
         )",
-        (),
     )
     .await?;
 

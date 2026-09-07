@@ -154,10 +154,12 @@
 #![allow(clippy::wildcard_imports)]
 
 // TAG: surface=database owner=platform-team rule=DB-001
+pub mod cached_factory;
 pub mod circuit_breaker;
 pub mod connection;
 pub mod connections;
 pub mod factory;
+pub mod schema;
 pub mod security;
 
 // Existing modules
@@ -165,6 +167,7 @@ mod connection_factory;
 mod url_builder;
 
 // Re-exports for convenience
+pub use cached_factory::{CacheStats, CachedConnectionFactory, CachedFactoryConfig};
 pub use circuit_breaker::{
     CircuitBreakerConfig, CircuitBreakerConnection, CircuitBreakerError, CircuitBreakerState,
     CircuitBreakerStats,
@@ -175,7 +178,7 @@ pub use connection::{
 
 #[cfg(feature = "embedded-replica")]
 pub use connection::ReadConsistency;
-pub use connections::{LocalConnection, RemoteConnection};
+pub use connections::{LocalConnection, ReconnectingConnection, RemoteConnection};
 
 pub use connection_factory::{with_retry, RetryConfig};
 #[cfg(feature = "embedded-replica")]

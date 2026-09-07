@@ -20,7 +20,8 @@ use tracing::info;
 /// Returns an error if the operation fails.
 pub async fn initialize_ticketing_tables(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing ticketing tables");
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS tickets (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -38,7 +39,6 @@ pub async fn initialize_ticketing_tables(conn: &Connection) -> Result<()> {
             sla_due_at DATETIME,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 
@@ -58,7 +58,8 @@ pub async fn initialize_ticketing_tables(conn: &Connection) -> Result<()> {
     )
     .await?;
 
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS ticket_assignments (
             id TEXT PRIMARY KEY,
             ticket_id TEXT NOT NULL,
@@ -70,12 +71,12 @@ pub async fn initialize_ticketing_tables(conn: &Connection) -> Result<()> {
             FOREIGN KEY (assignee_id) REFERENCES user_profile (id) ON DELETE CASCADE,
             FOREIGN KEY (assigned_by) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 
     // TAG: surface=database owner=platform-team rule=DB-001
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS ticket_sla_events (
             id TEXT PRIMARY KEY,
             ticket_id TEXT NOT NULL,
@@ -85,7 +86,6 @@ pub async fn initialize_ticketing_tables(conn: &Connection) -> Result<()> {
             actual_minutes INTEGER,
             FOREIGN KEY (ticket_id) REFERENCES tickets (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 

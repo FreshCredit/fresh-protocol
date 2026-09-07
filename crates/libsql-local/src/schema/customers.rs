@@ -16,7 +16,8 @@ use tracing::info;
 pub async fn initialize_customer_tables(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing customers tables");
     // Customer activities table - tracks all customer interactions
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS customer_activities (
             id TEXT PRIMARY KEY,
             provider_id TEXT NOT NULL,
@@ -29,12 +30,12 @@ pub async fn initialize_customer_tables(conn: &Connection) -> Result<()> {
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
             FOREIGN KEY (customer_id) REFERENCES customers (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 
     // Customer segments table - defines segments for grouping customers
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS customer_segments (
             id TEXT PRIMARY KEY,
             provider_id TEXT NOT NULL,
@@ -46,12 +47,12 @@ pub async fn initialize_customer_tables(conn: &Connection) -> Result<()> {
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
             updated_at TEXT NOT NULL DEFAULT (datetime('now'))
         )",
-        (),
     )
     .await?;
 
     // Customer segment memberships - maps customers to segments
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS customer_segment_memberships (
             id TEXT PRIMARY KEY,
             segment_id TEXT NOT NULL,
@@ -62,7 +63,6 @@ pub async fn initialize_customer_tables(conn: &Connection) -> Result<()> {
             FOREIGN KEY (customer_id) REFERENCES customers (id) ON DELETE CASCADE,
             UNIQUE (segment_id, customer_id)
         )",
-        (),
     )
     .await?;
 

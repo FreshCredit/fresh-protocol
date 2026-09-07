@@ -45,7 +45,8 @@ pub async fn initialize_agent_tables(conn: &Connection) -> Result<()> {
 
     // Agent bindings table - permanent user-agent identity relationship
     // Phase 9: Enhanced with Entra Agent ID fields for enterprise identity management
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS agent_bindings (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL UNIQUE,
@@ -60,7 +61,6 @@ pub async fn initialize_agent_tables(conn: &Connection) -> Result<()> {
             identity_verified INTEGER DEFAULT 0,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 
@@ -89,7 +89,8 @@ pub async fn initialize_agent_tables(conn: &Connection) -> Result<()> {
     validate_agent_bindings_schema(conn).await;
 
     // Agent memories table - user-designated facts only (explicit "remember" requests)
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS agent_memories (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -98,7 +99,6 @@ pub async fn initialize_agent_tables(conn: &Connection) -> Result<()> {
             source_session_id TEXT,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 
@@ -109,7 +109,8 @@ pub async fn initialize_agent_tables(conn: &Connection) -> Result<()> {
 
     // AgentFS Key-Value Store - agent state and context cache
     // COMPLIANCE: AGENT-004 - user_id required for all queries
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS agentfs_kv_store (
             user_id TEXT NOT NULL,
             key TEXT NOT NULL,
@@ -119,14 +120,14 @@ pub async fn initialize_agent_tables(conn: &Connection) -> Result<()> {
             PRIMARY KEY (user_id, key),
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 
     // AgentFS Tool Calls - append-only audit trail for tool invocations
     // COMPLIANCE: AGENT-003 - INSERT only, no UPDATE/DELETE allowed
     // COMPLIANCE: AGENT-005 - No PII in input/output fields
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS agentfs_tool_calls (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id TEXT NOT NULL,
@@ -139,7 +140,6 @@ pub async fn initialize_agent_tables(conn: &Connection) -> Result<()> {
             duration_ms INTEGER NOT NULL,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 
@@ -152,7 +152,8 @@ pub async fn initialize_agent_tables(conn: &Connection) -> Result<()> {
 
     // DEPRECATED: Agent interactions - replaced by agentfs_tool_calls
     // Reason: agentfs_tool_calls provides structured tool-level audit trail
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS agent_interactions (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -163,13 +164,13 @@ pub async fn initialize_agent_tables(conn: &Connection) -> Result<()> {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 
     // DEPRECATED: Agent audit events - replaced by agentfs_tool_calls
     // Reason: agentfs_tool_calls includes policy_decision equivalent via error field
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS agent_audit_events (
             id TEXT PRIMARY KEY,
             agent_binding_id TEXT NOT NULL,
@@ -180,7 +181,6 @@ pub async fn initialize_agent_tables(conn: &Connection) -> Result<()> {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (agent_binding_id) REFERENCES agent_bindings (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 

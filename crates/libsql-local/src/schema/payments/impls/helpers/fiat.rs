@@ -6,7 +6,8 @@ use libsql::Connection;
 /// `stripe_plaid_payments`, and `virtual_accounts`.
 #[allow(clippy::too_many_lines)]
 pub async fn create_fiat_tables(conn: &Connection) -> Result<()> {
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS customers (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -26,12 +27,11 @@ pub async fn create_fiat_tables(conn: &Connection) -> Result<()> {
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
-        (),
-        // TAG: surface=database
     )
     .await?;
 
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS funding_sources (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -54,9 +54,7 @@ pub async fn create_fiat_tables(conn: &Connection) -> Result<()> {
             FOREIGN KEY (customer_id) REFERENCES customers (id) ON DELETE CASCADE,
             FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE SET NULL
         )",
-        (),
     )
-            // TAG: surface=database owner=data-team rule=DB-001
     .await?;
 
     conn.execute(
@@ -90,7 +88,8 @@ pub async fn create_fiat_tables(conn: &Connection) -> Result<()> {
     )
     .await?;
 
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS stripe_plaid_payments (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -112,12 +111,12 @@ pub async fn create_fiat_tables(conn: &Connection) -> Result<()> {
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 
     // TAG: surface=database owner=platform-team rule=DB-001
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS virtual_accounts (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -135,7 +134,6 @@ pub async fn create_fiat_tables(conn: &Connection) -> Result<()> {
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
             FOREIGN KEY (customer_id) REFERENCES customers (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 
@@ -143,8 +141,7 @@ pub async fn create_fiat_tables(conn: &Connection) -> Result<()> {
     // Must exist in per-user cloud databases: the browser vault lane pushes
     // this table and has no fallback when the table is missing. Definition
     // mirrors the client-side self-heal CREATE in libsql-browser-indexeddb.js.
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS payment_methods (
+    freshcredit_libsql_common::schema::ensure_table_ddl(conn, "CREATE TABLE IF NOT EXISTS payment_methods (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
             method_ref TEXT UNIQUE NOT NULL,
@@ -166,10 +163,7 @@ pub async fn create_fiat_tables(conn: &Connection) -> Result<()> {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
-        )",
-        (),
-    )
-    .await?;
+        )").await?;
 
     Ok(())
 }

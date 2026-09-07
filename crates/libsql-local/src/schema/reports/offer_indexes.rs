@@ -58,7 +58,8 @@ pub async fn initialize_offer_analytics_indexes(conn: &Connection) -> Result<()>
 /// Stores NOMT/Substrate proofs for offline verification via smoldot
 /// COMPLIANCE: §1 - `blockchain_proofs` is browser-side for offline verification
 pub(crate) async fn initialize_blockchain_proofs_table(conn: &Connection) -> Result<()> {
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS blockchain_proofs (
             id TEXT PRIMARY KEY,
             hash TEXT NOT NULL UNIQUE,
@@ -79,7 +80,6 @@ pub(crate) async fn initialize_blockchain_proofs_table(conn: &Connection) -> Res
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 

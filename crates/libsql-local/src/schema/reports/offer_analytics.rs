@@ -8,7 +8,8 @@ use libsql::Connection;
 /// Returns an error if the operation fails.
 pub async fn initialize_offer_analytics_tables(conn: &Connection) -> Result<()> {
     // Daily offer analytics metrics
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS offer_analytics (
             id TEXT PRIMARY KEY,
             offer_id TEXT NOT NULL,
@@ -27,12 +28,12 @@ pub async fn initialize_offer_analytics_tables(conn: &Connection) -> Result<()> 
             FOREIGN KEY (offer_id) REFERENCES provider_offers (id) ON DELETE CASCADE,
             UNIQUE (offer_id, date)
         )",
-        (),
     )
     .await?;
 
     // A/B test results for offer variants
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS offer_ab_test_results (
             id TEXT PRIMARY KEY,
             offer_id TEXT NOT NULL,
@@ -49,12 +50,12 @@ pub async fn initialize_offer_analytics_tables(conn: &Connection) -> Result<()> 
             updated_at TEXT NOT NULL DEFAULT (datetime('now')),
             FOREIGN KEY (offer_id) REFERENCES provider_offers (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 
     // Offer lifecycle events for conversion tracking
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS offer_events (
             id TEXT PRIMARY KEY,
             offer_id TEXT NOT NULL,
@@ -65,7 +66,6 @@ pub async fn initialize_offer_analytics_tables(conn: &Connection) -> Result<()> 
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
             FOREIGN KEY (offer_id) REFERENCES provider_offers (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 

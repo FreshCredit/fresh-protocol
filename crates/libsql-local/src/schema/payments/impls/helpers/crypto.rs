@@ -9,7 +9,8 @@ pub async fn create_crypto_tables(conn: &Connection) -> Result<()> {
     // Crypto wallet connections (WalletConnect / Circle Wallets)
     // COMPLIANCE: §1 - This stores REFERENCES to external wallets only
     // FreshCredit never holds custody - wallets are controlled by users or Circle
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS crypto_wallets (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -37,7 +38,6 @@ pub async fn create_crypto_tables(conn: &Connection) -> Result<()> {
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 
@@ -56,7 +56,8 @@ pub async fn create_crypto_tables(conn: &Connection) -> Result<()> {
     // TAG: surface=database owner=platform-team rule=DB-001
     // Crypto payment transactions with Arc settlement
     // COMPLIANCE: §1 - Payments via external wallets, receipts on Arc
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS crypto_payments (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -94,7 +95,6 @@ pub async fn create_crypto_tables(conn: &Connection) -> Result<()> {
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
             FOREIGN KEY (wallet_id) REFERENCES crypto_wallets (id) ON DELETE SET NULL
         )",
-        (),
     )
     .await?;
 

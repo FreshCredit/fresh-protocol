@@ -1,6 +1,7 @@
 use anyhow::Result;
-use std::sync::{Arc, Mutex};
-use tracing::{info, warn};
+use freshcredit_libsql_common::ReconnectingConnection;
+use std::sync::Arc;
+use tracing::info;
 
 // TAG: surface=database owner=platform-team rule=DB-001
 /// Local `LibSQL` database client
@@ -10,12 +11,7 @@ use tracing::{info, warn};
 /// transient Hrana stream errors (e.g. idle timeout on remote Turso).
 #[derive(Debug)]
 pub struct LocalClient {
-    connection: Mutex<libsql::Connection>,
-    /// Parent database used to recreate a connection if the Hrana stream is lost.
-    /// `None` for clients created from a file path, where reconnection is not
-    /// meaningful (local `SQLite` connections do not suffer from remote stream
-    /// timeouts).
-    database: Option<Arc<libsql::Database>>,
+    connection: ReconnectingConnection,
 }
 
 impl LocalClient {
@@ -31,8 +27,10 @@ impl LocalClient {
         let connection = db.connect()?;
 
         Ok(Self {
-            connection: Mutex::new(connection),
-            database: None,
+            // File-backed clients carry no parent database: reconnection is
+            // not meaningful (local `SQLite` connections do not suffer from
+            // remote stream timeouts).
+            connection: ReconnectingConnection::new(None, connection),
         })
     }
 
@@ -45,10 +43,8 @@ impl LocalClient {
     ///
     /// Returns an error if the operation fails.
     pub fn from_database(db: Arc<libsql::Database>) -> Result<Self> {
-        let connection = db.connect()?;
         Ok(Self {
-            connection: Mutex::new(connection),
-            database: Some(db),
+            connection: ReconnectingConnection::connect(db)?,
         })
     }
 
@@ -66,8 +62,7 @@ impl LocalClient {
         let db = libsql::Builder::new_local(":memory:").build().await?;
         let connection = db.connect()?;
         Ok(Self {
-            connection: Mutex::new(connection),
-            database: None,
+            connection: ReconnectingConnection::new(None, connection),
         })
     }
 
@@ -79,22 +74,7 @@ impl LocalClient {
     /// single cached connection.
     #[must_use]
     pub fn connection(&self) -> libsql::Connection {
-        if let Some(db) = self.database.as_ref() {
-            if let Ok(fresh) = db.connect() {
-                {
-                    let mut guard = self
-                        .connection
-                        .lock()
-                        .unwrap_or_else(std::sync::PoisonError::into_inner);
-                    *guard = fresh.clone();
-                }
-                return fresh;
-            }
-        }
-        self.connection
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .clone()
+        self.connection.connection()
     }
 
     // TAG: surface=database owner=platform-team rule=DB-001
@@ -132,22 +112,10 @@ impl LocalClient {
     ///
     /// Returns an error if the operation fails.
     pub async fn query(&self, sql: &str, params: Vec<libsql::Value>) -> Result<libsql::Rows> {
-        let conn = self.connection();
-        match conn.query(sql, params.clone()).await {
-            Ok(rows) => Ok(rows),
-            Err(e) if Self::is_reconnectable(&e) && self.database.is_some() => {
-                warn!(
-                    "Hrana stream lost on query; reconnecting LocalClient: {}",
-                    e
-                );
-                let new_conn = self.reconnect()?;
-                new_conn
-                    .query(sql, params)
-                    .await
-                    .map_err(|e| anyhow::anyhow!("{e}"))
-            }
-            Err(e) => Err(anyhow::anyhow!("{e}")),
-        }
+        self.connection
+            .query(sql, params)
+            .await
+            .map_err(|e| anyhow::anyhow!("{e}"))
     }
 
     /// Execute a raw SQL query and return the first row, if any.
@@ -164,37 +132,10 @@ impl LocalClient {
         sql: &str,
         params: Vec<libsql::Value>,
     ) -> Result<Option<libsql::Row>> {
-        let conn = self.connection();
-        match conn.query(sql, params.clone()).await {
-            Ok(mut rows) => {
-                match rows.next().await {
-                    Ok(row) => Ok(row),
-                    Err(e) if Self::is_reconnectable(&e) && self.database.is_some() => {
-                        warn!("Hrana stream lost on query_one row fetch; reconnecting LocalClient: {}", e);
-                        let new_conn = self.reconnect()?;
-                        let mut rows = new_conn
-                            .query(sql, params)
-                            .await
-                            .map_err(|e| anyhow::anyhow!("{e}"))?;
-                        rows.next().await.map_err(|e| anyhow::anyhow!("{e}"))
-                    }
-                    Err(e) => Err(anyhow::anyhow!("{e}")),
-                }
-            }
-            Err(e) if Self::is_reconnectable(&e) && self.database.is_some() => {
-                warn!(
-                    "Hrana stream lost on query_one; reconnecting LocalClient: {}",
-                    e
-                );
-                let new_conn = self.reconnect()?;
-                let mut rows = new_conn
-                    .query(sql, params)
-                    .await
-                    .map_err(|e| anyhow::anyhow!("{e}"))?;
-                rows.next().await.map_err(|e| anyhow::anyhow!("{e}"))
-            }
-            Err(e) => Err(anyhow::anyhow!("{e}")),
-        }
+        self.connection
+            .query_one(sql, params)
+            .await
+            .map_err(|e| anyhow::anyhow!("{e}"))
     }
 
     /// Execute a raw SQL query and return all rows.
@@ -210,35 +151,10 @@ impl LocalClient {
         sql: &str,
         params: Vec<libsql::Value>,
     ) -> Result<Vec<libsql::Row>> {
-        let conn = self.connection();
-        match Self::collect_rows(&conn, sql, &params).await {
-            Ok(rows) => Ok(rows),
-            Err(e) if Self::is_reconnectable(&e) && self.database.is_some() => {
-                warn!(
-                    "Hrana stream lost on query_all; reconnecting LocalClient: {}",
-                    e
-                );
-                let new_conn = self.reconnect()?;
-                Self::collect_rows(&new_conn, sql, &params)
-                    .await
-                    .map_err(|e| anyhow::anyhow!("{e}"))
-            }
-            Err(e) => Err(anyhow::anyhow!("{e}")),
-        }
-    }
-
-    /// Collect all rows from a query into a vector.
-    async fn collect_rows(
-        conn: &libsql::Connection,
-        sql: &str,
-        params: &[libsql::Value],
-    ) -> std::result::Result<Vec<libsql::Row>, libsql::Error> {
-        let mut rows = conn.query(sql, params.to_vec()).await?;
-        let mut out = Vec::new();
-        while let Some(row) = rows.next().await? {
-            out.push(row);
-        }
-        Ok(out)
+        self.connection
+            .query_all(sql, params)
+            .await
+            .map_err(|e| anyhow::anyhow!("{e}"))
     }
 
     /// Execute a raw SQL statement and return affected rows count.
@@ -249,47 +165,9 @@ impl LocalClient {
     ///
     /// Returns an error if the operation fails.
     pub async fn execute(&self, sql: &str, params: Vec<libsql::Value>) -> Result<u64> {
-        let conn = self.connection();
-        match conn.execute(sql, params.clone()).await {
-            Ok(rows) => Ok(rows),
-            Err(e) if Self::is_reconnectable(&e) && self.database.is_some() => {
-                warn!(
-                    "Hrana stream lost on execute; reconnecting LocalClient: {}",
-                    e
-                );
-                let new_conn = self.reconnect()?;
-                new_conn
-                    .execute(sql, params)
-                    .await
-                    .map_err(|e| anyhow::anyhow!("{e}"))
-            }
-            Err(e) => Err(anyhow::anyhow!("{e}")),
-        }
-    }
-
-    /// Recreate the underlying connection from the parent database.
-    ///
-    /// Updates the stored connection so future operations use the new stream.
-    fn reconnect(&self) -> Result<libsql::Connection> {
-        let db = self
-            .database
-            .as_ref()
-            .ok_or_else(|| anyhow::anyhow!("No parent database available to reconnect"))?;
-        let new_conn = db.connect()?;
-        {
-            let mut guard = self
-                .connection
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner);
-            *guard = new_conn.clone();
-        }
-        Ok(new_conn)
-    }
-
-    /// Detect transient Hrana stream errors that are safe to retry after a
-    /// reconnect.
-    fn is_reconnectable(e: &libsql::Error) -> bool {
-        let msg = e.to_string().to_lowercase();
-        msg.contains("stream not found") || msg.contains("stream closed") || msg.contains("hrana")
+        self.connection
+            .execute(sql, params)
+            .await
+            .map_err(|e| anyhow::anyhow!("{e}"))
     }
 }

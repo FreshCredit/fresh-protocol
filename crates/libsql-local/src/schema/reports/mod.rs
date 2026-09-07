@@ -40,7 +40,8 @@ pub async fn initialize_reports_tables(conn: &Connection) -> Result<()> {
     // DB ownership: local per-user DB carries the rich report shape; the
     // shared DB defines a minimal same-named `reports` table
     // (schema_manager/tables/impls/core.rs) — different tables, same name.
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS reports (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -58,12 +59,12 @@ pub async fn initialize_reports_tables(conn: &Connection) -> Result<()> {
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 
     // NOTE: FreshCredit does NOT generate scores - providers define their own models
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS scores (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -82,16 +83,15 @@ pub async fn initialize_reports_tables(conn: &Connection) -> Result<()> {
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
-        (),
     )
-        // TAG: surface=database owner=data-team rule=DB-001
     .await?;
 
     // NOTE: FreshCredit matches offers, does not recommend them
     // DB ownership: local per-user DB matched-offer view; the shared DB
     // owns the offer lifecycle table of the same name
     // (schema_manager/tables/impls/consumer_activity.rs).
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS offers (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -121,12 +121,12 @@ pub async fn initialize_reports_tables(conn: &Connection) -> Result<()> {
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 
     // Browser-facing scoring models table (mirrors IndexedDB fallback schema)
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS models (
             id TEXT PRIMARY KEY,
             user_id TEXT,
@@ -140,7 +140,6 @@ pub async fn initialize_reports_tables(conn: &Connection) -> Result<()> {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )",
-        (),
     )
     .await?;
 

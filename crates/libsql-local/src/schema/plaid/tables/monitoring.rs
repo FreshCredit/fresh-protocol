@@ -8,7 +8,8 @@ use libsql::Connection;
 /// Returns an error if the operation fails.
 #[allow(clippy::too_many_lines)]
 pub async fn initialize_plaid_monitoring_tables(conn: &Connection) -> Result<()> {
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS monitor (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -24,12 +25,12 @@ pub async fn initialize_plaid_monitoring_tables(conn: &Connection) -> Result<()>
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 
     // TAG: surface=database
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS recurring_transactions (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -57,11 +58,11 @@ pub async fn initialize_plaid_monitoring_tables(conn: &Connection) -> Result<()>
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
             FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS signal_evaluations (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -81,11 +82,11 @@ pub async fn initialize_plaid_monitoring_tables(conn: &Connection) -> Result<()>
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
             FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS statements (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -103,12 +104,12 @@ pub async fn initialize_plaid_monitoring_tables(conn: &Connection) -> Result<()>
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
             FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 
     // TAG: surface=database owner=platform-team rule=DB-001
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS transactions_sync (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -125,7 +126,6 @@ pub async fn initialize_plaid_monitoring_tables(conn: &Connection) -> Result<()>
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 

@@ -10,10 +10,9 @@ impl CloudClient {
             .build()
             .await
             .expect("Failed to build test database");
-        let connection = db.connect().expect("Failed to connect to test database");
         Self {
-            connection: Mutex::new(connection),
-            database: Arc::new(db),
+            connection: freshcredit_libsql_common::ReconnectingConnection::connect(Arc::new(db))
+                .expect("Failed to connect to test database"),
         }
     }
 }

@@ -47,7 +47,8 @@ async fn create_user_profile_table(conn: &Connection) -> Result<()> {
     // P0g: Added provider_onboarding_complete for §28.1 nav visibility
     // ARCH-P2-001: Added phone_number, preferred_name, emergency_contact_name,
     //              emergency_contact_phone, employer_name for web schema alignment
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS user_profile (
             id TEXT PRIMARY KEY,
             platform_user_id TEXT NOT NULL DEFAULT '',
@@ -93,7 +94,6 @@ async fn create_user_profile_table(conn: &Connection) -> Result<()> {
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT DEFAULT CURRENT_TIMESTAMP
         )",
-        (),
     )
     .await?;
     Ok(())
@@ -104,7 +104,8 @@ async fn create_user_profile_table(conn: &Connection) -> Result<()> {
 async fn create_user_identities_table(conn: &Connection) -> Result<()> {
     // Linked sign-in identities (see schema_manager core.rs): provider subject ->
     // owning profile, enabling verified-email account linking across providers.
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS user_identities (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -116,7 +117,6 @@ async fn create_user_identities_table(conn: &Connection) -> Result<()> {
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(provider, subject)
         )",
-        (),
     )
     .await?;
     let _ = conn
@@ -131,18 +131,10 @@ async fn create_user_identities_table(conn: &Connection) -> Result<()> {
             (),
         )
         .await;
-    // Existing databases: add the primary sign-in flag and backfill the
-    // earliest identity per user (mirrors
-    // migrations/2026-07-12-user-identities-primary.sql). Both statements are
-    // idempotent: the ALTER errors out harmlessly once the column exists, and
-    // the backfill skips users that already have a primary row.
-    add_column_if_not_exists(
-        conn,
-        "user_identities",
-        "is_primary",
-        "BOOLEAN DEFAULT FALSE",
-    )
-    .await?;
+    // Existing databases: the is_primary flag is ensured by ensure_table_ddl
+    // above; backfill the earliest identity per user (mirrors
+    // migrations/2026-07-12-user-identities-primary.sql). The backfill is
+    // idempotent: it skips users that already have a primary row.
     let _ = conn
         .execute(
             "UPDATE user_identities SET is_primary = TRUE WHERE rowid IN (\
@@ -241,7 +233,8 @@ async fn create_user_preferences_schema(conn: &Connection) -> Result<()> {
     // TAG: surface=database owner=platform-team rule=DB-001
     // Create user_preferences table (matches production Turso schema)
     // P0g: Includes onboarding dismissal fields for §27.3 onboarding flow rules
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS user_preferences (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL UNIQUE,
@@ -268,7 +261,6 @@ async fn create_user_preferences_schema(conn: &Connection) -> Result<()> {
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 
@@ -347,7 +339,8 @@ async fn create_user_preferences_schema(conn: &Connection) -> Result<()> {
 /// (`user_id`/`key_name`) schema.
 async fn create_api_keys_table(conn: &Connection) -> Result<()> {
     // Create api_keys table for API key management
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS api_keys (
             id TEXT PRIMARY KEY,
             user_email TEXT NOT NULL,
@@ -367,7 +360,6 @@ async fn create_api_keys_table(conn: &Connection) -> Result<()> {
             service TEXT,
             environment TEXT
         )",
-        (),
     )
     .await?;
 
@@ -499,7 +491,8 @@ async fn migrate_api_keys_columns(conn: &Connection) -> Result<()> {
 /// Creates `webauthn_credentials` and `kilt_dids`.
 async fn create_webauthn_and_kilt_schema(conn: &Connection) -> Result<()> {
     // Create webauthn_credentials table for FIDO2/passkey biometric authentication
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS webauthn_credentials (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -517,13 +510,13 @@ async fn create_webauthn_and_kilt_schema(conn: &Connection) -> Result<()> {
             last_used_at DATETIME,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 
     // TAG: surface=database owner=platform-team rule=DB-001
     // Create kilt_dids table for KILT Protocol DID storage
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS kilt_dids (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             did_uri TEXT NOT NULL UNIQUE,
@@ -534,7 +527,6 @@ async fn create_webauthn_and_kilt_schema(conn: &Connection) -> Result<()> {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )",
-        (),
     )
     .await?;
 
@@ -548,7 +540,8 @@ async fn create_integration_tables(conn: &Connection) -> Result<()> {
     // White-labeled consumer credit enrollment state (per-user; mirrors
     // migration 004_revery_consumers; consumer token AES-256-GCM encrypted,
     // no SSN or full reports ever persisted)
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS revery_consumers (
             user_id TEXT PRIMARY KEY,
             revery_consumer_id TEXT,
@@ -559,14 +552,14 @@ async fn create_integration_tables(conn: &Connection) -> Result<()> {
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
             updated_at TEXT NOT NULL DEFAULT (datetime('now'))
         )",
-        (),
     )
     .await?;
 
     // Verified ID presentation/verification sessions (mirrors migration
     // 005_verified_id_verifications; correlated by `state`, outcome written
     // by the asynchronous Microsoft Request Service callback)
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS verified_id_verifications (
             id TEXT PRIMARY KEY,
             state TEXT UNIQUE NOT NULL,
@@ -579,13 +572,13 @@ async fn create_integration_tables(conn: &Connection) -> Result<()> {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             expires_at DATETIME
         )",
-        (),
     )
     .await?;
 
     // Plaid-linked items: one row per institution so users can connect
     // multiple banks. The access token is encrypted at rest.
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS plaid_items (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id TEXT NOT NULL,
@@ -598,7 +591,6 @@ async fn create_integration_tables(conn: &Connection) -> Result<()> {
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
             updated_at TEXT NOT NULL DEFAULT (datetime('now'))
         )",
-        (),
     )
     .await?;
     let _ = conn
@@ -619,7 +611,8 @@ async fn create_integration_tables(conn: &Connection) -> Result<()> {
     // impls/core.rs): the server upserts it on every connect/disconnect and
     // mirrors each write into the per-user vault (vault-as-source-of-truth,
     // phase 2), from which the browser syncs.
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS user_connections (
             user_id TEXT NOT NULL,
             connection_id TEXT NOT NULL,
@@ -627,7 +620,6 @@ async fn create_integration_tables(conn: &Connection) -> Result<()> {
             connected_at TEXT,
             PRIMARY KEY (user_id, connection_id)
         )",
-        (),
     )
     .await?;
     Ok(())
@@ -639,7 +631,8 @@ async fn create_vault_sync_tables(conn: &Connection) -> Result<()> {
     // table (schema_manager impls/core.rs): finalized approved staged rows
     // are written here so the browser vault sync can read them locally and
     // report generation can count them as vault-backed data.
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS approved_data (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -649,7 +642,6 @@ async fn create_vault_sync_tables(conn: &Connection) -> Result<()> {
             hash_prefix TEXT NOT NULL,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )",
-        (),
     )
     .await?;
     let _ = conn
@@ -664,7 +656,8 @@ async fn create_vault_sync_tables(conn: &Connection) -> Result<()> {
     // replays it in both directions. Mirrors the browser OPFS schema in
     // apps/app/static/js/libsql-browser-opfs.js. No user_id column: this is
     // a per-user database.
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS sync_deletions (
             id TEXT PRIMARY KEY,
             table_name TEXT NOT NULL,
@@ -672,7 +665,6 @@ async fn create_vault_sync_tables(conn: &Connection) -> Result<()> {
             deleted_at TEXT NOT NULL DEFAULT (datetime('now')),
             UNIQUE(table_name, row_id)
         )",
-        (),
     )
     .await?;
     let _ = conn

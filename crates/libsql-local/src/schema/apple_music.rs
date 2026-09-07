@@ -22,7 +22,8 @@ use tracing::info;
 #[allow(clippy::too_many_lines)]
 pub async fn initialize_apple_music_tables(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing apple_music tables");
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS apple_music_profiles (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL REFERENCES user_profile(id),
@@ -38,7 +39,6 @@ pub async fn initialize_apple_music_tables(conn: &Connection) -> Result<()> {
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )",
-        (),
     )
     .await?;
 
@@ -67,7 +67,8 @@ pub async fn initialize_apple_music_tables(conn: &Connection) -> Result<()> {
     )
     .await?;
 
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS apple_music_library_albums (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL REFERENCES user_profile(id),
@@ -84,12 +85,12 @@ pub async fn initialize_apple_music_tables(conn: &Connection) -> Result<()> {
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )",
-        (),
     )
     .await?;
 
     // TAG: surface=database owner=platform-team rule=DB-001
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS apple_music_playlists (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL REFERENCES user_profile(id),
@@ -106,11 +107,11 @@ pub async fn initialize_apple_music_tables(conn: &Connection) -> Result<()> {
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )",
-        (),
     )
     .await?;
 
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS apple_music_recently_played (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL REFERENCES user_profile(id),
@@ -125,12 +126,12 @@ pub async fn initialize_apple_music_tables(conn: &Connection) -> Result<()> {
             raw_play_data TEXT,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )",
-        (),
     )
     .await?;
 
     // TAG: surface=database owner=platform-team rule=DB-001
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS apple_music_genre_stats (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL REFERENCES user_profile(id),
@@ -144,7 +145,6 @@ pub async fn initialize_apple_music_tables(conn: &Connection) -> Result<()> {
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )",
-        (),
     )
     .await?;
 

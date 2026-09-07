@@ -7,7 +7,8 @@ use libsql::Connection;
 ///
 /// Returns an error if the operation fails.
 pub async fn initialize_plaid_income_tables(conn: &Connection) -> Result<()> {
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS enrich (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -29,11 +30,11 @@ pub async fn initialize_plaid_income_tables(conn: &Connection) -> Result<()> {
             FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE,
             FOREIGN KEY (transaction_id) REFERENCES transactions (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS income (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -48,12 +49,12 @@ pub async fn initialize_plaid_income_tables(conn: &Connection) -> Result<()> {
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 
     // TAG: surface=database owner=platform-team rule=DB-001
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS income_verification (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -73,7 +74,6 @@ pub async fn initialize_plaid_income_tables(conn: &Connection) -> Result<()> {
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 

@@ -8,9 +8,10 @@
 #![forbid(unsafe_code)]
 
 use anyhow::Result;
+use freshcredit_libsql_common::ReconnectingConnection;
 use freshcredit_types::{Account, FinancialReport, FreshCreditResult, Transaction, UserId};
-use std::sync::{Arc, Mutex};
-use tracing::{info, warn};
+use std::sync::Arc;
+use tracing::info;
 
 /// Build a `Vec<libsql::Value>` from heterogeneous parameter expressions.
 ///
@@ -32,8 +33,7 @@ macro_rules! cloud_params {
 /// errors (e.g. idle timeout on remote Turso).
 #[derive(Debug)]
 pub struct CloudClient {
-    connection: Mutex<libsql::Connection>,
-    database: Arc<libsql::Database>,
+    connection: ReconnectingConnection,
 }
 
 // TAG: surface=database owner=platform-team rule=DB-001
@@ -48,76 +48,36 @@ impl CloudClient {
         let db = libsql::Builder::new_remote(database_url.to_string(), auth_token.to_string())
             .build()
             .await?;
-        let connection = db.connect()?;
 
         Ok(Self {
-            connection: Mutex::new(connection),
-            database: Arc::new(db),
+            connection: ReconnectingConnection::connect(Arc::new(db))?,
         })
     }
 
     /// Get a clone of the current connection.
     #[must_use]
     fn connection(&self) -> libsql::Connection {
-        self.connection
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .clone()
+        self.connection.connection()
     }
 
     /// Execute a raw SQL query and return rows.
     ///
     /// Retries once on Hrana stream errors after reconnecting.
     async fn query(&self, sql: &str, params: Vec<libsql::Value>) -> Result<libsql::Rows> {
-        let conn = self.connection();
-        match conn.query(sql, params.clone()).await {
-            Ok(rows) => Ok(rows),
-            Err(e) if Self::is_reconnectable(&e) => {
-                warn!("Hrana stream lost on cloud query; reconnecting: {}", e);
-                let new_conn = self.reconnect()?;
-                new_conn
-                    .query(sql, params)
-                    .await
-                    .map_err(|e| anyhow::anyhow!("{e}"))
-            }
-            Err(e) => Err(anyhow::anyhow!("{e}")),
-        }
+        self.connection
+            .query(sql, params)
+            .await
+            .map_err(|e| anyhow::anyhow!("{e}"))
     }
 
     /// Execute a raw SQL statement and return affected rows count.
     ///
     /// Retries once on Hrana stream errors after reconnecting.
     async fn execute(&self, sql: &str, params: Vec<libsql::Value>) -> Result<u64> {
-        let conn = self.connection();
-        match conn.execute(sql, params.clone()).await {
-            Ok(rows) => Ok(rows),
-            Err(e) if Self::is_reconnectable(&e) => {
-                warn!("Hrana stream lost on cloud execute; reconnecting: {}", e);
-                let new_conn = self.reconnect()?;
-                new_conn
-                    .execute(sql, params)
-                    .await
-                    .map_err(|e| anyhow::anyhow!("{e}"))
-            }
-            Err(e) => Err(anyhow::anyhow!("{e}")),
-        }
-    }
-
-    /// Recreate the underlying connection from the parent database.
-    fn reconnect(&self) -> Result<libsql::Connection> {
-        let new_conn = self.database.connect()?;
-        *self
-            .connection
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner) = new_conn.clone();
-        Ok(new_conn)
-    }
-
-    /// Detect transient Hrana stream errors that are safe to retry after a
-    /// reconnect.
-    fn is_reconnectable(e: &libsql::Error) -> bool {
-        let msg = e.to_string().to_lowercase();
-        msg.contains("stream not found") || msg.contains("stream closed") || msg.contains("hrana")
+        self.connection
+            .execute(sql, params)
+            .await
+            .map_err(|e| anyhow::anyhow!("{e}"))
     }
 
     /// Initialize cloud database schema using unified schema

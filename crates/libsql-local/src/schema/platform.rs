@@ -20,7 +20,8 @@ use tracing::info;
 pub async fn initialize_platform_tables(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing platform tables");
     // Data approval hashes for blockchain anchoring
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS data_approval_hashes (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -38,7 +39,6 @@ pub async fn initialize_platform_tables(conn: &Connection) -> Result<()> {
             anchored_at DATETIME,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 
@@ -53,7 +53,8 @@ pub async fn initialize_platform_tables(conn: &Connection) -> Result<()> {
 
     // TAG: surface=database owner=platform-team rule=DB-001
     // Referrals for rewards program
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS referrals (
             id TEXT PRIMARY KEY,
             referrer_user_id TEXT NOT NULL,
@@ -65,12 +66,12 @@ pub async fn initialize_platform_tables(conn: &Connection) -> Result<()> {
             converted_at DATETIME,
             FOREIGN KEY (referrer_user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 
     // Platform metrics for internal dashboard
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS platform_metrics (
             id TEXT PRIMARY KEY,
             metric_date DATE NOT NULL,
@@ -83,13 +84,13 @@ pub async fn initialize_platform_tables(conn: &Connection) -> Result<()> {
             revenue_cents INTEGER DEFAULT 0,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )",
-        (),
     )
     .await?;
 
     // TAG: surface=database owner=platform-team rule=DB-001
     // Sales pipeline from HubSpot
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS sales_pipeline (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -105,7 +106,6 @@ pub async fn initialize_platform_tables(conn: &Connection) -> Result<()> {
             closed_at DATETIME,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 

@@ -41,7 +41,8 @@ pub async fn initialize_ai_tables(conn: &Connection) -> Result<()> {
 }
 
 async fn create_uploaded_files_table(conn: &Connection) -> Result<()> {
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS uploaded_files (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -63,14 +64,14 @@ async fn create_uploaded_files_table(conn: &Connection) -> Result<()> {
             expires_at DATETIME,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
     Ok(())
 }
 
 async fn create_ai_conversations_table(conn: &Connection) -> Result<()> {
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS ai_conversations (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -81,7 +82,6 @@ async fn create_ai_conversations_table(conn: &Connection) -> Result<()> {
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
     Ok(())
@@ -89,7 +89,8 @@ async fn create_ai_conversations_table(conn: &Connection) -> Result<()> {
 
 // TAG: surface=database owner=platform-team rule=DB-001
 async fn create_ai_messages_table(conn: &Connection) -> Result<()> {
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS ai_messages (
             id TEXT PRIMARY KEY,
             conversation_id TEXT NOT NULL,
@@ -101,14 +102,14 @@ async fn create_ai_messages_table(conn: &Connection) -> Result<()> {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (conversation_id) REFERENCES ai_conversations(id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
     Ok(())
 }
 
 async fn create_ai_usage_metrics_table(conn: &Connection) -> Result<()> {
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS ai_usage_metrics (
             id TEXT PRIMARY KEY,
             user_id TEXT,
@@ -126,7 +127,6 @@ async fn create_ai_usage_metrics_table(conn: &Connection) -> Result<()> {
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
     Ok(())
@@ -134,7 +134,8 @@ async fn create_ai_usage_metrics_table(conn: &Connection) -> Result<()> {
 
 // TAG: surface=database owner=platform-team rule=DB-001
 async fn create_ai_request_logs_table(conn: &Connection) -> Result<()> {
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS ai_request_logs (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -151,14 +152,14 @@ async fn create_ai_request_logs_table(conn: &Connection) -> Result<()> {
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
             FOREIGN KEY (conversation_id) REFERENCES ai_conversations (id) ON DELETE SET NULL
         )",
-        (),
     )
     .await?;
     Ok(())
 }
 
 async fn create_ai_feedback_table(conn: &Connection) -> Result<()> {
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS ai_feedback (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -174,14 +175,14 @@ async fn create_ai_feedback_table(conn: &Connection) -> Result<()> {
             FOREIGN KEY (conversation_id) REFERENCES ai_conversations (id) ON DELETE SET NULL,
             FOREIGN KEY (message_id) REFERENCES ai_messages (id) ON DELETE SET NULL
         )",
-        (),
     )
     .await?;
     Ok(())
 }
 
 async fn create_ai_model_configs_table(conn: &Connection) -> Result<()> {
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS ai_model_configs (
             id TEXT PRIMARY KEY,
             user_id TEXT,
@@ -199,7 +200,6 @@ async fn create_ai_model_configs_table(conn: &Connection) -> Result<()> {
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
     Ok(())

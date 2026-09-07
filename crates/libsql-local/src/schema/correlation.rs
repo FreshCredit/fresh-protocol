@@ -18,7 +18,8 @@ use tracing::info;
 /// Returns an error if the operation fails.
 pub async fn initialize_correlation_tables(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing correlation tables");
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS correlation_preferences (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL REFERENCES user_profile(id),
@@ -30,11 +31,11 @@ pub async fn initialize_correlation_tables(conn: &Connection) -> Result<()> {
             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(user_id, source_type)
         )",
-        (),
     )
     .await?;
 
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS correlation_insights (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL REFERENCES user_profile(id),
@@ -48,12 +49,12 @@ pub async fn initialize_correlation_tables(conn: &Connection) -> Result<()> {
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             expires_at TEXT
         )",
-        (),
     )
     .await?;
 
     // TAG: surface=database owner=platform-team rule=DB-001
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS correlation_metrics (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL REFERENCES user_profile(id),
@@ -65,7 +66,6 @@ pub async fn initialize_correlation_tables(conn: &Connection) -> Result<()> {
             sources TEXT NOT NULL,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )",
-        (),
     )
     .await?;
 

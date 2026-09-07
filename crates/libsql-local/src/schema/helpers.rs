@@ -8,6 +8,10 @@ use libsql::Connection;
 /// streams on Turso cloud, which in turn aborts in-flight requests such as
 /// the AI assistant chat loop.
 ///
+/// Thin wrapper over the shared idempotent migration helper
+/// ([`freshcredit_libsql_common::schema::ensure_columns`]) so every per-user
+/// vault/staging schema repair goes through one implementation.
+///
 /// # Errors
 ///
 /// Returns an error if the operation fails.
@@ -17,22 +21,14 @@ pub async fn add_column_if_not_exists(
     column: &str,
     def: &str,
 ) -> Result<()> {
-    let mut rows = conn
-        .query(
-            "SELECT 1 FROM pragma_table_info(?) WHERE name = ?",
-            libsql::params![table, column],
-        )
-        .await?;
-
-    if rows.next().await?.is_none() {
-        let sql = format!("ALTER TABLE {table} ADD COLUMN {column} {def}");
-        conn.execute(&sql, ()).await?;
-        tracing::info!("Added column {table}.{column}");
-    } else {
-        tracing::debug!("Column {table}.{column} already exists");
-    }
-
-    Ok(())
+    freshcredit_libsql_common::schema::ensure_columns(
+        conn,
+        table,
+        &[freshcredit_libsql_common::schema::ColumnSpec::new(
+            column, def,
+        )],
+    )
+    .await
 }
 
 /// Helper to try creating an index, ignoring "no such column" errors

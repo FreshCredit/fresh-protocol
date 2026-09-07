@@ -30,8 +30,7 @@ use tracing::info;
 /// Returns an error if the operation fails.
 pub async fn initialize_publication_records_table(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing publications tables");
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS publication_records (
+    freshcredit_libsql_common::schema::ensure_table_ddl(conn, "CREATE TABLE IF NOT EXISTS publication_records (
             id TEXT PRIMARY KEY,
             publication_type TEXT NOT NULL CHECK(publication_type IN ('paper', 'dataset', 'chapter', 'preprint', 'thesis', 'book', 'conference')),
             -- Primary identifiers
@@ -60,10 +59,7 @@ pub async fn initialize_publication_records_table(conn: &Connection) -> Result<(
             last_fetched_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )",
-        (),
-    )
-    .await?;
+        )").await?;
 
     try_create_index(
         conn,
@@ -83,8 +79,7 @@ pub async fn initialize_publication_records_table(conn: &Connection) -> Result<(
 /// Returns an error if the operation fails.
 pub async fn initialize_publication_claims_table(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing publications tables");
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS publication_claims (
+    freshcredit_libsql_common::schema::ensure_table_ddl(conn, "CREATE TABLE IF NOT EXISTS publication_claims (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
             publication_record_id TEXT NOT NULL,
@@ -103,10 +98,7 @@ pub async fn initialize_publication_claims_table(conn: &Connection) -> Result<()
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
             FOREIGN KEY (publication_record_id) REFERENCES publication_records (id),
             UNIQUE(user_id, publication_record_id, claim_type)
-        )",
-        (),
-    )
-    .await?;
+        )").await?;
 
     try_create_index(
         conn,
@@ -130,7 +122,8 @@ pub async fn initialize_publication_claims_table(conn: &Connection) -> Result<()
 /// Returns an error if the operation fails.
 pub async fn initialize_orcid_connections_table(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing publications tables");
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS orcid_connections (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL UNIQUE,
@@ -152,7 +145,6 @@ pub async fn initialize_orcid_connections_table(conn: &Connection) -> Result<()>
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 
@@ -172,7 +164,8 @@ pub async fn initialize_orcid_connections_table(conn: &Connection) -> Result<()>
 ///
 /// Returns an error if the operation fails.
 pub async fn initialize_publication_evidence_table(conn: &Connection) -> Result<()> {
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS publication_evidence (
             id TEXT PRIMARY KEY,
             claim_id TEXT NOT NULL,
@@ -187,7 +180,6 @@ pub async fn initialize_publication_evidence_table(conn: &Connection) -> Result<
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (claim_id) REFERENCES publication_claims (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 
@@ -202,7 +194,8 @@ pub async fn initialize_publication_evidence_table(conn: &Connection) -> Result<
 ///
 /// Returns an error if the operation fails.
 pub async fn initialize_publication_events_table(conn: &Connection) -> Result<()> {
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS publication_events (
             id TEXT PRIMARY KEY,
             claim_id TEXT,
@@ -214,7 +207,6 @@ pub async fn initialize_publication_events_table(conn: &Connection) -> Result<()
             actor_id TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )",
-        (),
     )
     .await?;
 
@@ -230,8 +222,7 @@ pub async fn initialize_publication_events_table(conn: &Connection) -> Result<()
 ///
 /// Returns an error if the operation fails.
 pub async fn initialize_publication_disputes_table(conn: &Connection) -> Result<()> {
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS publication_disputes (
+    freshcredit_libsql_common::schema::ensure_table_ddl(conn, "CREATE TABLE IF NOT EXISTS publication_disputes (
             id TEXT PRIMARY KEY,
             claim_id TEXT NOT NULL,
             dispute_type TEXT NOT NULL CHECK(dispute_type IN ('false_match', 'incorrect_data', 'authorship_challenge')),
@@ -241,10 +232,7 @@ pub async fn initialize_publication_disputes_table(conn: &Connection) -> Result<
             submitted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             resolved_at DATETIME,
             FOREIGN KEY (claim_id) REFERENCES publication_claims (id)
-        )",
-        (),
-    )
-    .await?;
+        )").await?;
 
     try_create_index(conn, "CREATE INDEX IF NOT EXISTS idx_publication_disputes_claim_id ON publication_disputes(claim_id)").await?;
 

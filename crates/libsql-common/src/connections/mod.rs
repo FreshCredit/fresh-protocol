@@ -7,12 +7,14 @@
 //! - `ReplicaConnection` requires the `embedded-replica` feature (opt-in)
 
 mod local;
+mod reconnecting;
 mod remote;
 
 #[cfg(feature = "embedded-replica")]
 mod replica;
 
 pub use local::LocalConnection;
+pub use reconnecting::{is_hrana_stream_error, ReconnectingConnection};
 pub use remote::RemoteConnection;
 
 #[cfg(feature = "embedded-replica")]

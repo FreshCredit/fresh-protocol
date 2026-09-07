@@ -22,7 +22,8 @@ use tracing::info;
 #[allow(clippy::too_many_lines)]
 pub async fn initialize_healthkit_tables(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing healthkit tables");
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS healthkit_profiles (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL UNIQUE,
@@ -37,12 +38,12 @@ pub async fn initialize_healthkit_tables(conn: &Connection) -> Result<()> {
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 
     // TAG: surface=database
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS healthkit_records (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -63,11 +64,11 @@ pub async fn initialize_healthkit_tables(conn: &Connection) -> Result<()> {
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
             FOREIGN KEY (healthkit_profile_id) REFERENCES healthkit_profiles (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS healthkit_workouts (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -92,11 +93,11 @@ pub async fn initialize_healthkit_tables(conn: &Connection) -> Result<()> {
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
             FOREIGN KEY (healthkit_profile_id) REFERENCES healthkit_profiles (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS healthkit_activity_summaries (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -117,11 +118,11 @@ pub async fn initialize_healthkit_tables(conn: &Connection) -> Result<()> {
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
             FOREIGN KEY (healthkit_profile_id) REFERENCES healthkit_profiles (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS healthkit_clinical_records (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -139,7 +140,6 @@ pub async fn initialize_healthkit_tables(conn: &Connection) -> Result<()> {
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
             FOREIGN KEY (healthkit_profile_id) REFERENCES healthkit_profiles (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 

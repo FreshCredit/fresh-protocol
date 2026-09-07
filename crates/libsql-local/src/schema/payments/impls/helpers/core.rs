@@ -9,8 +9,7 @@ pub async fn create_arc_tables(conn: &Connection) -> Result<()> {
     // Arc receipts - L1 settlement receipts on Circle Arc
     // COMPLIANCE: §1 - Arc is receipt layer, NOT payment processing
     // All receipts are gated by Substrate L0 verification (substrate_hash required)
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS arc_receipts (
+    freshcredit_libsql_common::schema::ensure_table_ddl(conn, "CREATE TABLE IF NOT EXISTS arc_receipts (
             id TEXT PRIMARY KEY,
             -- Receipt type: CONSENT_GRANTED, REPORT_ACCESSED, ESCROW_CREATED, SETTLEMENT_COMPLETED, REFUND_ISSUED
             receipt_type TEXT NOT NULL,
@@ -47,10 +46,7 @@ pub async fn create_arc_tables(conn: &Connection) -> Result<()> {
             written_at DATETIME,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE SET NULL
-        )",
-        (),
-    )
-    .await?;
+        )").await?;
 
     // Index for Arc receipt lookups (using defensive helper for cloud schema compatibility)
     try_create_index(
@@ -82,8 +78,7 @@ pub async fn create_arc_tables(conn: &Connection) -> Result<()> {
 pub async fn create_bridge_tables(conn: &Connection) -> Result<()> {
     // Bridge transfers - Circle Bridge Kit cross-chain USDC transfers (Phase 2A)
     // COMPLIANCE: §1 - Circle manages custody during bridging, not FreshCredit
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS bridge_transfers (
+    freshcredit_libsql_common::schema::ensure_table_ddl(conn, "CREATE TABLE IF NOT EXISTS bridge_transfers (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
             -- Source wallet reference
@@ -120,10 +115,7 @@ pub async fn create_bridge_tables(conn: &Connection) -> Result<()> {
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
             FOREIGN KEY (source_wallet_id) REFERENCES crypto_wallets (id) ON DELETE SET NULL,
             FOREIGN KEY (destination_wallet_id) REFERENCES crypto_wallets (id) ON DELETE SET NULL
-        )",
-        (),
-    )
-    .await?;
+        )").await?;
 
     // Index for bridge transfer lookups
     try_create_index(
@@ -150,7 +142,8 @@ pub async fn create_bridge_tables(conn: &Connection) -> Result<()> {
 pub async fn create_gateway_tables(conn: &Connection) -> Result<()> {
     // Gateway sessions - Circle Gateway fiat on/off ramp sessions (Phase 2B)
     // COMPLIANCE: §1 - Circle Gateway handles fiat custody, not FreshCredit
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS gateway_sessions (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -178,7 +171,6 @@ pub async fn create_gateway_tables(conn: &Connection) -> Result<()> {
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
             FOREIGN KEY (wallet_id) REFERENCES crypto_wallets (id) ON DELETE SET NULL
         )",
-        (),
     )
     .await?;
 
@@ -202,7 +194,8 @@ pub async fn create_gateway_tables(conn: &Connection) -> Result<()> {
 
     // Gateway transactions - Circle Gateway fiat transactions (Phase 2B)
     // COMPLIANCE: §1 - Circle Gateway handles fiat custody, not FreshCredit
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS gateway_transactions (
             id TEXT PRIMARY KEY,
             -- Reference to the gateway session
@@ -235,7 +228,6 @@ pub async fn create_gateway_tables(conn: &Connection) -> Result<()> {
             FOREIGN KEY (session_id) REFERENCES gateway_sessions (id) ON DELETE CASCADE,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 

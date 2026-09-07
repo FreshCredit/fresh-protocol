@@ -22,7 +22,8 @@ use tracing::info;
 #[allow(clippy::too_many_lines)]
 pub async fn initialize_linkedin_tables(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing linkedin tables");
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS linkedin_profiles (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -42,12 +43,12 @@ pub async fn initialize_linkedin_tables(conn: &Connection) -> Result<()> {
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 
     // TAG: surface=database owner=platform-team rule=DB-001
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS linkedin_experiences (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -66,11 +67,11 @@ pub async fn initialize_linkedin_tables(conn: &Connection) -> Result<()> {
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
             FOREIGN KEY (linkedin_profile_id) REFERENCES linkedin_profiles (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS linkedin_education (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -89,11 +90,11 @@ pub async fn initialize_linkedin_tables(conn: &Connection) -> Result<()> {
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
             FOREIGN KEY (linkedin_profile_id) REFERENCES linkedin_profiles (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS linkedin_skills (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -105,11 +106,11 @@ pub async fn initialize_linkedin_tables(conn: &Connection) -> Result<()> {
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
             FOREIGN KEY (linkedin_profile_id) REFERENCES linkedin_profiles (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS linkedin_certifications (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -125,12 +126,12 @@ pub async fn initialize_linkedin_tables(conn: &Connection) -> Result<()> {
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
             FOREIGN KEY (linkedin_profile_id) REFERENCES linkedin_profiles (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 
     // TAG: surface=database owner=platform-team rule=DB-001
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS linkedin_languages (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -142,7 +143,6 @@ pub async fn initialize_linkedin_tables(conn: &Connection) -> Result<()> {
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
             FOREIGN KEY (linkedin_profile_id) REFERENCES linkedin_profiles (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 

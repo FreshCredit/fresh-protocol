@@ -168,9 +168,7 @@ const TRUST_SCORE_INDEX_DDL: &[&str] = &[
 pub async fn initialize_trust_score_tables(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing GTT trust-score tables");
 
-    for sql in TRUST_SCORE_TABLE_DDL {
-        conn.execute(sql, ()).await?;
-    }
+    freshcredit_libsql_common::schema::ensure_table_ddls(conn, TRUST_SCORE_TABLE_DDL).await?;
 
     initialize_trust_score_indexes(conn).await?;
 

@@ -20,7 +20,8 @@ use tracing::info;
 pub async fn initialize_teams_tables(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing teams tables");
     // Provider teams - each provider can have multiple teams
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS provider_teams (
             id TEXT PRIMARY KEY,
             provider_id TEXT NOT NULL,
@@ -31,14 +32,14 @@ pub async fn initialize_teams_tables(conn: &Connection) -> Result<()> {
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (provider_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 
     // Team members - links users to teams with roles
     // Roles: admin, manager, viewer
     // Status: active, suspended, removed
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS team_members (
             id TEXT PRIMARY KEY,
             team_id TEXT NOT NULL,
@@ -54,13 +55,13 @@ pub async fn initialize_teams_tables(conn: &Connection) -> Result<()> {
             FOREIGN KEY (invited_by) REFERENCES user_profile (id) ON DELETE SET NULL,
             UNIQUE(team_id, user_id)
         )",
-        (),
     )
     .await?;
 
     // Team invites - pending invitations
     // Status: pending, accepted, declined, expired, cancelled
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS team_invites (
             id TEXT PRIMARY KEY,
             team_id TEXT NOT NULL,
@@ -77,7 +78,6 @@ pub async fn initialize_teams_tables(conn: &Connection) -> Result<()> {
             FOREIGN KEY (invited_by) REFERENCES user_profile (id) ON DELETE CASCADE,
             FOREIGN KEY (accepted_by) REFERENCES user_profile (id) ON DELETE SET NULL
         )",
-        (),
     )
     .await?;
 

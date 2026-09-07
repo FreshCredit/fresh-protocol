@@ -16,7 +16,8 @@ use tracing::info;
 pub async fn initialize_webhook_tables(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing webhook tables");
     // Create webhook_events table
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS webhook_events (
             id TEXT PRIMARY KEY,
             user_id TEXT,
@@ -31,7 +32,6 @@ pub async fn initialize_webhook_tables(conn: &Connection) -> Result<()> {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )",
-        (),
     )
     .await?;
 
@@ -41,7 +41,8 @@ pub async fn initialize_webhook_tables(conn: &Connection) -> Result<()> {
     // this definition MUST stay identical to notifications.rs — otherwise the
     // IF NOT EXISTS here wins and per-user cloud databases end up missing
     // metadata/updated_at, breaking the browser sync push.
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS notifications (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -56,7 +57,6 @@ pub async fn initialize_webhook_tables(conn: &Connection) -> Result<()> {
             expires_at DATETIME,
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 

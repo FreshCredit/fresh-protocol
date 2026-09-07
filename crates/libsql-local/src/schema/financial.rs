@@ -34,7 +34,8 @@ pub async fn initialize_financial_tables(conn: &Connection) -> Result<()> {
     info!("[ARCH-007] Initializing financial tables");
     // Create accounts table that matches production schema
     // Foreign key disabled to allow account creation before user_profile exists
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS accounts (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -77,7 +78,6 @@ pub async fn initialize_financial_tables(conn: &Connection) -> Result<()> {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )",
-        (),
     )
     .await?;
 
@@ -90,7 +90,8 @@ pub async fn initialize_financial_tables(conn: &Connection) -> Result<()> {
     // transactions.account_id. It previously referenced accounts(account_id),
     // so every browser transaction push failed FK enforcement on per-user
     // cloud databases.
-    conn.execute(
+    freshcredit_libsql_common::schema::ensure_table_ddl(
+        conn,
         "CREATE TABLE IF NOT EXISTS transactions (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -128,7 +129,6 @@ pub async fn initialize_financial_tables(conn: &Connection) -> Result<()> {
             FOREIGN KEY (user_id) REFERENCES user_profile (id) ON DELETE CASCADE,
             FOREIGN KEY (account_id) REFERENCES accounts (id) ON DELETE CASCADE
         )",
-        (),
     )
     .await?;
 
