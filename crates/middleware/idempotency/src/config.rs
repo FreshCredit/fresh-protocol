@@ -17,6 +17,10 @@ pub struct IdempotencyConfig {
 
     /// Maximum size of stored response body (in bytes)
     pub max_body_size: usize,
+
+    /// How long an `in_flight` durable claim may be held before another
+    /// caller may reclaim it (crash recovery for the durable store)
+    pub stale_seconds: u64,
 }
 
 impl IdempotencyConfig {
@@ -29,6 +33,7 @@ impl IdempotencyConfig {
             required: false,
             // TAG: surface=security owner=platform-team rule=MID-001
             max_body_size: 1024 * 1024, // 1 MB
+            stale_seconds: Self::default_stale_seconds(),
         }
     }
 
@@ -40,7 +45,14 @@ impl IdempotencyConfig {
             header_name: "Idempotency-Key".to_string(),
             required: true,
             max_body_size: 1024 * 1024, // 1 MB
+            stale_seconds: Self::default_stale_seconds(),
         }
+    }
+
+    /// Default staleness timeout for in-flight durable claims (5 minutes)
+    #[must_use]
+    pub const fn default_stale_seconds() -> u64 {
+        300
     }
 
     /// Set custom header name
@@ -54,6 +66,14 @@ impl IdempotencyConfig {
     #[must_use]
     pub const fn with_max_body_size(mut self, max_body_size: usize) -> Self {
         self.max_body_size = max_body_size;
+        self
+    }
+
+    /// Set how long an in-flight durable claim may be held before it can be
+    /// reclaimed by another caller (durable store crash recovery)
+    #[must_use]
+    pub const fn with_stale_seconds(mut self, stale_seconds: u64) -> Self {
+        self.stale_seconds = stale_seconds;
         self
     }
     // TAG: surface=security owner=platform-team rule=MID-001
@@ -117,5 +137,24 @@ mod tests {
         assert_eq!(config.ttl, Duration::from_secs(1800));
         assert_eq!(config.header_name, "X-Idempotency");
         assert_eq!(config.max_body_size, 2 * 1024 * 1024);
+    }
+
+    #[test]
+    fn test_idempotency_config_stale_seconds_default() {
+        let config = IdempotencyConfig::new(Duration::from_secs(3600));
+        assert_eq!(
+            config.stale_seconds,
+            IdempotencyConfig::default_stale_seconds()
+        );
+        assert_eq!(config.stale_seconds, 300);
+    }
+
+    #[test]
+    fn test_idempotency_config_with_stale_seconds() {
+        let config = IdempotencyConfig::new(Duration::from_secs(3600)).with_stale_seconds(30);
+        assert_eq!(config.stale_seconds, 30);
+
+        let required = IdempotencyConfig::required(Duration::from_secs(3600));
+        assert_eq!(required.stale_seconds, 300);
     }
 }

@@ -27,6 +27,7 @@ dashmap = "6.1"
 uuid = { workspace = true }
 bytes = "1.9"
 http-body-util = "0.1"
+libsql = { workspace = true }
 workspace-hack = { version = "0.1", path = "../../../workspace-hack" }
 
 

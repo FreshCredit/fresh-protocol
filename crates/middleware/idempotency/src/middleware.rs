@@ -14,22 +14,47 @@ use tracing::{debug, info, instrument, warn};
 
 use crate::{
     config::IdempotencyConfig,
-    store::{IdempotencyError, IdempotencyStore},
+    store::{IdempotencyError, LookupOutcome, ResponseStore, StoredResponse},
 };
 use freshcredit_core_timing::SystemClock;
 
 /// Idempotency layer for Axum
-#[derive(Clone, Debug)]
-pub struct IdempotencyLayer {
-    store: Arc<IdempotencyStore>,
+///
+/// Generic over the [`ResponseStore`] backend: defaults to the in-memory
+/// [`crate::IdempotencyStore`]; pass a [`crate::DurableIdempotencyStore`] via
+/// [`IdempotencyLayer::with_store`] for at-most-once execution across
+/// replicas.
+pub struct IdempotencyLayer<S = crate::IdempotencyStore> {
+    store: Arc<S>,
     config: IdempotencyConfig,
 }
 
-impl IdempotencyLayer {
-    /// Create a new idempotency layer
+impl<S> Clone for IdempotencyLayer<S> {
+    fn clone(&self) -> Self {
+        Self {
+            store: Arc::clone(&self.store),
+            config: self.config.clone(),
+        }
+    }
+}
+
+impl<S> std::fmt::Debug for IdempotencyLayer<S> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("IdempotencyLayer")
+            .field("config", &self.config)
+            .field("store", &"<store>")
+            .finish_non_exhaustive()
+    }
+}
+
+impl IdempotencyLayer<crate::IdempotencyStore> {
+    /// Create a new idempotency layer backed by the in-memory store
     #[must_use]
     pub fn new(config: IdempotencyConfig) -> Self {
-        let store = Arc::new(IdempotencyStore::new(config.clone(), Arc::new(SystemClock)));
+        let store = Arc::new(crate::IdempotencyStore::new(
+            config.clone(),
+            Arc::new(SystemClock),
+        ));
 
         Self { store, config }
     }
@@ -45,6 +70,14 @@ impl IdempotencyLayer {
     #[must_use]
     pub fn required(ttl: std::time::Duration) -> Self {
         Self::new(IdempotencyConfig::required(ttl))
+    }
+}
+
+impl<S: ResponseStore> IdempotencyLayer<S> {
+    /// Create an idempotency layer with an explicit store backend
+    #[must_use]
+    pub const fn with_store(config: IdempotencyConfig, store: Arc<S>) -> Self {
+        Self { store, config }
     }
 
     /// Middleware handler
@@ -79,33 +112,45 @@ impl IdempotencyLayer {
             return next.run(req).await;
         };
 
-        // Check if we have a stored response for this key
-        if let Some(stored) = self.store.get(&key) {
-            info!("Returning cached response for idempotency key: {}", key);
-            return Self::build_response_from_stored(stored);
-        }
+        // Decide whether to replay, proceed, or conflict.
+        match self.store.lookup(&key).await {
+            Ok(LookupOutcome::Replay(stored)) => {
+                info!("Returning cached response for idempotency key: {}", key);
+                Self::build_response_from_stored(stored)
+            }
+            Ok(LookupOutcome::Conflict) => {
+                warn!("Concurrent request with same idempotency key: {}", key);
+                StatusCode::CONFLICT.into_response()
+            }
+            Ok(LookupOutcome::Proceed) => {
+                // Process the request
+                debug!("Processing new request with idempotency key: {}", key);
+                let response = next.run(req).await;
 
-        // Process the request
-        debug!("Processing new request with idempotency key: {}", key);
-        let response = next.run(req).await;
-
-        // Store the response if it's a success (2xx or 3xx)
-        let status = response.status();
-        if status.is_success() || status.is_redirection() {
-            // Store the response and return the stored version
-            match self.store_response(&key, response).await {
-                Ok(stored) => {
-                    info!("Stored response for idempotency key: {}", key);
-                    return Self::build_response_from_stored(stored);
-                }
-                Err(e) => {
-                    warn!("Failed to store idempotency response: {}", e);
-                    return Self::build_error_response();
+                // Store the response if it's a success (2xx or 3xx)
+                let status = response.status();
+                if status.is_success() || status.is_redirection() {
+                    // Store the response and return the stored version
+                    match self.store_response(&key, response).await {
+                        Ok(stored) => {
+                            info!("Stored response for idempotency key: {}", key);
+                            Self::build_response_from_stored(stored)
+                        }
+                        Err(e) => {
+                            warn!("Failed to store idempotency response: {}", e);
+                            Self::build_error_response()
+                        }
+                    }
+                } else {
+                    response
                 }
             }
+            Err(e) => {
+                // Fail closed: never execute when the store cannot be trusted.
+                warn!("Idempotency store lookup failed: {}", e);
+                Self::build_error_response()
+            }
         }
-
-        response
     }
 
     /// Store a response with the idempotency key and return the stored response
@@ -114,7 +159,7 @@ impl IdempotencyLayer {
         key: &str,
         // TAG: surface=security owner=platform-team rule=MID-001
         response: Response,
-    ) -> Result<crate::store::StoredResponse, IdempotencyError> {
+    ) -> Result<StoredResponse, IdempotencyError> {
         let (parts, body) = response.into_parts();
 
         // Collect the body
@@ -139,16 +184,14 @@ impl IdempotencyLayer {
 
         // Store the response
         self.store
-            .store(key, parts.status.as_u16(), headers, body_bytes)?;
-
-        // Return the stored response
-        self.store.get(key).ok_or_else(|| {
-            IdempotencyError::SerializationError("Failed to retrieve stored response".to_string())
-        })
+            .store_response(key, parts.status.as_u16(), headers, body_bytes)
+            .await
     }
+}
 
+impl<S> IdempotencyLayer<S> {
     /// Build a response from stored data
-    fn build_response_from_stored(stored: crate::store::StoredResponse) -> Response {
+    fn build_response_from_stored(stored: StoredResponse) -> Response {
         let mut response = Response::builder().status(stored.status);
 
         // TAG: surface=security owner=security-team rule=SEC-001
@@ -210,7 +253,7 @@ mod tests {
     #[test]
     fn test_build_error_response() {
         let layer = IdempotencyLayer::default_ttl();
-        let response = IdempotencyLayer::build_error_response();
+        let response = IdempotencyLayer::<crate::IdempotencyStore>::build_error_response();
         assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
     }
 
@@ -224,7 +267,8 @@ mod tests {
             stored_at: chrono::Utc::now(),
             expires_at: chrono::Utc::now() + chrono::Duration::hours(1),
         };
-        let response = IdempotencyLayer::build_response_from_stored(stored);
+        let response =
+            IdempotencyLayer::<crate::IdempotencyStore>::build_response_from_stored(stored);
         assert_eq!(response.status(), StatusCode::OK);
     }
     // TAG: surface=security owner=platform-team rule=GENERAL-001

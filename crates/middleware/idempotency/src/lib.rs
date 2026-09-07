@@ -7,9 +7,11 @@
 #![forbid(unsafe_code)]
 
 pub mod config;
+pub mod durable;
 pub mod middleware;
 pub mod store;
 
 pub use config::IdempotencyConfig;
+pub use durable::{ClaimOutcome, DurableIdempotencyError, DurableIdempotencyStore};
 pub use middleware::IdempotencyLayer;
-pub use store::{IdempotencyError, IdempotencyStore, StoredResponse};
+pub use store::{IdempotencyError, IdempotencyStore, LookupOutcome, ResponseStore, StoredResponse};

@@ -36,7 +36,7 @@ pub enum IdempotencyError {
 }
 
 /// Stored response for idempotency
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StoredResponse {
     /// HTTP status code
     pub status: u16,
@@ -217,6 +217,83 @@ impl IdempotencyStore {
     pub fn is_empty(&self) -> bool {
         // TAG: surface=security owner=security-team rule=SEC-001
         self.store.is_empty()
+    }
+}
+
+/// Result of looking up an idempotency key before executing a request.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LookupOutcome {
+    /// A live stored response exists; the caller must replay it.
+    Replay(StoredResponse),
+
+    /// No live record exists; the caller must execute the request and store
+    /// the response afterwards.
+    Proceed,
+
+    /// Another request holds the key and has not yet completed; the caller
+    /// must return the middleware's conflict response without executing.
+    Conflict,
+}
+
+/// Storage backend used by [`crate::IdempotencyLayer`].
+///
+/// Implemented by the in-memory [`IdempotencyStore`] and the durable
+/// [`crate::DurableIdempotencyStore`]; the middleware is generic over this
+/// trait so HTTP behavior is identical for both backends.
+pub trait ResponseStore: Send + Sync + 'static {
+    /// Look up `key` and decide whether to replay, proceed, or conflict.
+    ///
+    /// For durable backends this is where the atomic claim happens: a
+    /// `Proceed` result means this caller holds the key and must follow up
+    /// with [`ResponseStore::store_response`] once the handler finishes.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the backend is unavailable or corrupt; the
+    /// middleware fails closed (HTTP 500) in that case.
+    fn lookup(
+        &self,
+        key: &str,
+    ) -> impl std::future::Future<Output = Result<LookupOutcome, IdempotencyError>> + Send;
+
+    /// Persist the response for a key this caller claimed, and return the
+    /// stored form (with TTL-derived expiry) for replay.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`IdempotencyError::BodyTooLarge`] if the body exceeds the
+    /// configured maximum, or an error if persisting fails.
+    fn store_response(
+        &self,
+        key: &str,
+        status: u16,
+        headers: Vec<(String, String)>,
+        body: Vec<u8>,
+    ) -> impl std::future::Future<Output = Result<StoredResponse, IdempotencyError>> + Send;
+}
+
+impl ResponseStore for IdempotencyStore {
+    async fn lookup(&self, key: &str) -> Result<LookupOutcome, IdempotencyError> {
+        // In-memory semantics: only completed responses are visible; there is
+        // no in-progress state, so concurrent same-key requests both execute
+        // (preserved from the original middleware behavior).
+        let outcome = self
+            .get(key)
+            .map_or(LookupOutcome::Proceed, LookupOutcome::Replay);
+        Ok(outcome)
+    }
+
+    async fn store_response(
+        &self,
+        key: &str,
+        status: u16,
+        headers: Vec<(String, String)>,
+        body: Vec<u8>,
+    ) -> Result<StoredResponse, IdempotencyError> {
+        self.store(key, status, headers, body)?;
+        self.get(key).ok_or_else(|| {
+            IdempotencyError::SerializationError("Failed to retrieve stored response".to_string())
+        })
     }
 }
 
