@@ -1,6 +1,25 @@
 //! Helper functions for the blockchain client
 
+use std::time::Duration;
+
 use sha2::{Digest, Sha256};
+
+/// Default cap on how long a caller may wait for GRANDPA finality before the
+/// wait is aborted. Overridable via `BLOCKCHAIN_FINALIZE_TIMEOUT_SECS`.
+pub(crate) const DEFAULT_FINALIZE_TIMEOUT_SECS: u64 = 180;
+
+/// Timeout for `wait_for_finalized_success`, bounded so a stalled finality
+/// listener can never block a caller forever. Read per call from the
+/// environment so tests and operators can override without a rebuild.
+pub(crate) fn finalize_timeout() -> Duration {
+    std::env::var("BLOCKCHAIN_FINALIZE_TIMEOUT_SECS")
+        .ok()
+        .and_then(|v| v.parse::<u64>().ok())
+        .map_or(
+            Duration::from_secs(DEFAULT_FINALIZE_TIMEOUT_SECS),
+            Duration::from_secs,
+        )
+}
 
 // TAG: surface=blockchain owner=blockchain-team rule=BLOCKCHAIN-001
 /// Convert `user_id` string to Substrate `AccountId32` using SHA-256

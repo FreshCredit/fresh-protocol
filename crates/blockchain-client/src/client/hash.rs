@@ -49,10 +49,18 @@ impl BlockchainClient {
             .map_err(|e| anyhow::anyhow!("Failed to submit transaction: {e}"))?;
 
         // TAG: surface=blockchain owner=blockchain-team rule=BLOCKCHAIN-001
-        let events = tx_progress
-            .wait_for_finalized_success()
-            .await
-            .map_err(|e| anyhow::anyhow!("Transaction failed: {e}"))?;
+        let events = tokio::time::timeout(
+            crate::helpers::finalize_timeout(),
+            tx_progress.wait_for_finalized_success(),
+        )
+        .await
+        .map_err(|_| {
+            anyhow::anyhow!(
+                "Timed out after {}s waiting for transaction finalization",
+                crate::helpers::finalize_timeout().as_secs()
+            )
+        })?
+        .map_err(|e| anyhow::anyhow!("Transaction failed: {e}"))?;
 
         // Get block number from the latest header (transaction was just finalized)
         let _tx_hash = events.extrinsic_hash();

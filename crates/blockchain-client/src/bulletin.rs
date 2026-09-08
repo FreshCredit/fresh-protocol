@@ -271,10 +271,18 @@ impl BulletinClient {
                 anyhow::anyhow!("Failed to submit Bulletin transactionStorage.store: {e}")
             })?;
 
-        let _events = tx_progress
-            .wait_for_finalized_success()
-            .await
-            .map_err(|e| anyhow::anyhow!("Bulletin transactionStorage.store failed: {e}"))?;
+        let _events = tokio::time::timeout(
+            crate::helpers::finalize_timeout(),
+            tx_progress.wait_for_finalized_success(),
+        )
+        .await
+        .map_err(|_| {
+            anyhow::anyhow!(
+                "Timed out after {}s waiting for Bulletin transaction finalization",
+                crate::helpers::finalize_timeout().as_secs()
+            )
+        })?
+        .map_err(|e| anyhow::anyhow!("Bulletin transactionStorage.store failed: {e}"))?;
 
         // The finalized transaction is in the current best chain; ask the RPC
         // node for its latest header to get the anchor block number.
