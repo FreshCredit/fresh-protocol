@@ -51,7 +51,7 @@ struct PersistentState {
 /// Provides high-level operations for storing and verifying report data.
 /// Uses NOMT's binary Merkle trie for efficient proof generation.
 /// Persists state to disk for production reliability.
-#[allow(dead_code)]
+
 #[derive(Debug)]
 pub struct NomtStorage {
     /// Data directory for NOMT storage

@@ -81,7 +81,6 @@ impl NomtProof {
     /// Verify this proof against an expected root
     ///
     /// Uses Blake3 for consistency with freshcredit-nomt-core.
-    #[allow(dead_code)]
     pub fn verify(&self, expected_root: &str) -> bool {
         // Use the canonical verification from freshcredit-nomt-core
         self.verify_canonical()
