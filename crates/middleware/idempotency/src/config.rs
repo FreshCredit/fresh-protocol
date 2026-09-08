@@ -21,6 +21,11 @@ pub struct IdempotencyConfig {
     /// How long an `in_flight` durable claim may be held before another
     /// caller may reclaim it (crash recovery for the durable store)
     pub stale_seconds: u64,
+
+    /// Header set to `true` on replayed (cached) responses so clients can
+    /// distinguish a replay from a fresh execution. `None` (the default)
+    /// adds no header, preserving the historical middleware behavior.
+    pub replay_header: Option<String>,
 }
 
 impl IdempotencyConfig {
@@ -34,6 +39,7 @@ impl IdempotencyConfig {
             // TAG: surface=security owner=platform-team rule=MID-001
             max_body_size: 1024 * 1024, // 1 MB
             stale_seconds: Self::default_stale_seconds(),
+            replay_header: None,
         }
     }
 
@@ -46,6 +52,7 @@ impl IdempotencyConfig {
             required: true,
             max_body_size: 1024 * 1024, // 1 MB
             stale_seconds: Self::default_stale_seconds(),
+            replay_header: None,
         }
     }
 
@@ -74,6 +81,14 @@ impl IdempotencyConfig {
     #[must_use]
     pub const fn with_stale_seconds(mut self, stale_seconds: u64) -> Self {
         self.stale_seconds = stale_seconds;
+        self
+    }
+
+    /// Set a header (e.g. `X-Idempotency-Replay`) with value `true` on
+    /// replayed responses. Default `None` adds no header.
+    #[must_use]
+    pub fn with_replay_header(mut self, header_name: String) -> Self {
+        self.replay_header = Some(header_name);
         self
     }
     // TAG: surface=security owner=platform-team rule=MID-001
@@ -126,6 +141,17 @@ mod tests {
         assert_eq!(config.ttl, Duration::from_secs(24 * 60 * 60));
         assert_eq!(config.header_name, "Idempotency-Key");
         assert!(!config.required);
+        assert_eq!(config.replay_header, None);
+    }
+
+    #[test]
+    fn test_idempotency_config_with_replay_header() {
+        let config = IdempotencyConfig::new(Duration::from_secs(3600))
+            .with_replay_header("X-Idempotency-Replay".to_string());
+        assert_eq!(
+            config.replay_header.as_deref(),
+            Some("X-Idempotency-Replay")
+        );
     }
 
     #[test]

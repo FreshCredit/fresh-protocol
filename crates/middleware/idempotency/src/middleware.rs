@@ -116,7 +116,15 @@ impl<S: ResponseStore> IdempotencyLayer<S> {
         match self.store.lookup(&key).await {
             Ok(LookupOutcome::Replay(stored)) => {
                 info!("Returning cached response for idempotency key: {}", key);
-                Self::build_response_from_stored(stored)
+                let mut response = Self::build_response_from_stored(stored);
+                if let Some(header_name) = &self.config.replay_header {
+                    if let Ok(name) = HeaderName::try_from(header_name.clone()) {
+                        response
+                            .headers_mut()
+                            .insert(name, HeaderValue::from_static("true"));
+                    }
+                }
+                response
             }
             Ok(LookupOutcome::Conflict) => {
                 warn!("Concurrent request with same idempotency key: {}", key);
