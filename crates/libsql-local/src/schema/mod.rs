@@ -31,6 +31,7 @@
 //! - correlation.rs: Correlation engine tables
 //! - platform.rs: Platform-level tables (referrals, metrics, etc.)
 //! - indexes.rs: All database indexes
+//! - sync_meta.rs: Version-vector sync metadata (`_sync_meta`, `_sync_seen`, `sync_conflicts`)
 //!
 //! REFACTORING STATUS:
 //! - ✅ core.rs: Extracted (`user_profile`, `auth_tokens`, `user_preferences`)
@@ -105,6 +106,9 @@ pub mod governance;
 // Vault vectorization (category-specific deterministic vectors)
 pub mod vault_vectors;
 
+// Version-vector sync metadata (_sync_meta/_sync_seen/sync_conflicts)
+pub mod sync_meta;
+
 // Re-exports for convenience
 pub use agent::{check_agent_bindings_schema, initialize_agent_tables};
 pub use ai::initialize_ai_tables;
@@ -140,6 +144,10 @@ pub mod category;
 pub use category::SchemaCategory;
 
 mod types;
+pub use sync_meta::{
+    classify_sync_write, ensure_sync_meta_tables, SyncWriteOrder, BROWSER_NODE_PREFIX,
+    SERVER_MIRROR_NODE_ID,
+};
 pub use types::SchemaValidation;
 
 mod helpers;
