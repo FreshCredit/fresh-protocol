@@ -8,7 +8,9 @@
 
 pub mod api_response;
 pub mod domain;
+pub mod pii;
 pub mod problem;
 
 pub use domain::*;
+pub use pii::*;
 pub use problem::*;

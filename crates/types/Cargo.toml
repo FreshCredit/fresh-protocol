@@ -16,6 +16,8 @@ chrono = { workspace = true }
 uuid = { workspace = true }
 anyhow = { workspace = true }
 thiserror = { workspace = true }
+hex = { workspace = true }
+sha2 = { workspace = true }
 
 # P1 FIX: Cross-language type sync - Generate TypeScript types from Rust
 ts-rs = { version = "12.0", features = ["chrono-impl", "uuid-impl"], optional = true }
