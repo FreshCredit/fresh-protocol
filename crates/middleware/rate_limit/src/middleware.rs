@@ -2,12 +2,12 @@
 //! Axum middleware for rate limiting
 
 use axum::{
-    extract::Request,
+    extract::{ConnectInfo, Request},
     http::{HeaderMap, HeaderValue, Method, StatusCode},
     middleware::Next,
     response::{IntoResponse, Response},
 };
-use std::sync::Arc;
+use std::{net::SocketAddr, sync::Arc};
 use tracing::{instrument, warn};
 
 use crate::{
@@ -265,12 +265,26 @@ fn is_auth_endpoint(method: &Method, path: &str) -> bool {
             | "/test-signin"
             | "/auth/callback"
             | "/auth/verify"
+            | "/auth/refresh"
             | "/logout"
     ) && is_state_changing
 }
 
 /// Extract identifier from request (IP address or user ID)
 /// `CLOUD_RUN_FIX`: Improved IP extraction to handle multiple proxy scenarios
+///
+/// # X-Forwarded-For trust model
+///
+/// The FIRST `X-Forwarded-For` entry is client-supplied and trivially
+/// spoofable — keying the limiter on it lets an attacker mint a fresh bucket
+/// per request and evade rate limits entirely. Our deployment topology is
+/// client -> Cloud Run -> nginx -> app, and nginx uses
+/// `$proxy_add_x_forwarded_for`, so each trusted hop APPENDS the peer it
+/// observed to the END of the header. Only the LAST entry is therefore
+/// platform-attested; every earlier entry may have been planted by the
+/// client. We key on the last entry and ignore the rest. When the header is
+/// absent we fall back to the connection's peer address (`ConnectInfo`),
+/// which the platform sets from the real TCP peer.
 fn extract_identifier(req: &Request) -> String {
     // Try to get user ID from extensions (set by auth middleware)
     if let Some(user_id) = req.extensions().get::<String>() {
@@ -278,7 +292,12 @@ fn extract_identifier(req: &Request) -> String {
     }
 
     // Try multiple headers for client IP (Cloud Run + Load Balancer compatibility)
-    // Priority order: X-Forwarded-For > X-Real-IP > X-Client-IP > CF-Connecting-IP
+    // Priority order: X-Forwarded-For (last entry) > X-Real-IP > X-Client-IP > CF-Connecting-IP
+    // Final fallback: the connection's peer address inserted by the platform.
+    let peer_ip = req
+        .extensions()
+        .get::<ConnectInfo<SocketAddr>>()
+        .map(|connect_info| connect_info.0.ip().to_string());
     let client_ip = req
             // TAG: surface=security owner=platform-team rule=GENERAL-001
         .headers()
@@ -286,8 +305,10 @@ fn extract_identifier(req: &Request) -> String {
         .and_then(|h| h.to_str().ok())
         .and_then(|s| {
             // X-Forwarded-For can contain multiple IPs: client, proxy1, proxy2, ...
-            // We want the first (client) IP
-            s.split(',').next().map(str::trim)
+            // SECURITY: Only the LAST entry is appended by our trusted proxy
+            // (nginx `$proxy_add_x_forwarded_for`); earlier entries are
+            // client-spoofable, so we key on the last one.
+            s.split(',').next_back().map(str::trim)
         })
         .or_else(|| {
             req.headers()
@@ -306,7 +327,8 @@ fn extract_identifier(req: &Request) -> String {
                 .get("CF-Connecting-IP") // Cloudflare
                 .and_then(|h| h.to_str().ok())
                 .map(str::trim)
-        });
+        })
+        .or(peer_ip.as_deref());
 
     if let Some(ip) = client_ip {
         if !ip.is_empty() && ip != "unknown" {
@@ -368,11 +390,13 @@ mod tests {
         assert!(is_auth_endpoint(&Method::POST, "/api/auth/login"));
         assert!(is_auth_endpoint(&Method::POST, "/api/auth/register"));
         assert!(is_auth_endpoint(&Method::POST, "/logout"));
+        assert!(is_auth_endpoint(&Method::POST, "/auth/refresh"));
         // GET to auth render pages/callbacks is not strict (avoids blocking shared NAT).
         assert!(!is_auth_endpoint(&Method::GET, "/login"));
         assert!(!is_auth_endpoint(&Method::GET, "/register"));
         assert!(!is_auth_endpoint(&Method::GET, "/auth/callback"));
         assert!(!is_auth_endpoint(&Method::GET, "/logout"));
+        assert!(!is_auth_endpoint(&Method::GET, "/auth/refresh"));
         assert!(!is_auth_endpoint(&Method::GET, "/api/users"));
         assert!(!is_auth_endpoint(&Method::GET, "/dashboard"));
     }
@@ -455,7 +479,38 @@ mod tests {
             "X-Forwarded-For",
             HeaderValue::from_static("192.168.1.1, 10.0.0.1, 172.16.0.1"),
         );
-        assert_eq!(extract_identifier(&req), "ip:192.168.1.1");
+        // SECURITY: Only the platform-appended LAST entry is trusted.
+        assert_eq!(extract_identifier(&req), "ip:172.16.0.1");
+    }
+
+    #[test]
+    fn test_extract_identifier_spoofed_leading_xff_shares_bucket() {
+        // An attacker can plant arbitrary leading XFF entries, but the
+        // limiter keys on the trusted last entry, so both requests land in
+        // the same bucket instead of minting a fresh one per request.
+        let mut req_spoofed = Request::new(Body::empty());
+        req_spoofed.headers_mut().insert(
+            "X-Forwarded-For",
+            HeaderValue::from_static("6.6.6.6, 203.0.113.5"),
+        );
+        let mut req_other_spoof = Request::new(Body::empty());
+        req_other_spoof.headers_mut().insert(
+            "X-Forwarded-For",
+            HeaderValue::from_static("7.7.7.7, 198.51.100.9, 203.0.113.5"),
+        );
+
+        let id_spoofed = extract_identifier(&req_spoofed);
+        let id_other = extract_identifier(&req_other_spoof);
+        assert_eq!(id_spoofed, "ip:203.0.113.5");
+        assert_eq!(id_spoofed, id_other);
+    }
+
+    #[test]
+    fn test_extract_identifier_falls_back_to_connect_info_peer() {
+        let mut req = Request::new(Body::empty());
+        req.extensions_mut()
+            .insert(ConnectInfo(SocketAddr::from(([10, 0, 0, 7], 51_300))));
+        assert_eq!(extract_identifier(&req), "ip:10.0.0.7");
     }
 
     #[test]
@@ -540,6 +595,7 @@ mod tests {
         assert!(is_auth_endpoint(&post, "/reset-password"));
         assert!(is_auth_endpoint(&post, "/test-signin"));
         assert!(is_auth_endpoint(&post, "/logout"));
+        assert!(is_auth_endpoint(&post, "/auth/refresh"));
 
         // All /api/auth/* requests are strict.
         assert!(is_auth_endpoint(&post, "/api/auth/login"));
