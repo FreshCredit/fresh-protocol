@@ -78,7 +78,7 @@ impl MigrationRunner {
     async fn load_single_migration_file(
         path: &std::path::Path,
     ) -> Result<Option<(i64, String, String, bool)>> {
-        if !path.extension().is_some_and(|e| e == "sql") {
+        if path.extension().is_none_or(|e| e != "sql") {
             return Ok(None);
         }
         let filename = path
