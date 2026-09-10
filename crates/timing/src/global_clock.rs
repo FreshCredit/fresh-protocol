@@ -65,7 +65,7 @@ impl Timestamp {
     /// Always true for host clocks (uncertainty is `None`).
     #[must_use]
     pub fn is_within_uncertainty(&self, other: DateTime<Utc>) -> bool {
-        self.uncertainty.map_or(true, |delta| {
+        self.uncertainty.is_none_or(|delta| {
             let diff = (other - self.wall_utc).abs();
             diff.to_std().map(|d| d <= delta).unwrap_or(false)
         })
