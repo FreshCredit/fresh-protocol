@@ -298,7 +298,7 @@ impl Session {
     pub fn is_refresh_token_expired(&self) -> bool {
         self.refresh_token_expires_at
             // TAG: surface=security owner=platform-team rule=MID-001
-            .map_or(true, |expires_at| Utc::now() > expires_at)
+            .is_none_or(|expires_at| Utc::now() > expires_at)
     }
 
     /// Check if access token needs refresh (expires within 5 minutes)
