@@ -45,6 +45,7 @@ crates/
   libsql-local/               # freshcredit-libsql-local — per-user vault client + 55-table schema
   libsql-cloud/               # freshcredit-libsql-cloud — remote vault client
   db-migrations/              # freshcredit-db-migrations — ordered migration runner
+  libsql-schema-validator/    # freshcredit-libsql-schema-validator — vault schema conformance
 scripts/quality/p10-scan/     # P10 quality gate (census + --gate, repo-local baseline)
 ```
 
