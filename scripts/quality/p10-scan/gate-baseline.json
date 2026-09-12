@@ -2,8 +2,8 @@
  "_comment": "p10-scan --gate baseline. Thresholds are hard caps; *_whitelist entries encode the 2026-09-08 manual triage (04-POWER-OF-10.md, while_loop_census.py). New whitelist entries require human triage in the same PR. Regenerate with update-baseline.py after a deliberate ratchet change.",
  "max_fns_over_200": 0,
  "max_unsafe_blocks": 20,
- "min_files": 139,
- "prod_zero_asserts": 622,
+ "min_files": 152,
+ "prod_zero_asserts": 640,
  "recursion_whitelist": [],
  "loop_no_exit_whitelist": [
   "crates/libsql-common/src/cached_factory.rs:start_cleanup_task",

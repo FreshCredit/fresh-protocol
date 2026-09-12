@@ -184,7 +184,7 @@ fn print_human_readable(
                 .issues
                 .iter()
                 .filter(|i| i.severity == severity)
-// TAG: surface=database owner=platform-team rule=DB-001
+                // TAG: surface=database owner=platform-team rule=DB-001
                 .collect();
             if !issues.is_empty() {
                 let icon = match severity {
@@ -256,7 +256,7 @@ mod tests {
                 medium_issues: issues
                     .iter()
                     .filter(|i| i.severity == IssueSeverity::Medium)
-// TAG: surface=database owner=platform-team rule=DB-001
+                    // TAG: surface=database owner=platform-team rule=DB-001
                     .count(),
                 low_issues: issues
                     .iter()

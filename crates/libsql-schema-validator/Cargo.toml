@@ -15,7 +15,7 @@ path = "src/bin/validate_schema.rs"
 
 [dependencies]
 anyhow = "1.0"
-freshcredit-libsql-common = { path = "../common", version = "0.1.0" }
+freshcredit-libsql-common = { workspace = true }
 libsql = { workspace = true }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -25,7 +25,6 @@ chrono = { version = "0.4", features = ["serde"] }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 regex = "1.10"
-workspace-hack = { version = "0.1", path = "../../../../workspace-hack" }
 
 [dev-dependencies]
 tokio = { workspace = true }
