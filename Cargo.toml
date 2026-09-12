@@ -10,6 +10,10 @@ members = [
     "crates/types",
     "crates/security",
     "crates/timing",
+    "crates/libsql-common",
+    "crates/libsql-local",
+    "crates/libsql-cloud",
+    "crates/db-migrations",
 ]
 
 [workspace.package]
@@ -25,6 +29,10 @@ categories = ["finance", "web-programming"]
 [workspace.dependencies]
 # In-repo crates
 freshcredit-core-timing = { path = "crates/timing", version = "0.1.0" }
+freshcredit-libsql-common = { path = "crates/libsql-common", version = "0.1.0" }
+freshcredit-libsql-local = { path = "crates/libsql-local", version = "0.1.0" }
+freshcredit-libsql-cloud = { path = "crates/libsql-cloud", version = "0.1.0" }
+freshcredit-db-migrations = { path = "crates/db-migrations", version = "0.1.0" }
 async-trait = "0.1"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -40,6 +48,13 @@ anyhow = "1.0"
 tracing = "0.1"
 uuid = { version = "1.6", features = ["v4", "serde"] }
 rand = ">=0.8.6, <0.9.0"
+dashmap = "6.1"
+rustls = { version = "0.23", default-features = false, features = ["ring"] }
+tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
+libsql = { git = "https://github.com/FreshCredit/libsql.git", rev = "9e6dacfa60e1dac0781bcf7aa68034deffcb0dd8" }
+# Group-2 crates (consumed from group 2 in-repo)
+freshcredit-types = { path = "crates/types", version = "0.1.0" }
+freshcredit-security = { path = "crates/security", version = "0.1.0" }
 
 # Quality gate lints — kept lockstep with the reference implementation's
 # workspace lints so protocol crates satisfy the same bar.

@@ -405,7 +405,7 @@ impl CloudClient {
         while let Some(row) = rows
             .next()
             .await
-// TAG: surface=database owner=platform-team rule=GENERAL-001
+            // TAG: surface=database owner=platform-team rule=GENERAL-001
             .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?
         {
             let account_type_str: String = row.get(2).unwrap_or_default();
@@ -585,7 +585,7 @@ impl CloudClient {
 
         if let Some(row) = rows
             .next()
-// TAG: surface=database owner=platform-team rule=GENERAL-001
+            // TAG: surface=database owner=platform-team rule=GENERAL-001
             .await
             .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?
         {

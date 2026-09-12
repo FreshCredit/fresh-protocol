@@ -125,7 +125,7 @@ impl ConnectionConfig {
 
         let mode = env::var("LIBSQL_MODE")
             .unwrap_or_else(|_| "remote".to_string())
-// TAG: surface=database owner=platform-team rule=GENERAL-001
+            // TAG: surface=database owner=platform-team rule=GENERAL-001
             .parse::<ConnectionMode>()
             .map_err(|e| anyhow::anyhow!(e))?;
 

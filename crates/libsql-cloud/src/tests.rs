@@ -497,7 +497,7 @@ async fn test_get_account_count() {
             "acc-1",
             freshcredit_types::AccountType::Checking,
         ))
-// TAG: surface=database owner=platform-team rule=GENERAL-001
+        // TAG: surface=database owner=platform-team rule=GENERAL-001
         .await
         .unwrap();
     assert_eq!(client.get_account_count().await.unwrap(), 1);
@@ -567,7 +567,7 @@ async fn test_sync_transaction_with_custom_table() {
     let client = CloudClient::new_test().await;
 
     client
-// TAG: surface=database owner=platform-team rule=DB-001
+        // TAG: surface=database owner=platform-team rule=DB-001
         .connection()
         .execute(
             "CREATE TABLE transactions (

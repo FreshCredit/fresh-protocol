@@ -26,7 +26,6 @@ thiserror = { workspace = true }
 tokio = { workspace = true }
 sha2 = "0.10"
 hex = "0.4"
-workspace-hack = { version = "0.1", path = "../../../workspace-hack" }
 
 [dev-dependencies]
 tokio = { workspace = true }

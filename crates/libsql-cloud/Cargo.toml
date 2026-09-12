@@ -20,9 +20,8 @@ chrono = { workspace = true }
 
 # Internal dependencies
 freshcredit-types = { workspace = true }
-freshcredit-libsql-local = { path = "../local", version = "0.1.0" }
-freshcredit-libsql-common = { path = "../common", version = "0.1.0" }
-workspace-hack = { version = "0.1", path = "../../../../workspace-hack" }
+freshcredit-libsql-local = { workspace = true }
+freshcredit-libsql-common = { workspace = true }
 
 [lints]
 workspace = true
