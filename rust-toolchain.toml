@@ -1,0 +1,7 @@
+[toolchain]
+channel = "1.91"
+# rust-analyzer: installed from the pinned toolchain so the IDE extension uses
+# a compatible language server instead of its (newer) bundled one, which warns
+# that the pinned toolchain is "too old".
+components = ["rustfmt", "clippy", "rust-analyzer"]
+targets = ["x86_64-unknown-linux-gnu", "wasm32-unknown-unknown"]
