@@ -31,13 +31,23 @@ It is developed and maintained by **The FreshCredit Org** (nonprofit) as open in
 
 ## Repository layout
 
-> Crate extraction from the reference implementation is in progress (Phase 1). The layout below is the target structure.
+Extraction from the reference implementation (`FreshCredit/beta`) is underway per
+[`docs/EXTRACTION_PLAN.md`](docs/EXTRACTION_PLAN.md). Present today:
+
+```
+crates/
+  fresh-protocol-spec/        # the spec: UserDbAdapter + IdentityProvider /
+                              # DidIssuer / DidVerifier (AUTH→DID→DB→HASH traits)
+scripts/quality/p10-scan/     # P10 quality gate (census + --gate, repo-local baseline)
+```
+
+Target structure as extraction completes:
 
 ```
 crates/
   fresh-protocol-auth/        # AUTH stage: session, identity-provider plugin traits
   fresh-protocol-identity/    # DID stage: DidIssuer / DidVerifier traits, KILT plugin
-  fresh-protocol-db/          # DB stage: UserDbAdapter spec, libSQL adapter, migrations
+  fresh-protocol-db/          # DB stage: UserDbAdapter reference impls, migrations
   fresh-protocol-anchor/      # HASH stage: anchoring client, hash-commit hooks, outbox
   fresh-protocol-consensus/   # leases, fencing tokens, idempotency, transactional outbox
   fresh-protocol-ports/       # shared port/adapter traits (~the extension surface)
