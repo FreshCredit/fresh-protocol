@@ -1,0 +1,153 @@
+# FreshCredit Clippy Configuration
+# ================================
+#
+# This file configures Clippy lints for the FreshCredit codebase.
+#
+# POLICY: Clippy Warnings
+# -----------------------
+# 1. All clippy warnings should be addressed, not suppressed
+# 2. Use #[allow(clippy::...)] only when:
+#    - The lint is a false positive for the specific use case
+#    - The suggested fix would reduce code clarity
+#    - The fix is not possible due to external constraints
+# 3. Every #[allow(clippy::...)] MUST have a comment explaining why
+# 4. Prefer function-level allows over module-level allows
+# 5. Never use crate-level allows for clippy lints
+#
+# ALLOWED EXCEPTIONS (with justification required):
+# - ptr_arg: When function signature is constrained by trait
+# - too_many_arguments: When using builder pattern would add complexity
+# - type_complexity: When type aliases would reduce clarity
+# - cognitive_complexity: When splitting function would reduce clarity
+#
+# NEVER ALLOW (security-related):
+# - unwrap_used in production code paths
+# - expect_used in production code paths (use proper error handling)
+# - panic in production code paths
+#
+# Minimum Supported Rust Version
+# Updated to 1.82 because alloy 2.1's `sol!` macro expansion emits items
+# stabilized in 1.82 (clippy::incompatible_msrv fires at 1.80). Toolchain is
+# pinned at 1.91 (rust-toolchain.toml), so 1.82 remains well below it.
+msrv = "1.82"
+
+# Cognitive complexity threshold (default: 25)
+# Functions exceeding this should be refactored or have justification
+cognitive-complexity-threshold = 30
+
+# Maximum arguments before triggering too_many_arguments (default: 7)
+# Consider using a struct/builder pattern if exceeded
+too-many-arguments-threshold = 7
+
+# Type complexity threshold (default: 250)
+# Complex types should use type aliases for clarity
+type-complexity-threshold = 250
+
+# Stack frame threshold (default: 512000)
+# The `web` lib-test binary's test-harness descriptor array
+# (`[&TestDescAndFn; N]`, ~176 bytes per test) scales with the unit-test
+# count: ARCH-001 phase 3d pushed it past 512000. This is generated harness
+# code, not a function body, so the threshold is raised rather than allowed
+# per-function.
+stack-size-threshold = 1048576
+
+# Size limit for trivial copy types (default: 32)
+trivial-copy-size-limit = 64
+
+
+# Workspace has many transitive dependencies pulling in different versions.
+# Deduplicating would require upstream crates to align, which is not feasible.
+# This is a known limitation of the Rust ecosystem, not a code quality issue.
+allowed-duplicate-crates = [
+    "ahash",
+    "arrayvec",
+    "base64",
+    "bitflags",
+    "block-buffer",
+    "cpufeatures",
+    "digest",
+    "fallible-iterator",
+    "getrandom",
+    "hmac",
+    "indexmap",
+    "jni",
+    "jni-sys",
+    "opentelemetry_sdk",
+    "r-efi",
+    "rand",
+    "rand_chacha",
+    "rand_core",
+    "secrecy",
+    "sha2",
+    "socket2",
+    "syn",
+    "ttf-parser",
+    "thiserror",
+    "thiserror-impl",
+    "toml_edit",
+    "tower",
+    "tower-http",
+    "twox-hash",
+    "webpki-root-certs",
+    "windows_aarch64_gnullvm",
+    "windows_aarch64_msvc",
+    "windows_i686_gnu",
+    "windows_i686_gnullvm",
+    "windows_i686_msvc",
+    "windows_x86_64_gnu",
+    "windows_x86_64_gnullvm",
+    "windows_x86_64_msvc",
+    "windows-sys",
+    "windows-targets",
+    "winnow",
+    "zerocopy",
+    "zerocopy-derive",
+    # Transitive dependency duplicates — pulled in by blockchain / alloy / primitive-types
+    "ark-ff",
+    "ark-ff-asm",
+    "ark-ff-macros",
+    "ark-serialize",
+    "ark-std",
+    "brotli",
+    "brotli-decompressor",
+    "chacha20",
+    "constant_time_eq",
+    "core-foundation",
+    "crypto-common",
+    # Transitive duplicate: multiple major versions are pulled in by workspace dependencies.
+    "dashmap",
+    "darling",
+    "darling_core",
+    "darling_macro",
+    "derive_more-impl",
+    "fastrlp",
+    "foldhash",
+    "foreign-types",
+    "foreign-types-shared",
+    "hashbrown",
+    "hex-conservative",
+    "impl-codec",
+    "itertools",
+    "keccak",
+    "nom",
+    "primitive-types",
+    "schemars",
+    "secp256k1",
+    "secp256k1-sys",
+    "sha3",
+    "uint",
+    "wit-bindgen",
+    # Additional transitive duplicates from pedantic/nursery/cargo lint run
+    "convert_case",
+    "const-oid",
+    "derive_more",
+    "embedded-io",
+    "reqwest",
+    # Parallel OTel majors + rustls-platform-verifier variants pulled by
+    # alloy/reqwest vs subxt/jsonrpsee trees; unification is the deferred
+    # OTel/subxt structural migration (see security/dependencies report).
+    "opentelemetry",
+    "opentelemetry-http",
+    "tracing-opentelemetry",
+    "rustls-platform-verifier",
+]

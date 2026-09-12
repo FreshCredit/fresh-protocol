@@ -21,7 +21,6 @@ sha2 = { workspace = true }
 
 # P1 FIX: Cross-language type sync - Generate TypeScript types from Rust
 ts-rs = { version = "12.0", features = ["chrono-impl", "uuid-impl"], optional = true }
-workspace-hack = { version = "0.1", path = "../../../workspace-hack" }
 
 [features]
 default = []

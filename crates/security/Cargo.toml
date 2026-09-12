@@ -23,8 +23,7 @@ tracing.workspace = true
 clap = { workspace = true, optional = true }
 
 # Re-export clock from timing crate to avoid duplication
-freshcredit-core-timing = { path = "../timing", version = "0.1.0" }
-workspace-hack = { version = "0.1", path = "../../../workspace-hack" }
+freshcredit-core-timing = { workspace = true }
 
 [features]
 default = []
