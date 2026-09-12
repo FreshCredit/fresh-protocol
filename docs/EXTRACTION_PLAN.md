@@ -38,11 +38,21 @@ Each group = one PR in `fresh-protocol` + one cutover PR in `FreshCredit/beta`.
 2. In `fresh-protocol`: workspace wiring, `[workspace.package]`, license
    headers, `#![forbid(unsafe_code)]`, P10 gate wired in (port
    `scripts/quality/p10-scan` in group 1), README layout update.
-3. Tag `v0.1.0-<group>` when green (fmt + strict clippy + tests).
+3. Tag `v0.1.0-<group>` when green (fmt + strict clippy + tests), **and move
+   the unified consumption tag `v0.1.0`** to the same commit.
 4. In `FreshCredit/beta` (cutover PR): delete moved crates, add
    `{ crate = { git = "https://github.com/FreshCredit/fresh-protocol", tag =
-   "v0.1.0-<group>" } }` to `[workspace.dependencies]`, re-point path deps,
+   "v0.1.0" } }` to `[workspace.dependencies]`, re-point path deps,
    full gates + deploy-verify per standard discipline.
+
+   **MUST: one tag for ALL protocol crates.** Group 3 (2026-09-12) learned
+   this the hard way: per-group tags make cargo check out the repo once per
+   tag, so cross-group in-repo path deps (`libsql-local` → `types`) resolve
+   as *different packages* than the same-name crates consumed from another
+   tag — `multiple_crate_versions` fires on identical `0.1.0, 0.1.0` and
+   the two copies are type-incompatible. A single tag = a single checkout =
+   in-repo path deps unify with the workspace consumption. Cargo.lock pins
+   the exact SHA, so builds stay reproducible even though the tag moves.
 5. hakari: regenerate after each cutover (`cargo hakari generate`).
 
 ## Sequencing rules
