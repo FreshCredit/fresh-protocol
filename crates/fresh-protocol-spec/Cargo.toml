@@ -1,22 +1,18 @@
 [package]
-name = "freshcredit-protocol-spec"
+name = "fresh-protocol-spec"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 
 repository.workspace = true
-description = "The Fresh Protocol spec traits: AUTH -> DID -> DB -> HASH adapter surface (future fresh-protocol repo core)"
+description = "The Fresh Protocol spec traits: AUTH -> DID -> DB -> HASH adapter surface"
 readme.workspace = true
 keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
-# Internal dependencies
-workspace-hack = { version = "0.1", path = "../../workspace-hack" }
-
-# Workspace dependencies
 async-trait = { workspace = true }
-serde = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 
