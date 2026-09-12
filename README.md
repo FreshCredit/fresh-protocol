@@ -41,6 +41,10 @@ crates/
   types/                      # freshcredit-types — shared domain value types
   security/                   # freshcredit-security — encryption/token primitives
   timing/                     # freshcredit-core-timing — clocks, timeouts, settlement
+  libsql-common/              # freshcredit-libsql-common — URLs, retry, connection factory
+  libsql-local/               # freshcredit-libsql-local — per-user vault client + 55-table schema
+  libsql-cloud/               # freshcredit-libsql-cloud — remote vault client
+  db-migrations/              # freshcredit-db-migrations — ordered migration runner
 scripts/quality/p10-scan/     # P10 quality gate (census + --gate, repo-local baseline)
 ```
 
