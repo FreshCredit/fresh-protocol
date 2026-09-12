@@ -1,0 +1,52 @@
+[package]
+name = "freshcredit-libsql-common"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Shared utilities for libSQL/Turso database connections with dual-path architecture"
+
+repository.workspace = true
+readme.workspace = true
+keywords.workspace = true
+categories.workspace = true
+[features]
+# Default: Direct remote + local-only (embedded replica is OPT-IN)
+default = ["remote", "local-only", "embedded-replica"]
+
+# Individual features
+remote = []              # Direct HTTP connection to Turso (always available by default)
+embedded-replica = []    # Local cache with background sync (OPT-IN)
+local-only = []          # Pure local SQLite (for testing/fallback)
+
+# Convenience feature groups
+dual-path = ["remote", "embedded-replica", "local-only"]
+full = ["remote", "embedded-replica", "local-only"]
+
+# Deprecated: 'replica' is renamed to 'embedded-replica'
+replica = ["embedded-replica"]
+
+[dependencies]
+# Core dependencies
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tokio = { workspace = true }
+chrono = { workspace = true }
+async-trait = { workspace = true }
+rand = { workspace = true }
+
+# Database
+dashmap = "6.1"
+libsql = { workspace = true }
+
+[dev-dependencies]
+serial_test = "3.2"
+tokio-test = "0.4"
+rustls = { version = "0.23", default-features = false, features = ["ring"] }
+uuid = { workspace = true }
+
+[lints]
+workspace = true
+
+[package.metadata.cargo-udeps.ignore]
+normal = ["workspace-hack"]
