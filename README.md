@@ -38,6 +38,9 @@ Extraction from the reference implementation (`FreshCredit/beta`) is underway pe
 crates/
   fresh-protocol-spec/        # the spec: UserDbAdapter + IdentityProvider /
                               # DidIssuer / DidVerifier (AUTH→DID→DB→HASH traits)
+  types/                      # freshcredit-types — shared domain value types
+  security/                   # freshcredit-security — encryption/token primitives
+  timing/                     # freshcredit-core-timing — clocks, timeouts, settlement
 scripts/quality/p10-scan/     # P10 quality gate (census + --gate, repo-local baseline)
 ```
 
