@@ -11,7 +11,7 @@ keywords.workspace = true
 categories.workspace = true
 [dependencies]
 # Internal dependencies
-freshcredit-core-timing = { path = "../../core/timing", version = "0.1.0" }
+freshcredit-core-timing = { workspace = true }
 
 # Workspace dependencies
 axum = { workspace = true }

@@ -11,10 +11,10 @@ keywords.workspace = true
 categories.workspace = true
 [dependencies]
 # Core dependencies
-freshcredit-core-timing = { path = "../../core/timing", version = "0.1.0" }
+freshcredit-core-timing = { workspace = true }
 
 # Token encryption (AES-256-GCM) for OAuth refresh tokens at rest
-freshcredit-security = { path = "../../core/security", version = "0.1.0" }
+freshcredit-security = { workspace = true }
 
 # Web framework
 axum = { workspace = true }

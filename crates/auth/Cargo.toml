@@ -47,7 +47,7 @@ thiserror = { workspace = true }
 anyhow = { workspace = true }
 
 # Types (internal)
-freshcredit-types = { path = "../core/types", version = "0.1.0" }
+freshcredit-types = { workspace = true }
 freshcredit-config = { path = "../core/config", version = "0.1.0" }
 
 # Session (optional)
