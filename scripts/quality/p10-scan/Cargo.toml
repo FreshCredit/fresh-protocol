@@ -1,0 +1,14 @@
+[package]
+name = "p10-scan"
+version = "0.1.0"
+edition = "2021"
+description = "NASA Power-of-10 safety-critical code pattern scanner (freshcredit quality program)"
+publish = false
+
+[dependencies]
+syn = { version = "2", features = ["full", "visit"] }
+proc-macro2 = { version = "1", features = ["span-locations"] }
+
+# Detached from the freshcredit workspace: this crate must not join the main
+# workspace or appear in its lockfile/dependency audits.
+[workspace]

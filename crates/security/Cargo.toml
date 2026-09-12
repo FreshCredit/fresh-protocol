@@ -1,0 +1,41 @@
+[package]
+name = "freshcredit-security"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+repository.workspace = true
+description.workspace = true
+readme.workspace = true
+keywords.workspace = true
+categories.workspace = true
+[dependencies]
+blake2 = { workspace = true }
+hex = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+anyhow = { workspace = true }
+aes-gcm = "0.10"
+rand = "0.8"
+base64 = { workspace = true }
+tracing.workspace = true
+clap = { workspace = true, optional = true }
+
+# Re-export clock from timing crate to avoid duplication
+freshcredit-core-timing = { workspace = true }
+
+[features]
+default = []
+cli = ["clap"]
+
+[[bin]]
+name = "fc-security"
+path = "src/bin/fc_security.rs"
+required-features = ["cli"]
+
+[lints]
+workspace = true
+
+[package.metadata.cargo-udeps.ignore]
+normal = ["workspace-hack"]
