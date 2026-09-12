@@ -26,8 +26,7 @@ use freshcredit_consistency::{Consistency, FencingToken};
 use tokio::time::{sleep, timeout};
 
 /// Full Wave 2 schema (durable idempotency, job leases, outbox).
-const SCHEMA_SQL: &str =
-    include_str!("../../../migrations/versioned/022_consistency_kernel.up.sql");
+const SCHEMA_SQL: &str = include_str!("migrations/022_consistency_kernel.up.sql");
 
 const OPERATION_TIMEOUT: Duration = Duration::from_secs(10);
 /// Hard deadline for the holder battle; the battle normally ends as soon as

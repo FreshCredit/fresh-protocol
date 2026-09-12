@@ -37,7 +37,7 @@ use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
 /// Lazily-applied DDL for `job_leases`; mirrors
-/// `migrations/versioned/022_consistency_kernel.up.sql` so the kernel is
+/// `crates/consistency/tests/migrations/022_consistency_kernel.up.sql` so the kernel is
 /// self-initializing when the migration runner has not reached version 022.
 const JOB_LEASES_DDL: &str = r"
 CREATE TABLE IF NOT EXISTS job_leases (
@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS job_leases (
 ";
 
 /// Lazily-applied DDL for the transactional outbox (+ its partial index);
-/// mirrors `migrations/versioned/022_consistency_kernel.up.sql` so the relay
+/// mirrors `crates/consistency/tests/migrations/022_consistency_kernel.up.sql` so the relay
 /// is self-initializing when the migration runner has not reached version 022.
 const OUTBOX_DDL: &str = r"
 CREATE TABLE IF NOT EXISTS outbox (
