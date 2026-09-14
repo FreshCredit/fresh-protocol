@@ -1,0 +1,191 @@
+{% extends "explorer/base.html" %}
+
+{% block title %}FreshCredit Blockchain Explorer{% endblock %}
+
+{% block content %}
+<!-- Search Bar -->
+<div class="mb-8">
+    <div class="card rounded-lg p-6">
+        <form id="search-form" class="flex flex-col sm:flex-row gap-3">
+            <div class="flex-1 relative">
+                <input type="text" id="search-input"
+                    class="input mono text-sm"
+                    placeholder="Search by hash (64 hex characters)">
+                <div id="search-error" class="hidden absolute left-0 right-0 top-full mt-1 px-3 py-2 bg-destructive/10 border border-destructive/20 rounded text-sm text-destructive-foreground"></div>
+            </div>
+            <button type="submit" id="search-btn"
+                class="btn btn-primary flex items-center justify-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+                <span>Search</span>
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- Node Status -->
+<div class="mb-8">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="card rounded-lg p-6">
+            <div class="text-sm text-muted-foreground mb-1">Block Height</div>
+            <div class="text-3xl font-bold text-foreground">#{{ block_height }}</div>
+        </div>
+        <div class="card rounded-lg p-6">
+            <div class="text-sm text-muted-foreground mb-1">Anchored Hashes</div>
+            <div class="text-3xl font-bold text-foreground">{{ total_hashes }}</div>
+        </div>
+        <div class="card rounded-lg p-6">
+            <div class="text-sm text-muted-foreground mb-1">Node Status</div>
+            <div class="flex items-center">
+                {% if !connected %}
+                <span class="w-2 h-2 bg-error rounded-full mr-2"></span>
+                <span class="text-lg font-medium text-foreground">Offline — Connecting…</span>
+                {% else if is_syncing %}
+                <span class="w-2 h-2 bg-warning rounded-full mr-2"></span>
+                <span class="text-lg font-medium text-foreground">Syncing</span>
+                {% else %}
+                <span class="w-2 h-2 bg-success rounded-full mr-2"></span>
+                <span class="text-lg font-medium text-foreground">Online</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="card rounded-lg p-6">
+            <div class="text-sm text-muted-foreground mb-1">Connected Peers</div>
+            <div class="text-3xl font-bold text-foreground">{{ peers }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- Node Info -->
+<div class="card rounded-lg p-6 mb-8">
+    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+            <div class="text-sm text-muted-foreground mb-1">Substrate Node</div>
+            <div class="font-medium text-foreground">FreshCredit Runtime (Aura + GRANDPA)</div>
+        </div>
+        <!-- HARDCODED_URL: Blockchain API base URL -->
+        <div class="sm:text-right">
+            <div class="text-sm text-muted-foreground mb-1">API Base URL</div>
+            <div class="copyable">
+                <code class="mono text-sm bg-muted px-3 py-1 rounded text-foreground">blockchain.freshcredit.com</code>
+                <button type="button" class="copy-btn p-1 rounded-lg hover:bg-muted transition-colors" data-copy-text="https://blockchain.freshcredit.com">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Blocks -->
+<div class="card rounded-lg p-6 mb-8">
+    <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-semibold text-foreground flex items-center gap-2">
+            <svg class="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+            </svg>
+            Recent Blocks
+        </h2>
+        <div class="flex items-center gap-2 text-sm text-muted-foreground">
+            <span id="refresh-indicator" class="hidden">
+                <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                </svg>
+            </span>
+            <span>Auto-refresh: 3s</span>
+        </div>
+    </div>
+    <div id="recent-blocks"
+         hx-get="/blocks/partial"
+         hx-trigger="load, every 3s"
+         hx-swap="innerHTML"
+         hx-indicator="#refresh-indicator">
+        {% include "explorer/blocks_partial.html" %}
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="card rounded-lg p-6">
+    <h2 class="text-lg font-semibold text-foreground mb-4">Quick Actions</h2>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <a href="/verify" class="block p-4 border border-border rounded-lg hover:bg-muted transition-colors">
+            <div class="flex items-center gap-3">
+                <svg class="w-6 h-6 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <div>
+                    <div class="font-medium text-foreground">Verify Hash</div>
+                    <div class="text-sm text-muted-foreground">Check if a hash is anchored on-chain</div>
+                </div>
+            </div>
+        </a>
+        <a href="/api" class="block p-4 border border-border rounded-lg hover:bg-muted transition-colors">
+            <div class="flex items-center gap-3">
+                <svg class="w-6 h-6 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
+                </svg>
+                <div>
+                    <div class="font-medium text-foreground">API Documentation</div>
+                    <div class="text-sm text-muted-foreground">Integrate with the blockchain API</div>
+                </div>
+            </div>
+        </a>
+        <a href="/metrics" class="block p-4 border border-border rounded-lg hover:bg-muted transition-colors">
+            <div class="flex items-center gap-3">
+                <svg class="w-6 h-6 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                </svg>
+                <div>
+                    <div class="font-medium text-foreground">Metrics</div>
+                    <div class="text-sm text-muted-foreground">View node health and statistics</div>
+                </div>
+            </div>
+        </a>
+    </div>
+</div>
+
+<script>
+document.getElementById('search-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const input = document.getElementById('search-input').value.trim();
+    const btn = document.getElementById('search-btn');
+    const errorDiv = document.getElementById('search-error');
+
+    if (!input) return;
+
+    // Show loading state
+    btn.disabled = true;
+    btn.innerHTML = '<svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg><span>Searching...</span>';
+    errorDiv.classList.add('hidden');
+
+    try {
+        // Check if it's a valid hash (64 hex chars)
+        if (/^[a-fA-F0-9]{64}$/.test(input)) {
+            // Use API endpoint for JSON response
+            const response = await fetch(`/api/hash/${input}`);
+            if (response.ok) {
+                const result = await response.json();
+                if (result.verified) {
+                    // Redirect to hash detail page with full info
+                    window.location.href = `/hash/${input}`;
+                    return;
+                }
+            }
+            throw new Error('Hash not found on chain');
+        }
+
+        throw new Error('Please enter a valid 64-character hex hash');
+    } catch (error) {
+        errorDiv.textContent = error.message;
+        errorDiv.classList.remove('hidden');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg><span>Search</span>';
+    }
+});
+</script>
+{% endblock %}
+

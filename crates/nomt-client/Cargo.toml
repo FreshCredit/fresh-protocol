@@ -1,0 +1,43 @@
+[package]
+name = "nomt-client"
+version.workspace = true
+edition.workspace = true
+description = "NOMT client for HTTP API integration"
+authors = ["FreshCredit Team <dev@freshcredit.com>"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/FreshCredit/beta"
+
+readme.workspace = true
+keywords.workspace = true
+categories.workspace = true
+[dependencies]
+freshcredit-nomt-core = { path = "../freshcredit-nomt-core", version = "0.1.0" }
+
+# HTTP client
+reqwest = { workspace = true, default-features = false, features = ["json"] }
+url = "2.5.4"
+
+# Serialization
+serde = { version = "1.0.217", features = ["derive"] }
+serde_json = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Async runtime
+tokio = { version = "1.43.0", features = ["rt"] }
+
+# Tracing
+tracing = { workspace = true }
+workspace-hack = { version = "0.1", path = "../../workspace-hack" }
+
+[dev-dependencies]
+tokio-test = "0.4.4"
+wiremock = "0.6.2"
+
+[lints]
+workspace = true
+
+[package.metadata.cargo-udeps.ignore]
+normal = ["workspace-hack"]

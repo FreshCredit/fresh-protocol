@@ -1,0 +1,66 @@
+[package]
+name = "freshcredit-blockchain"
+version.workspace = true
+edition.workspace = true
+authors = ["FreshCredit Team"]
+description = "FreshCredit Substrate Blockchain Node"
+license = "MIT"
+
+repository.workspace = true
+readme.workspace = true
+keywords.workspace = true
+categories.workspace = true
+[[bin]]
+name = "freshcredit-node"
+path = "src/main.rs"
+
+[dependencies]
+# Basic dependencies for a simple blockchain node
+tokio = { workspace = true }
+futures = "0.3.30"
+clap = { workspace = true }
+serde = { workspace = true }
+serde_json = "1.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+
+# HTTP server
+# HTTP server - use workspace versions
+axum = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true }
+
+# Authentication & Rate Limiting
+jsonwebtoken = { workspace = true }
+# Rate limiting (not in workspace, keep as-is for now)
+tower_governor = "0.5"
+governor = "0.8"
+once_cell = "1.19"
+
+# HTTP client for NOMT sidecar
+reqwest = { workspace = true }
+
+# Time
+chrono = { workspace = true }
+
+# Templating
+askama.workspace = true
+# NOTE: askama_axum removed - using askama 0.14 with manual .render()
+
+# FreshCredit crates
+blockchain-client = { path = "../../crates/blockchain-client", version = "0.1.0" }
+workspace-hack = { version = "0.1", path = "../../workspace-hack" }
+
+[features]
+default = []
+
+[dev-dependencies]
+serial_test = "3.2"
+
+[lints]
+workspace = true
+
+[package.metadata.cargo-udeps.ignore]
+normal = ["workspace-hack"]

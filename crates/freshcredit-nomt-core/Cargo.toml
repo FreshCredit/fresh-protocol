@@ -1,0 +1,30 @@
+[package]
+name = "freshcredit-nomt-core"
+version.workspace = true
+edition.workspace = true
+description = "Core NOMT (Nearly Optimal Merkle Trie) types and utilities"
+authors = ["FreshCredit Team <dev@freshcredit.com>"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/FreshCredit/beta"
+
+readme.workspace = true
+keywords.workspace = true
+categories.workspace = true
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+hex = { workspace = true }
+blake3 = { workspace = true }
+chrono = { workspace = true }
+tracing = { workspace = true }
+workspace-hack = { version = "0.1", path = "../../workspace-hack" }
+
+[dev-dependencies]
+serde_test = "1.0"
+
+[lints]
+workspace = true
+
+[package.metadata.cargo-udeps.ignore]
+normal = ["workspace-hack"]
