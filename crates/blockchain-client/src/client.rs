@@ -1,13 +1,14 @@
 //! Blockchain client for Substrate interaction
 
 use anyhow::Result;
-use freshcredit_config::Environment;
 use std::sync::Arc;
 use subxt::{OnlineClient, SubstrateConfig};
 use subxt_rpcs::LegacyRpcMethods;
 use subxt_rpcs::RpcClient;
 use subxt_signer::sr25519::Keypair;
 use tracing::{error, info, warn};
+
+use crate::environment::Environment;
 
 pub mod block;
 pub mod hash;

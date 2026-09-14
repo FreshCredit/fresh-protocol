@@ -23,6 +23,7 @@ pub mod freshcredit_runtime {}
 
 pub mod bulletin;
 pub mod client;
+pub mod environment;
 pub mod helpers;
 pub mod nomt;
 pub mod types;
