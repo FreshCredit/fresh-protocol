@@ -147,7 +147,7 @@ impl OperationRateLimiterService {
         let mut bucket = self
             .buckets
             .entry(key)
-                // TAG: surface=security owner=platform-team rule=MID-001
+            // TAG: surface=security owner=platform-team rule=MID-001
             .or_insert_with(|| TokenBucket::new(config.clone(), now));
 
         if bucket.try_consume(now) {

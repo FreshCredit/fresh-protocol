@@ -22,6 +22,30 @@ account_type: AccountType,
  */
 balance: number | null, 
 /**
+ * Current balance (from Plaid `balances.current`)
+ */
+current_balance?: number | null, 
+/**
+ * Available balance (from Plaid `balances.available`)
+ */
+available_balance?: number | null, 
+/**
+ * Credit/limit (from Plaid `balances.limit`)
+ */
+credit_limit?: number | null, 
+/**
+ * ISO currency code (from Plaid `balances.iso_currency_code`)
+ */
+iso_currency_code?: string | null, 
+/**
+ * Account mask (last digits)
+ */
+mask?: string | null, 
+/**
+ * Official account name from the institution
+ */
+official_name?: string | null, 
+/**
  * Currency
  */
 currency: string, 

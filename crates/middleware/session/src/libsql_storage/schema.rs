@@ -118,7 +118,7 @@ impl LibSqlSessionStorage {
                 "CREATE INDEX IF NOT EXISTS idx_artifacts_user_id ON session_artifacts(user_id)",
                 (),
             )
-                // TAG: surface=security owner=platform-team rule=MID-001
+            // TAG: surface=security owner=platform-team rule=MID-001
             .await
         {
             tracing::warn!(error = %e, "failed to create idx_artifacts_user_id");

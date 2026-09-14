@@ -299,7 +299,7 @@ fn extract_identifier(req: &Request) -> String {
         .get::<ConnectInfo<SocketAddr>>()
         .map(|connect_info| connect_info.0.ip().to_string());
     let client_ip = req
-            // TAG: surface=security owner=platform-team rule=GENERAL-001
+        // TAG: surface=security owner=platform-team rule=GENERAL-001
         .headers()
         .get("X-Forwarded-For")
         .and_then(|h| h.to_str().ok())
