@@ -1,0 +1,76 @@
+[package]
+name = "auth"
+version.workspace = true
+edition.workspace = true
+description = "Shared authentication crate for FreshCredit platform"
+authors = ["FreshCredit Team <dev@freshcredit.com>"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/FreshCredit/beta"
+
+readme.workspace = true
+keywords.workspace = true
+categories.workspace = true
+[features]
+default = ["jwt", "oauth", "rbac"]
+jwt = ["jsonwebtoken", "sha2", "hmac"]
+oauth = ["reqwest"]
+rbac = []
+session = ["freshcredit-middleware-session"]
+biometric = ["webauthn-rs"]
+axum = ["dep:axum", "axum-extra"]
+
+[dependencies]
+async-trait = { workspace = true }
+
+# HTTP framework (optional)
+axum = { workspace = true, optional = true }
+axum-extra = { version = "0.9", features = ["typed-header"], optional = true }
+
+# HTTP client (for OAuth)
+reqwest = { workspace = true, default-features = false, features = ["json"], optional = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# JWT (optional)
+jsonwebtoken = { workspace = true, optional = true }
+sha2 = { workspace = true, optional = true }
+hmac = { workspace = true, optional = true }
+base64 = { workspace = true }
+
+# Time
+chrono = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Types (internal)
+freshcredit-types = { workspace = true }
+freshcredit-config = { path = "../core/config", version = "0.1.0" }
+
+# Session (optional)
+freshcredit-middleware-session = { path = "../middleware/session", version = "0.1.0", optional = true }
+
+# Biometric/WebAuthn (optional)
+webauthn-rs = { workspace = true, optional = true }
+
+# HTTP types
+http = "1.0"
+
+# Tracing
+tracing = { workspace = true }
+workspace-hack = { version = "0.1", path = "../../workspace-hack" }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["full"] }
+tokio-test = "0.4.4"
+mockall = "0.13.1"
+tower = { workspace = true, features = ["util"] }
+
+[lints]
+workspace = true
+
+[package.metadata.cargo-udeps.ignore]
+normal = ["workspace-hack"]
