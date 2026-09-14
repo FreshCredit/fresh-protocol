@@ -1,2 +1,5 @@
 /target
 Cargo.lock
+
+# p10-scan local build cache
+scripts/quality/p10-scan/target/
