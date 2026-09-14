@@ -52,6 +52,7 @@ crates/
   middleware/idempotency/     # freshcredit-middleware-idempotency — idempotent writes
   middleware/rate_limit/      # freshcredit-middleware-rate-limit — token-bucket limiting
   middleware/session/         # freshcredit-middleware-session — session storage/tokens
+  blockchain-client/          # blockchain-client — Substrate anchoring (subxt), NOMT sidecar, bulletin
 scripts/quality/p10-scan/     # P10 quality gate (census + --gate, repo-local baseline)
 ```
 
