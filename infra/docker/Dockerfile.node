@@ -1,0 +1,67 @@
+# Fresh Protocol node / blockchain explorer image.
+# Multi-stage standalone build (extraction group 8: the node lives in this
+# repo; the products repo's cloudbuild builds this image at the SHA pinned
+# in its Cargo.lock).
+#
+# Build from the fresh-protocol repo root:
+#   docker build -f infra/docker/Dockerfile.node -t freshcredit-blockchain .
+
+# HARDCODED_CONFIG: Rust 1.91 pinned by rust-toolchain.toml in the repo root
+FROM rust:1.91-slim-bookworm AS builder
+
+USER root
+
+WORKDIR /app
+
+RUN apt-get update && apt-get upgrade -y && apt-get install -y \
+    pkg-config \
+    libssl-dev \
+    libfontconfig1-dev \
+    perl \
+    make \
+    curl \
+    clang \
+    lld \
+    git \
+    && rm -rf /var/lib/apt/lists/* || true
+
+# Copy the whole workspace ( Cargo.lock is committed for reproducibility)
+COPY . .
+
+# Build the node binary
+RUN cargo build --release --locked --package freshcredit-blockchain
+
+# Runtime stage
+FROM debian:bookworm-slim
+
+RUN apt-get update && apt-get upgrade -y && apt-get install -y \
+    ca-certificates \
+    libgnutls30 \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN groupadd -r freshcredit && useradd -r -g freshcredit freshcredit
+
+WORKDIR /app
+
+COPY --from=builder /app/target/release/freshcredit-node /app/freshcredit-explorer
+
+# Explorer UI assets (moved with the node in extraction group 8)
+COPY crates/blockchain-node/templates /app/templates
+COPY crates/blockchain-node/static /app/static
+
+RUN mkdir -p /app/data && chown -R freshcredit:freshcredit /app
+
+USER freshcredit
+
+ENV DATABASE_PATH=/app/data/blockchain.db
+ENV PORT=8080
+ENV RUST_LOG=info
+
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8080/health || exit 1
+
+ENTRYPOINT ["/app/freshcredit-explorer"]
+CMD ["--port", "8080"]
