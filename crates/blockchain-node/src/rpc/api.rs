@@ -277,7 +277,7 @@ pub(super) async fn get_user_hashes(
                         "timestamp": h.timestamp
                     })
                 })
-// TAG: surface=blockchain owner=platform-team rule=GENERAL-001
+                // TAG: surface=blockchain owner=platform-team rule=GENERAL-001
                 .collect();
             Json(serde_json::json!({
                 "user_id": user_id,

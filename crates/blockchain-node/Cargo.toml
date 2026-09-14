@@ -50,8 +50,7 @@ askama.workspace = true
 # NOTE: askama_axum removed - using askama 0.14 with manual .render()
 
 # FreshCredit crates
-blockchain-client = { path = "../../crates/blockchain-client", version = "0.1.0" }
-workspace-hack = { version = "0.1", path = "../../workspace-hack" }
+blockchain-client = { path = "../blockchain-client", version = "0.1.0" }
 
 [features]
 default = []
@@ -61,6 +60,3 @@ serial_test = "3.2"
 
 [lints]
 workspace = true
-
-[package.metadata.cargo-udeps.ignore]
-normal = ["workspace-hack"]

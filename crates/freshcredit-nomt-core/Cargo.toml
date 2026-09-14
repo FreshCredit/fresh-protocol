@@ -18,13 +18,9 @@ hex = { workspace = true }
 blake3 = { workspace = true }
 chrono = { workspace = true }
 tracing = { workspace = true }
-workspace-hack = { version = "0.1", path = "../../workspace-hack" }
 
 [dev-dependencies]
 serde_test = "1.0"
 
 [lints]
 workspace = true
-
-[package.metadata.cargo-udeps.ignore]
-normal = ["workspace-hack"]

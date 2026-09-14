@@ -43,7 +43,6 @@ tracing = { workspace = true }
 
 # Date/time
 chrono = { workspace = true }
-workspace-hack = { version = "0.1", path = "../../workspace-hack" }
 
 [dev-dependencies]
 tokio-test = "0.4.4"
@@ -52,6 +51,3 @@ tokio = { workspace = true, features = ["rt", "sync", "io-util", "fs", "macros"]
 
 [lints]
 workspace = true
-
-[package.metadata.cargo-udeps.ignore]
-normal = ["workspace-hack"]

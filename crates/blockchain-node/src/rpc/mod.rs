@@ -225,7 +225,7 @@ pub fn create_app(state: AppState) -> Router {
             HeaderValue::from_static("DENY"),
         ))
         .layer(SetResponseHeaderLayer::if_not_present(
-// TAG: surface=blockchain owner=blockchain-team rule=BLOCKCHAIN-001
+            // TAG: surface=blockchain owner=blockchain-team rule=BLOCKCHAIN-001
             header::HeaderName::from_static("x-xss-protection"),
             HeaderValue::from_static("1; mode=block"),
         ))
@@ -246,7 +246,7 @@ pub fn create_app(state: AppState) -> Router {
                  connect-src 'self'; \
                  frame-ancestors 'none'; \
                  base-uri 'self'; \
-                 form-action 'self';"
+                 form-action 'self';",
             ),
         ))
         .layer(RequestBodyLimitLayer::new(MAX_REQUEST_BODY_SIZE))
