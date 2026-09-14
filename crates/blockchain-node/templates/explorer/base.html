@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#171717">
+    <meta name="description" content="FreshCredit Blockchain Explorer - Verify report hashes anchored on Substrate">
+    <title>{% block title %}FreshCredit Blockchain Explorer{% endblock %}</title>
+
+    <!-- HARDCODED_CONFIG: Pre-built Tailwind CSS replaces CDN for build reproducibility -->
+    <link rel="stylesheet" href="/static/css/tailwind.css">
+    <!-- HARDCODED_CONFIG: HTMX version pinned for stability -->
+    <script src="/static/js/htmx.min.js"></script>
+
+    <!-- Google Fonts - aligned with main app -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Abril+Fatface&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <!-- Theme initialization (prevent flash) - aligned with main app -->
+    <!-- P0 SECURITY FIX: External script for strict CSP (no unsafe-inline) -->
+    <script src="/static/js/theme-init.js"></script>
+    
+    <!-- Clipboard utility - external script for strict CSP -->
+    <script src="/static/js/theme.js"></script>
+    {% block head %}{% endblock %}
+</head>
+<body class="bg-background text-foreground min-h-screen flex flex-col">
+    <nav class="border-b border-border bg-card">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <a href="/" class="flex items-center space-x-2">
+                        <span class="text-xl logo-font text-foreground">FreshCredit</span>
+                        <span class="text-sm text-muted-foreground">Blockchain Explorer</span>
+                    </a>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <a href="/" class="text-sm text-muted-foreground hover:text-foreground transition-colors">Blocks</a>
+                    <a href="/metrics" class="text-sm text-muted-foreground hover:text-foreground transition-colors">Metrics</a>
+                    <a href="/verify" class="text-sm text-muted-foreground hover:text-foreground transition-colors">Verify</a>
+                    <a href="/api" class="text-sm text-muted-foreground hover:text-foreground transition-colors">API</a>
+
+                    <!-- Theme Toggle -->
+                    <button id="theme-toggle" class="p-2 rounded-lg hover:bg-muted transition-colors" title="Toggle theme">
+                        <!-- Sun icon (shown in dark mode) -->
+                        <svg class="w-5 h-5 hidden dark:block" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+                        </svg>
+                        <!-- Moon icon (shown in light mode) -->
+                        <svg class="w-5 h-5 block dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+                        </svg>
+                    </button>
+
+                    <button data-action="open-subscribe-modal" class="ml-2 px-3 py-1.5 text-sm font-medium bg-foreground text-background rounded-lg hover:opacity-90 transition-opacity">
+                        Subscribe to Updates
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- UI-EXEMPT: Explorer layout uses py-8 on main instead of space-y on sections -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1">  <!-- UI-EXEMPT: py-8 provides spacing -->
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="border-t border-border mt-auto">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div class="flex flex-col sm:flex-row justify-between items-center gap-4 text-sm text-muted-foreground">
+                <span>FreshCredit Blockchain Explorer v0.1.0</span>
+                <!-- Technology Attribution with Logo.dev -->
+                <div class="flex items-center gap-4">
+                    <span>Powered by</span>
+                    <a href="https://substrate.io" target="_blank" rel="noopener" class="flex items-center gap-1.5 hover:text-foreground transition-colors">
+                        <!-- S5: Logo.dev token is a publishable key (pk_) intended for client-side use.
+                             It does not grant access to sensitive account information. -->
+                        <img src="https://img.logo.dev/substrate.io?token=pk_X-1ZO13GSgeOoUrIuJ6GMQ" alt="Substrate" class="h-4 w-auto tech-logo">
+                        <span>Substrate</span>
+                    </a>
+                    <span class="text-border">|</span>
+                    <a href="https://polkadot.network" target="_blank" rel="noopener" class="flex items-center gap-1.5 hover:text-foreground transition-colors">
+                        <!-- S5: Logo.dev token is a publishable key (pk_) intended for client-side use.
+                             It does not grant access to sensitive account information. -->
+                        <img src="https://img.logo.dev/polkadot.network?token=pk_X-1ZO13GSgeOoUrIuJ6GMQ" alt="Polkadot" class="h-4 w-auto tech-logo">
+                        <span>Polkadot SDK</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Subscribe Modal - Design System: backdrop blur on all modal overlays -->
+    <div id="subscribeModal" class="fixed inset-0 z-50 hidden">
+        <!-- Backdrop with blur -->
+        <div class="fixed inset-0 bg-background/80 backdrop-blur-md"></div>
+        <!-- Modal Content -->
+        <div class="fixed inset-0 flex items-center justify-center p-4">
+            <div class="bg-card border border-border rounded-xl shadow-xl max-w-md w-full p-6 relative">
+                <!-- Close Button -->
+                <button data-action="close-subscribe-modal" class="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+
+                <!-- Modal Header -->
+                <div class="mb-6">
+                    <h2 class="text-xl font-semibold text-foreground">Subscribe to Updates</h2>
+                    <p class="text-muted-foreground text-sm mt-1">Get notified about blockchain incidents and maintenance.</p>
+                </div>
+
+                <!-- Subscription Form -->
+                <form id="subscribeForm">
+                    <div class="space-y-4">
+                        <div>
+                            <label for="subscribeEmail" class="block text-sm font-medium text-foreground mb-1">Email Address</label>
+                            <input type="email" id="subscribeEmail" name="email" required
+                                class="input w-full"
+                                placeholder="you@example.com">
+                        </div>
+
+                        <div class="space-y-2">
+                            <p class="text-sm font-medium text-foreground">Notification Preferences</p>
+                            <label class="flex items-center gap-2 text-sm text-muted-foreground">
+                                <input type="checkbox" name="incidents" checked class="rounded border-border bg-background text-foreground focus:ring-ring">
+                                Incident alerts
+                            </label>
+                            <label class="flex items-center gap-2 text-sm text-muted-foreground">
+                                <input type="checkbox" name="maintenance" checked class="rounded border-border bg-background text-foreground focus:ring-ring">
+                                Scheduled maintenance
+                            </label>
+                            <label class="flex items-center gap-2 text-sm text-muted-foreground">
+                                <input type="checkbox" name="updates" class="rounded border-border bg-background text-foreground focus:ring-ring">
+                                Feature updates
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="mt-6 flex gap-3">
+                        <button type="button" data-action="close-subscribe-modal"
+                            class="btn btn-secondary flex-1">
+                            Cancel
+                        </button>
+                        <button type="submit" id="subscribeBtn"
+                            class="btn btn-primary flex-1">
+                            Subscribe
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Success Message (hidden by default) -->
+                <div id="subscribeSuccess" class="hidden text-center py-4">
+                    <svg class="w-12 h-12 mx-auto text-success mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <h3 class="text-lg font-medium text-foreground">You're subscribed!</h3>
+                    <p class="text-sm text-muted-foreground mt-1">We'll notify you about important updates.</p>
+                    <button data-action="close-subscribe-modal" class="btn btn-primary mt-4">
+                        Done
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- P0 SECURITY FIX: External scripts for strict CSP (no unsafe-inline) -->
+    <script src="/static/js/modal.js"></script>
+</body>
+</html>
+

@@ -24,6 +24,13 @@ members = [
     "crates/middleware/session",
     # Group 6 — anchoring client
     "crates/blockchain-client",
+    # Group 8 — node + NOMT stack
+    "crates/blockchain-node",
+    "crates/freshcredit-nomt-core",
+    "crates/nomt-client",
+    "crates/nomt-server",
+    "crates/nomt-sidecar",
+    "crates/nomt-wasm",
 ]
 
 [workspace.package]
@@ -91,6 +98,29 @@ subxt-signer = { version = "0.50", features = ["subxt", "sr25519"] }
 sp-crypto-hashing = "0.1"
 wiremock = "0.6"
 sp-core-hashing = "5.0"
+
+# Group 8 — node + NOMT stack
+futures = "0.3.30"
+tower_governor = "0.5"
+governor = "0.8"
+once_cell = "1.19"
+dotenvy = "0.15"
+prometheus = "0.13"
+prost = "0.13"
+tonic = "0.12"
+tonic-build = "0.12"
+nomt = "0.2"
+serde-wasm-bindgen = "0.6"
+wasm-bindgen = "0.2"
+wasm-bindgen-test = "0.3"
+web-sys = "0.3"
+getrandom = "0.2"
+serial_test = "3.0"
+serde_test = "1.0"
+url = "2.5"
+askama = "0.14"
+blake3 = "1.5"
+tempfile = "3.8"
 
 # Quality gate lints — kept lockstep with the reference implementation's
 # workspace lints so protocol crates satisfy the same bar.

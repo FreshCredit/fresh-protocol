@@ -1,0 +1,53 @@
+[package]
+name = "nomt-wasm"
+version.workspace = true
+edition.workspace = true
+description = "NOMT proof verification for browser via WebAssembly"
+authors = ["FreshCredit <hello@freshcredit.com>"]
+license.workspace = true
+
+repository.workspace = true
+readme.workspace = true
+keywords.workspace = true
+categories.workspace = true
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# NOMT Core - Binary Merkle Trie proof verification
+# Uses no_std compatible subset for WASM compilation
+# nomt-core v1.0.3 is now available on crates.io
+nomt-core = { version = "1.0.3", default-features = false, features = ["sha2-hasher"] }
+
+# WASM bindings
+wasm-bindgen = "0.2"
+
+# Serialization for JavaScript interop
+serde = { workspace = true }
+serde-wasm-bindgen = "0.6"
+
+# Hashing
+sha2 = { version = "0.10", default-features = false }
+hex = { version = "0.4", default-features = false, features = ["alloc"] }
+
+# JavaScript console logging
+web-sys = { version = "0.3", features = ["console"] }
+
+# getrandom reaches the wasm32 build via workspace-hack in two major versions:
+# 0.3.4 (tower_governor → governor → dashmap → hashbrown → ahash) needs the
+# `wasm_js` feature plus RUSTFLAGS `--cfg getrandom_backend="wasm_js"`;
+# 0.2.17 (alloy → k256 → ecdsa → elliptic-curve → crypto-bigint → rand_core)
+# needs the `js` feature. The 0.2 line is aliased because Cargo forbids two
+# same-name entries in one dependencies table.
+getrandom = { version = "0.3", features = ["wasm_js"] }
+getrandom_02 = { package = "getrandom", version = "0.2", features = ["js"] }
+
+# NOTE: workspace-hack is deliberately NOT a dependency of this crate — it
+# drags server-only crates (tokio/mio/reqwest/alloy) into the wasm32 build,
+# which cannot compile for the browser target.
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3"
+
+[lints]
+workspace = true
