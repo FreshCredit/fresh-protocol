@@ -28,6 +28,20 @@ Each group = one PR in `fresh-protocol` + one cutover PR in `FreshCredit/beta`.
 6. **Anchor client** — `crates/blockchain-client` + hash-commit hooks.
 7. **Ports** — `crates/engine-ports` (~90 port modules; prune product-shaped
    ports during the move).
+
+   **Scope decision (2026-09-14): NOT MOVED — stays product-side.** Pruning
+   during extraction revealed the crate is product-shaped at its core:
+   `domain/` (User, Payment, Report — ~60% of all workspace consumption,
+   1,050 use sites) is the FreshCredit credit/commerce domain by
+   definition; the remaining modules are precisely the network/service
+   integration traits (plaid, dnb, experian, salesforce, …) that the
+   architecture places in the product layer (org-supported integrations),
+   not the edge protocol. The protocol's extension surface already exists
+   in `fresh-protocol-spec` (`UserDbAdapter`, `IdentityProvider` /
+   `DidIssuer` / `DidVerifier`). Splitting engine-ports would churn
+   1,000+ imports across the products repo for zero consolidation gain.
+   Recorded as a deliberate end state, per the plan's own rule that
+   partial consolidation is valid.
 8. **Node** — `apps/blockchain` (the Substrate node), NOMT stack (5 crates,
    smoldot-adjacent; GPL+Classpath note already in README).
 
