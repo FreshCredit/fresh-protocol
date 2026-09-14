@@ -1,0 +1,71 @@
+[package]
+name = "auth"
+version.workspace = true
+edition.workspace = true
+description = "Fresh Protocol authentication (JWT, OAuth, RBAC, sessions, WebAuthn)"
+authors = ["FreshCredit Team <dev@freshcredit.com>"]
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[features]
+default = ["jwt", "oauth", "rbac"]
+jwt = ["jsonwebtoken", "sha2", "hmac"]
+oauth = ["reqwest"]
+rbac = []
+session = ["freshcredit-middleware-session"]
+biometric = ["webauthn-rs"]
+axum = ["dep:axum", "dep:axum-extra"]
+
+[dependencies]
+async-trait = { workspace = true }
+
+# HTTP framework (optional)
+axum = { workspace = true, optional = true }
+axum-extra = { workspace = true, optional = true }
+
+# HTTP client (for OAuth)
+reqwest = { workspace = true, default-features = false, features = ["json"], optional = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# JWT (optional)
+jsonwebtoken = { workspace = true, optional = true }
+sha2 = { workspace = true, optional = true }
+hmac = { workspace = true, optional = true }
+base64 = { workspace = true }
+
+# Time
+chrono = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+
+# Types (internal)
+freshcredit-types = { workspace = true }
+
+# Session (optional)
+freshcredit-middleware-session = { path = "../middleware/session", version = "0.1.0", optional = true }
+
+# Biometric/WebAuthn (optional)
+webauthn-rs = { workspace = true, optional = true }
+
+# HTTP types
+http = { workspace = true }
+
+# Tracing
+tracing = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["full"] }
+tokio-test = { workspace = true }
+mockall = { workspace = true }
+tower = { workspace = true, features = ["util"] }
+
+[lints]
+workspace = true

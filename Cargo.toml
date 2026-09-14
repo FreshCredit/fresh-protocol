@@ -16,6 +16,12 @@ members = [
     "crates/db-migrations",
     "crates/libsql-schema-validator",
     "crates/consistency",
+    # Group 5 — auth + middleware
+    "crates/auth",
+    "crates/middleware/consent",
+    "crates/middleware/idempotency",
+    "crates/middleware/rate_limit",
+    "crates/middleware/session",
 ]
 
 [workspace.package]
@@ -60,6 +66,21 @@ libsql = { git = "https://github.com/FreshCredit/libsql.git", rev = "9e6dacfa60e
 # Group-2 crates (consumed from group 2 in-repo)
 freshcredit-types = { path = "crates/types", version = "0.1.0" }
 freshcredit-security = { path = "crates/security", version = "0.1.0" }
+
+# Group 5 — web stack for auth + middleware
+axum = { version = "0.7", features = ["macros", "tracing"] }
+axum-extra = { version = "0.9", features = ["cookie", "typed-header"] }
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "trace", "fs", "set-header", "limit"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+jsonwebtoken = { version = "10.3", features = ["rust_crypto"] }
+hmac = "0.12"
+webauthn-rs = { version = "0.5", features = ["danger-allow-state-serialisation"] }
+http = "1.0"
+bytes = "1.9"
+http-body-util = "0.1"
+mockall = "0.13"
+tokio-test = "0.4"
 
 # Quality gate lints — kept lockstep with the reference implementation's
 # workspace lints so protocol crates satisfy the same bar.

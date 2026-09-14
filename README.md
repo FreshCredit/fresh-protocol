@@ -47,6 +47,11 @@ crates/
   db-migrations/              # freshcredit-db-migrations — ordered migration runner
   libsql-schema-validator/    # freshcredit-libsql-schema-validator — vault schema conformance
   consistency/                # freshcredit-consistency — leases, fencing, outbox
+  auth/                       # auth — JWT, OAuth, RBAC, sessions, WebAuthn
+  middleware/consent/         # freshcredit-middleware-consent — consent records + rules
+  middleware/idempotency/     # freshcredit-middleware-idempotency — idempotent writes
+  middleware/rate_limit/      # freshcredit-middleware-rate-limit — token-bucket limiting
+  middleware/session/         # freshcredit-middleware-session — session storage/tokens
 scripts/quality/p10-scan/     # P10 quality gate (census + --gate, repo-local baseline)
 ```
 
