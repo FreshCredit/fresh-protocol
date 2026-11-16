@@ -19,7 +19,7 @@ use crate::types::{HashMetadata, NomtProof, StoreResponse, VerifyResponse};
 use nomt::{
     hasher::Blake3Hasher, trie::KeyPath, KeyReadWrite, Nomt, Options, SessionParams, WitnessMode,
 };
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -32,8 +32,12 @@ pub struct NativeNomtStorage {
     // TAG: surface=blockchain owner=blockchain-team rule=BC-001
     /// Data directory
     data_dir: PathBuf,
-    /// Metadata index (stored separately since NOMT only stores key-value pairs)
-    metadata: RwLock<HashMap<String, HashMetadata>>,
+    /// Ordered metadata index (BTreeMap for deterministic RFC 6962 proof synthesis)
+    metadata: RwLock<BTreeMap<String, HashMetadata>>,
+    /// Secondary index mapping SHA-256(data) -> bound leaf hash
+    sha256_aliases: RwLock<HashMap<String, String>>,
+    /// Latest RFC 6962 Merkle root aligned with `freshcredit-nomt-core`
+    rfc6962_root: RwLock<String>,
     /// Ready flag
     ready: bool,
 }
@@ -85,22 +89,30 @@ impl NativeNomtStorage {
         // Load metadata index if it exists
         // P1-PERF: Wrap blocking I/O in spawn_blocking
         let metadata_file = path.join("metadata_index.json");
-        let metadata = if metadata_file.exists() {
+        let metadata: BTreeMap<String, HashMetadata> = if metadata_file.exists() {
             let file_clone = metadata_file.clone();
             (tokio::task::spawn_blocking(move || std::fs::read_to_string(&file_clone)).await?)
                 .map_or_else(
-                    |_| HashMap::new(),
+                    |_| BTreeMap::new(),
                     |content| serde_json::from_str(&content).unwrap_or_default(),
                 )
         } else {
-            HashMap::new()
+            BTreeMap::new()
             // TAG: surface=blockchain owner=blockchain-team rule=BC-001
+        };
+        let ordered_init: Vec<String> = metadata.keys().cloned().collect();
+        let initial_root = if ordered_init.is_empty() {
+            hex::encode(nomt.root().into_inner())
+        } else {
+            freshcredit_nomt_core::compute_merkle_root(&ordered_init)
         };
 
         Ok(Self {
             nomt: Arc::new(nomt),
             data_dir: path,
             metadata: RwLock::new(metadata),
+            sha256_aliases: RwLock::new(HashMap::new()),
+            rfc6962_root: RwLock::new(initial_root),
             ready: true,
         })
     }
@@ -171,45 +183,23 @@ impl NativeNomtStorage {
         let actual_access = vec![(key_path.clone(), KeyReadWrite::Write(Some(value)))];
 
         let mut finished = session.finish(actual_access)?;
-        let new_root = finished.root();
+        let _nomt_trie_root = finished.root();
         let witness = finished.take_witness();
 
-        // Commit the changes
+        // Commit the changes to Beatree + Bitbox
         finished.commit(&self.nomt)?;
 
-        // Generate proof from witness — fail closed rather than fabricating a fake proof
-        let w = witness.ok_or_else(|| {
+        // Fail closed if native NOMT witness generation failed
+        let _w = witness.ok_or_else(|| {
             anyhow::anyhow!("Native NOMT failed to emit cryptographic witness proof")
         })?;
-        let siblings: Vec<String> = w
-            .path_proofs
-            .iter()
-            .flat_map(|pp| {
-                pp.inner
-                    .sibling_chunks
-                    .iter()
-                    .flat_map(|chunk| match chunk {
-                        nomt::proof::SiblingChunk::Sibling(node) => vec![hex::encode(node)],
-                        nomt::proof::SiblingChunk::Terminators(count) => {
-                            vec![hex::encode([0u8; 32]); usize::from(*count)]
-                        }
-                    })
-            })
-            .collect();
 
-        // Path bits derived from the 256-bit key path (MSB-first, wrapping safely if > 256)
-        let path_bits: Vec<bool> = (0..siblings.len())
-            .map(|i| (hash_bytes[(i / 8) % 32] >> (7 - (i % 8))) & 1 == 1)
-            .collect();
-
-        let proof = NomtProof {
-            leaf_hash: hash.clone(),
-            siblings,
-            path: path_bits,
-            root: hex::encode(new_root.into_inner()),
+        let sha256_alias = {
+            use sha2::{Digest, Sha256};
+            hex::encode(Sha256::digest(data))
         };
 
-        // Store metadata
+        // Store metadata in BTreeMap & construct canonical RFC 6962 BLAKE3 proof matching LegacyStorage
         let timestamp = chrono::Utc::now().to_rfc3339();
         let metadata = HashMetadata {
             user_id: user_id.to_string(),
@@ -218,27 +208,84 @@ impl NativeNomtStorage {
             data_size: data.len(),
         };
 
-        {
+        let (ordered_leaves, new_root_hex) = {
             let mut meta_guard = self.metadata.write().await;
             meta_guard.insert(hash.clone(), metadata);
+            let leaves: Vec<String> = meta_guard.keys().cloned().collect();
+            let root = freshcredit_nomt_core::compute_merkle_root(&leaves);
+            (leaves, root)
+        };
+        {
+            self.sha256_aliases
+                .write()
+                .await
+                .entry(sha256_alias)
+                .or_insert_with(|| hash.clone());
+            *self.rfc6962_root.write().await = new_root_hex.clone();
         }
+
+        let core_proof = freshcredit_nomt_core::build_merkle_proof(&ordered_leaves, &hash)
+            .ok_or_else(|| anyhow::anyhow!("Failed to construct RFC 6962 Merkle proof"))?;
+        let proof = NomtProof {
+            leaf_hash: core_proof.leaf_hash,
+            siblings: core_proof.siblings,
+            path: core_proof.path,
+            root: core_proof.root,
+        };
 
         // Persist metadata to disk
         self.persist_metadata().await?;
 
         info!(
             hash = %hash,
-            new_root = %hex::encode(new_root.into_inner()),
+            new_root = %new_root_hex,
             "Data stored in native NOMT"
         );
 
         Ok(StoreResponse {
             hash,
-            nomt_root: hex::encode(new_root.into_inner()),
+            nomt_root: new_root_hex,
             proof,
             timestamp,
             // TAG: surface=blockchain owner=blockchain-team rule=BC-001
         })
+    }
+
+    /// Resolve either a bound leaf hash or a registered on-chain SHA-256 alias
+    async fn resolve_leaf_key(&self, hash_or_sha256: &str) -> Option<String> {
+        if self.metadata.read().await.contains_key(hash_or_sha256) {
+            return Some(hash_or_sha256.to_string());
+        }
+        let alias = self
+            .sha256_aliases
+            .read()
+            .await
+            .get(hash_or_sha256)
+            .cloned();
+        if let Some(ref leaf) = alias {
+            if self.metadata.read().await.contains_key(leaf) {
+                return alias;
+            }
+        }
+        None
+    }
+
+    /// Generate an RFC 6962 inclusion proof on demand for native storage
+    pub async fn get_proof(&self, hash: &str) -> anyhow::Result<Option<NomtProof>> {
+        let Some(leaf_key) = self.resolve_leaf_key(hash).await else {
+            return Ok(None);
+        };
+        let ordered_leaves: Vec<String> = self.metadata.read().await.keys().cloned().collect();
+        Ok(
+            freshcredit_nomt_core::build_merkle_proof(&ordered_leaves, &leaf_key).map(|p| {
+                NomtProof {
+                    leaf_hash: p.leaf_hash,
+                    siblings: p.siblings,
+                    path: p.path,
+                    root: p.root,
+                }
+            }),
+        )
     }
 
     /// Verify a hash exists in storage
@@ -247,18 +294,20 @@ impl NativeNomtStorage {
         hash: &str,
         expected_root: Option<&str>,
     ) -> anyhow::Result<VerifyResponse> {
-        let key_path = Self::hash_to_keypath(hash)?;
+        let resolved = self.resolve_leaf_key(hash).await;
+        let lookup_key = resolved.as_deref().unwrap_or(hash);
+        let key_path = Self::hash_to_keypath(lookup_key)?;
 
         // Begin a read session
         let session = self.nomt.begin_session(SessionParams::default());
 
         // Read the value (ENOMT API: read expects KeyPath which is Vec<u8>)
-        let value = session.read(key_path.clone())?;
+        let value = session.read(key_path)?;
         let exists = value.is_some();
 
         // Finish the session (no writes)
-        let finished = session.finish(vec![])?;
-        let current_root = hex::encode(finished.root().into_inner());
+        let _finished = session.finish(vec![])?;
+        let current_root = self.rfc6962_root.read().await.clone();
 
         // Check root if expected
         let verified = expected_root.map_or(exists, |expected| exists && current_root == expected);
@@ -266,7 +315,7 @@ impl NativeNomtStorage {
         // Get metadata
         let metadata = self.metadata.read().await;
         // TAG: surface=blockchain owner=blockchain-team rule=BC-001
-        let meta = metadata.get(hash);
+        let meta = metadata.get(lookup_key);
 
         Ok(VerifyResponse {
             exists,

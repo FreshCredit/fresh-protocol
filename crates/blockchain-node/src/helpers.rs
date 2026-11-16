@@ -30,14 +30,27 @@ pub fn validate_jwt(token: &str) -> Result<crate::config::Claims, jsonwebtoken::
         "JWT_SECRET must be at least 32 bytes for HS256 security"
     );
     let mut validation = Validation::new(Algorithm::HS256);
-    validation.set_required_spec_claims(&["exp", "iat", "sub"]);
+    validation.validate_nbf = true;
+    validation.validate_aud = true;
+    let issuer = std::env::var("JWT_ISSUER").unwrap_or_else(|_| "freshcredit".to_string());
+    let audience = std::env::var("JWT_AUDIENCE").unwrap_or_else(|_| "freshcredit-api".to_string());
+    validation.set_issuer(&[issuer]);
+    validation.set_audience(&[audience]);
+    validation.set_required_spec_claims(&["exp", "sub", "iss", "aud"]);
     validation.leeway = 60;
-    decode::<crate::config::Claims>(
+    let claims = decode::<crate::config::Claims>(
         token,
         &DecodingKey::from_secret(JWT_SECRET.as_bytes()),
         &validation,
-    )
-    .map(|data| data.claims)
+    )?
+    .claims;
+    let now = chrono::Utc::now().timestamp();
+    if claims.iat > now + 60 {
+        return Err(jsonwebtoken::errors::Error::from(
+            jsonwebtoken::errors::ErrorKind::ImmatureSignature,
+        ));
+    }
+    Ok(claims)
 }
 
 /// Validate API key (constant-time comparison to prevent timing attacks)
@@ -265,7 +278,12 @@ pub fn build_cors_layer() -> CorsLayer {
     CorsLayer::new()
         .allow_origin(AllowOrigin::list(origins))
         .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
-        .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION, header::ACCEPT])
+        .allow_headers([
+            header::CONTENT_TYPE,
+            header::AUTHORIZATION,
+            header::ACCEPT,
+            header::HeaderName::from_static("x-api-key"),
+        ])
         .allow_credentials(true)
         .max_age(std::time::Duration::from_secs(CORS_MAX_AGE_SECS.into()))
 }
@@ -303,13 +321,20 @@ pub fn spawn_nomt_store(
 ) {
     let url = format!("{}/store", nomt_url.trim_end_matches('/'));
     let client = client.clone();
+    let api_key = std::env::var("NOMT_SIDECAR_API_KEY")
+        .ok()
+        .filter(|s| !s.is_empty());
     tokio::spawn(async move {
         let body = serde_json::json!({
             "user_id": user_id,
             "report_type": report_type,
             "data": data,
         });
-        match client.post(&url).json(&body).send().await {
+        let mut req = client.post(&url).json(&body);
+        if let Some(ref key) = api_key {
+            req = req.header("x-api-key", key);
+        }
+        match req.send().await {
             Ok(resp) if resp.status().is_success() => {
                 tracing::info!("[NOMT] stored report hash via sidecar /store");
             }
@@ -330,7 +355,13 @@ pub async fn verify_hash_via_nomt(
     hash: &str,
 ) -> Result<Option<crate::config::NomtVerifyResult>, anyhow::Error> {
     let url = format!("{}/verify/{}", nomt_url.trim_end_matches('/'), hash);
-    let response = client.get(&url).send().await?;
+    let mut req = client.get(&url);
+    if let Ok(key) = std::env::var("NOMT_SIDECAR_API_KEY") {
+        if !key.is_empty() {
+            req = req.header("x-api-key", key);
+        }
+    }
+    let response = req.send().await?;
 
     if response.status().is_success() {
         let body: serde_json::Value = response.json().await?;

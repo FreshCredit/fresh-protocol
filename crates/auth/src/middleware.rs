@@ -175,20 +175,30 @@ pub fn require_role(
     }
 }
 
+/// Typed marker for explicit admin authorization when JWT `AuthenticatedUser` is not used.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AdminMarker(pub bool);
+
 // TAG: surface=auth owner=security-team rule=RBAC-001
-/// Middleware that validates admin access
+/// Middleware that validates admin access.
 ///
-/// This middleware checks if the user is an admin.
-/// It must be used AFTER `require_auth` middleware.
+/// Checks `AuthenticatedUser::has_role("admin")` (or an explicit `AdminMarker(true)`),
+/// rather than trusting a bare `bool` in Axum request extensions.
 /// # Errors
 ///
-/// Returns an error if the operation fails.
+/// Returns `StatusCode::FORBIDDEN` if the caller lacks admin privileges.
 pub async fn require_admin(
     request: Request<Body>,
     next: Next,
 ) -> Result<Response<Body>, StatusCode> {
-    // In production, check admin flag from JWT claims or database
-    let is_admin = request.extensions().get::<bool>().copied().unwrap_or(false);
+    let is_admin = request
+        .extensions()
+        .get::<AuthenticatedUser>()
+        .is_some_and(|u| u.has_role("admin"))
+        || request
+            .extensions()
+            .get::<AdminMarker>()
+            .is_some_and(|m| m.0);
 
     if is_admin {
         Ok(next.run(request).await)
@@ -419,10 +429,24 @@ mod tests {
             .layer(middleware::from_fn(require_admin));
 
         let mut request = Request::builder().uri("/test").body(Body::empty()).unwrap();
-        request.extensions_mut().insert(true);
+        request.extensions_mut().insert(AdminMarker(true));
 
         let response = app.oneshot(request).await.unwrap();
         assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_require_admin_rejects_bare_bool_extension() {
+        let app = Router::new()
+            .route("/test", get(|| async { "ok" }))
+            .layer(middleware::from_fn(require_admin));
+
+        let mut request = Request::builder().uri("/test").body(Body::empty()).unwrap();
+        // A bare `bool` inserted by an unrelated middleware must NEVER elevate to admin
+        request.extensions_mut().insert(true);
+
+        let response = app.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::FORBIDDEN);
     }
 
     #[tokio::test]

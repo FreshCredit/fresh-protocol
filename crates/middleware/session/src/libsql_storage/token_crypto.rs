@@ -15,16 +15,39 @@ const AAD_V2_PREFIX: &str = "enc:v2:";
 
 /// Encrypt a refresh token bound to its `(session_id, user_id)` AEAD context so
 /// ciphertext cannot be transplanted across sessions or users.
-pub fn encrypt_refresh_token_with_context(session_id: &str, user_id: &str, token: &str) -> String {
+///
+/// Fails closed in production (`ENVIRONMENT=production`, `PRODUCTION=1|true`, or `K_SERVICE`)
+/// if `FRESHCREDIT_TOKEN_ENCRYPTION_KEY` is missing/unavailable.
+pub fn try_encrypt_refresh_token_with_context(
+    session_id: &str,
+    user_id: &str,
+    token: &str,
+) -> Result<String, &'static str> {
     let aad = format!("sessions:refresh_token_encrypted:{session_id}:{user_id}");
     let config = freshcredit_security::get_encryption_config();
     match config.encrypt_with_aad(token, aad.as_bytes()) {
-        Ok(ct) => format!("{AAD_V2_PREFIX}{ct}"),
+        Ok(ct) => Ok(format!("{AAD_V2_PREFIX}{ct}")),
         Err(e) => {
-            debug!("refresh token AAD encryption unavailable ({e}); storing plaintext");
-            token.to_string()
+            let is_prod = std::env::var("ENVIRONMENT").is_ok_and(|v| v == "production")
+                || std::env::var("PRODUCTION").is_ok_and(|v| v == "1" || v == "true")
+                || std::env::var("K_SERVICE").is_ok();
+            if is_prod {
+                tracing::error!(
+                    "Refresh token encryption required in production but unavailable: {e}"
+                );
+                Err("Token encryption key must be configured in production")
+            } else {
+                debug!("refresh token AAD encryption unavailable ({e}); storing dev plaintext");
+                Ok(token.to_string())
+            }
         }
     }
+}
+
+/// Backward-compatible wrapper around [`try_encrypt_refresh_token_with_context`] for non-prod helpers.
+pub fn encrypt_refresh_token_with_context(session_id: &str, user_id: &str, token: &str) -> String {
+    try_encrypt_refresh_token_with_context(session_id, user_id, token)
+        .unwrap_or_else(|_| token.to_string())
 }
 
 /// Decrypt an optional refresh token bound to `(session_id, user_id)` AEAD context.

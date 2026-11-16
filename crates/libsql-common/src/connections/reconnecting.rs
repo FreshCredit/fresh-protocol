@@ -135,6 +135,8 @@ impl ReconnectingConnection {
             )
         })?;
         let fresh = db.connect()?;
+        // Re-apply connection-scoped SQLite busy_timeout after reconnect so WAL retries survive Hrana/local rebuilds
+        let _ = fresh.execute_batch("PRAGMA busy_timeout = 5000;").await;
         *self.connection.write().await = fresh;
         info!("libSQL client reconnected after expired Hrana stream");
         Ok(())

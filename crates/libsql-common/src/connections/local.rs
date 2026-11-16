@@ -35,6 +35,12 @@ pub struct LocalConnection {
 }
 
 impl LocalConnection {
+    async fn open_tuned_conn(&self) -> anyhow::Result<libsql::Connection> {
+        let conn = self.db.connect()?;
+        let _ = conn.execute_batch("PRAGMA busy_timeout = 5000;").await;
+        Ok(conn)
+    }
+
     /// Create a new local connection
     pub fn new(db: Database) -> Self {
         Self { db: Arc::new(db) }
@@ -69,17 +75,17 @@ impl LocalConnection {
 #[async_trait]
 impl DatabaseConnection for LocalConnection {
     async fn query(&self, sql: &str, params: Vec<libsql::Value>) -> anyhow::Result<libsql::Rows> {
-        let conn = self.db.connect()?;
+        let conn = self.open_tuned_conn().await?;
         Ok(conn.query(sql, params).await?)
     }
 
     async fn execute(&self, sql: &str, params: Vec<libsql::Value>) -> anyhow::Result<u64> {
-        let conn = self.db.connect()?;
+        let conn = self.open_tuned_conn().await?;
         Ok(conn.execute(sql, params).await?)
     }
 
     async fn execute_batch(&self, sql: &str) -> anyhow::Result<()> {
-        let conn = self.db.connect()?;
+        let conn = self.open_tuned_conn().await?;
         let _ = conn.execute_batch(sql).await?;
         Ok(())
     }

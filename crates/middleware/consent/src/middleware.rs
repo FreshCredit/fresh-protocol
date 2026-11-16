@@ -99,18 +99,25 @@ pub struct ConsentExtractor {
 
 fn extract_consent_user_id(extensions: &axum::http::Extensions) -> Option<i64> {
     if let Some(id) = extensions.get::<i64>().copied() {
-        return Some(id);
+        return (id > 0).then_some(id);
     }
-    extensions.get::<auth::types::AuthenticatedUser>().map(|u| {
-        u.user_id.parse::<i64>().unwrap_or_else(|_| {
-            let mut h: u64 = 0xcbf2_9ce4_8422_2325;
-            for b in u.user_id.as_bytes() {
-                h ^= u64::from(*b);
-                h = h.wrapping_mul(0x0100_0000_01b3);
+    extensions
+        .get::<auth::types::AuthenticatedUser>()
+        .and_then(|u| {
+            let trimmed = u.user_id.trim();
+            if trimmed.is_empty() {
+                return None;
             }
-            i64::try_from(h & 0x7FFF_FFFF_FFFF_FFFF).unwrap_or(1).max(1)
+            if let Ok(parsed) = trimmed.parse::<i64>() {
+                return (parsed > 0).then_some(parsed);
+            }
+            use sha2::{Digest, Sha256};
+            let digest = Sha256::digest(format!("freshcredit:consent:uid:v1:{trimmed}").as_bytes());
+            let mut buf = [0u8; 8];
+            buf.copy_from_slice(&digest[..8]);
+            let raw = u64::from_be_bytes(buf) & 0x3FFF_FFFF_FFFF_FFFF;
+            Some(i64::try_from(raw).unwrap_or(1).max(1))
         })
-    })
 }
 
 #[axum::async_trait]

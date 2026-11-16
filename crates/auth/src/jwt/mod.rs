@@ -64,8 +64,10 @@ impl JwtManager {
         let mut validation = Validation::new(Algorithm::HS256);
         validation.set_issuer(&["freshcredit"]);
         validation.set_audience(&["freshcredit-api"]);
-        // P1-SECURITY: Add nbf (Not Before) validation and required claims
-        validation.set_required_spec_claims(&["exp", "iat", "sub"]);
+        // P1-SECURITY: Enforce nbf, exp, sub, iss, aud (note: jsonwebtoken ignores "iat" in required_spec_claims)
+        validation.validate_nbf = true;
+        validation.validate_aud = true;
+        validation.set_required_spec_claims(&["exp", "sub", "iss", "aud"]);
         validation.leeway = 60; // 60 seconds clock skew tolerance
 
         Self {
@@ -119,14 +121,22 @@ impl JwtManager {
     ///
     /// Returns an error if the operation fails.
     pub fn validate_token(&self, token: &str) -> Result<JwtClaims, AuthError> {
-        decode::<JwtClaims>(token, &self.decoding_key, &self.validation)
+        let claims = decode::<JwtClaims>(token, &self.decoding_key, &self.validation)
             .map(|data| data.claims)
             .map_err(|e| match e.kind() {
                 jsonwebtoken::errors::ErrorKind::ExpiredSignature => AuthError::TokenExpired,
                 jsonwebtoken::errors::ErrorKind::InvalidSignature => AuthError::InvalidSignature,
                 jsonwebtoken::errors::ErrorKind::InvalidToken => AuthError::InvalidTokenFormat,
                 _ => AuthError::Internal(format!("Token validation failed: {e}")),
-            })
+            })?;
+        // Reject tokens claiming an issue time in the future beyond leeway
+        let now = chrono::Utc::now().timestamp();
+        if claims.iat > now + i64::try_from(self.validation.leeway).unwrap_or(60) {
+            return Err(AuthError::Internal(
+                "Token issued-at (iat) is in the future".to_string(),
+            ));
+        }
+        Ok(claims)
     }
 
     // TAG: surface=auth owner=security-team rule=RBAC-001

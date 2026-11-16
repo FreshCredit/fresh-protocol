@@ -83,6 +83,7 @@ fn cors_layer() -> CorsLayer {
             http::header::AUTHORIZATION,
             // TAG: surface=blockchain owner=blockchain-team rule=BC-001
             http::header::ACCEPT,
+            http::HeaderName::from_static("x-api-key"),
         ])
 }
 
@@ -136,11 +137,7 @@ impl StorageBackend {
         match self {
             Self::Legacy(s) => s.get_proof(hash).await,
             // TAG: surface=blockchain owner=blockchain-team rule=BC-001
-            Self::Native(_) => {
-                // Native NOMT generates proofs during store, not on-demand
-                // For now, return None - proofs are returned in StoreResponse
-                Ok(None)
-            }
+            Self::Native(s) => s.get_proof(hash).await,
         }
     }
 
@@ -333,8 +330,13 @@ async fn main() -> anyhow::Result<()> {
     info!("Starting NOMT Sidecar Service v0.1.0");
 
     load_dotenv();
-    let (data_dir, http_port, grpc_port, use_native_nomt) = read_base_config();
-    info!(data_dir = %data_dir, http_port = %http_port, grpc_port = %grpc_port, "Configuration loaded");
+    let (data_dir, http_port, _grpc_port, use_native_nomt) = read_base_config();
+    info!(
+        data_dir = %data_dir,
+        http_port = %http_port,
+        grpc_enabled = false,
+        "Configuration loaded"
+    );
 
     let storage = init_storage(&data_dir, use_native_nomt).await?;
 

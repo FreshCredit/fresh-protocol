@@ -20,7 +20,9 @@ impl NomtStorage {
 
         // Try to load existing state from disk
         let state_file = path.join("nomt_state.json");
-        let (hash_index, current_root, total_hashes, total_bytes) = if state_file.exists() {
+        let (hash_index, sha256_aliases, current_root, total_hashes, total_bytes) = if state_file
+            .exists()
+        {
             let state_file_clone = state_file.clone();
             match tokio::task::spawn_blocking(move || std::fs::read_to_string(&state_file_clone))
                 .await?
@@ -44,6 +46,7 @@ impl NomtStorage {
                         );
                         (
                             state.hash_index,
+                            state.sha256_aliases,
                             root_bytes,
                             state.total_hashes,
                             state.total_bytes,
@@ -51,17 +54,17 @@ impl NomtStorage {
                     }
                     Err(e) => {
                         warn!(error = %e, "Failed to parse NOMT state, starting fresh");
-                        (BTreeMap::new(), [0u8; 32], 0, 0)
+                        (BTreeMap::new(), BTreeMap::new(), [0u8; 32], 0, 0)
                     }
                 },
                 Err(e) => {
                     warn!(error = %e, "Failed to read NOMT state file, starting fresh");
-                    (BTreeMap::new(), [0u8; 32], 0, 0)
+                    (BTreeMap::new(), BTreeMap::new(), [0u8; 32], 0, 0)
                 }
             }
         } else {
             info!(path = %path.display(), "No existing NOMT state, starting fresh");
-            (BTreeMap::new(), [0u8; 32], 0, 0)
+            (BTreeMap::new(), BTreeMap::new(), [0u8; 32], 0, 0)
         };
 
         info!(
@@ -74,6 +77,7 @@ impl NomtStorage {
         Ok(Self {
             data_dir: path,
             hash_index,
+            sha256_aliases,
             current_root,
             total_hashes: AtomicU64::new(total_hashes),
             total_bytes: AtomicU64::new(total_bytes),
@@ -95,6 +99,10 @@ impl NomtStorage {
     ) -> anyhow::Result<StoreResponse> {
         let namespace = format!("{user_id}:{report_type}");
         let hash = freshcredit_nomt_core::compute_bound_leaf_hash(&namespace, data);
+        let sha256_alias = {
+            use sha2::{Digest, Sha256};
+            hex::encode(Sha256::digest(data))
+        };
 
         debug!(hash = %hash, report_type = %report_type, "Storing report data");
 
@@ -106,6 +114,9 @@ impl NomtStorage {
             data_size: data.len(),
         };
         let inserted_new = self.hash_index.insert(hash.clone(), metadata).is_none();
+        self.sha256_aliases
+            .entry(sha256_alias)
+            .or_insert_with(|| hash.clone());
         if inserted_new {
             self.total_hashes.fetch_add(1, Ordering::Relaxed);
             self.total_bytes
@@ -141,7 +152,18 @@ impl NomtStorage {
         })
     }
 
-    /// Verify a hash exists in storage
+    fn resolve_leaf_key<'a>(&'a self, hash_or_sha256: &'a str) -> Option<&'a str> {
+        if self.hash_index.contains_key(hash_or_sha256) {
+            Some(hash_or_sha256)
+        } else {
+            self.sha256_aliases
+                .get(hash_or_sha256)
+                .map(String::as_str)
+                .filter(|leaf| self.hash_index.contains_key(*leaf))
+        }
+    }
+
+    /// Verify a hash exists in storage (accepts bound leaf hash or on-chain SHA-256 report digest)
     /// Reloads from disk first to ensure freshness with shared NFS storage
     pub async fn verify(&mut self, hash: &str) -> anyhow::Result<VerifyResponse> {
         // Reload from disk to get latest state from other replicas (async to avoid blocking)
@@ -149,8 +171,9 @@ impl NomtStorage {
             warn!(error = %e, "Failed to reload from disk before verify");
         }
 
-        let exists = self.hash_index.contains_key(hash);
-        let metadata = self.hash_index.get(hash);
+        let resolved = self.resolve_leaf_key(hash).map(str::to_string);
+        let exists = resolved.is_some();
+        let metadata = resolved.as_deref().and_then(|k| self.hash_index.get(k));
 
         Ok(VerifyResponse {
             exists,
@@ -162,7 +185,7 @@ impl NomtStorage {
         })
     }
 
-    /// Get Merkle proof for a hash against the live `current_root`.
+    /// Get Merkle proof for a hash (bound leaf hash or on-chain SHA-256 alias) against the live `current_root`.
     /// Reloads from disk first to ensure freshness with shared NFS storage.
     pub async fn get_proof(&mut self, hash: &str) -> anyhow::Result<Option<NomtProof>> {
         // Reload from disk to get latest state from other replicas (async to avoid blocking)
@@ -170,13 +193,14 @@ impl NomtStorage {
             warn!(error = %e, "Failed to reload from disk before get_proof");
         }
 
-        if !self.hash_index.contains_key(hash) {
+        let Some(leaf_key) = self.resolve_leaf_key(hash).map(str::to_string) else {
             // TAG: surface=blockchain owner=blockchain-team rule=BC-001
             return Ok(None);
-        }
+        };
 
         let ordered_leaves: Vec<String> = self.hash_index.keys().cloned().collect();
-        let Some(core_proof) = freshcredit_nomt_core::build_merkle_proof(&ordered_leaves, hash)
+        let Some(core_proof) =
+            freshcredit_nomt_core::build_merkle_proof(&ordered_leaves, &leaf_key)
         else {
             return Ok(None);
         };
@@ -454,6 +478,33 @@ mod tests {
         storage.store("user_b", "type", b"data3").await.unwrap();
         let stats = storage.get_stats().await;
         assert_eq!(stats["unique_users"], 2);
+    }
+
+    #[tokio::test]
+    async fn test_on_chain_sha256_alias_resolves_proof_and_verify() {
+        use sha2::{Digest, Sha256};
+
+        let tmp = TempDir::new().unwrap();
+        let mut storage = NomtStorage::new(tmp.path().to_str().unwrap())
+            .await
+            .unwrap();
+        let payload = br#"{"credit_score":742}"#;
+        let resp = storage
+            .store("user-alias", "CreditReport", payload)
+            .await
+            .unwrap();
+        let sha256_hex = hex::encode(Sha256::digest(payload));
+        assert_ne!(sha256_hex, resp.hash);
+
+        let verified = storage.verify(&sha256_hex).await.unwrap();
+        assert!(verified.exists && verified.verified);
+
+        let proof = storage
+            .get_proof(&sha256_hex)
+            .await
+            .unwrap()
+            .expect("on-chain SHA-256 alias must resolve Merkle proof");
+        assert!(proof.verify_against(&verified.nomt_root, &resp.hash));
     }
     // TAG: surface=blockchain owner=blockchain-team rule=BC-001
 }

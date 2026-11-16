@@ -11,6 +11,7 @@ impl NomtStorage {
     fn persist(&self) -> anyhow::Result<()> {
         let state = PersistentState {
             hash_index: self.hash_index.clone(),
+            sha256_aliases: self.sha256_aliases.clone(),
             current_root: hex::encode(self.current_root),
             total_hashes: self.total_hashes.load(Ordering::Relaxed),
             total_bytes: self.total_bytes.load(Ordering::Relaxed),
@@ -53,6 +54,7 @@ impl NomtStorage {
         let state: PersistentState = serde_json::from_str(&content)?;
 
         self.hash_index = state.hash_index;
+        self.sha256_aliases = state.sha256_aliases;
         let root_hex = if self.hash_index.is_empty() {
             state.current_root
         } else {
@@ -78,6 +80,7 @@ impl NomtStorage {
         let data_dir = self.data_dir.clone();
         let state = PersistentState {
             hash_index: self.hash_index.clone(),
+            sha256_aliases: self.sha256_aliases.clone(),
             current_root: hex::encode(self.current_root),
             total_hashes: self.total_hashes.load(Ordering::Relaxed),
             total_bytes: self.total_bytes.load(Ordering::Relaxed),
@@ -153,6 +156,7 @@ impl NomtStorage {
 
         if let Some(state) = result? {
             self.hash_index = state.hash_index;
+            self.sha256_aliases = state.sha256_aliases;
             // TAG: surface=blockchain owner=blockchain-team rule=BC-001
             let root_hex = if self.hash_index.is_empty() {
                 state.current_root

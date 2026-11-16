@@ -1,6 +1,6 @@
 // TAG: surface=security owner=security-team rule=SEC-001
 use crate::libsql_storage::core::LibSqlSessionStorage;
-use crate::libsql_storage::token_crypto::encrypt_refresh_token_with_context;
+use crate::libsql_storage::token_crypto::try_encrypt_refresh_token_with_context;
 use crate::storage::SessionError;
 use chrono::{Duration, Utc};
 use tracing::debug;
@@ -56,7 +56,8 @@ impl LibSqlSessionStorage {
                 )));
             };
             let user_id: String = user_row.get(0)?;
-            let encrypted = encrypt_refresh_token_with_context(session_id, &user_id, ref_token);
+            let encrypted = try_encrypt_refresh_token_with_context(session_id, &user_id, ref_token)
+                .map_err(|e| SessionError::InvalidData(e.to_string()))?;
             self.conn
                 .execute(
                     query,

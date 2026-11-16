@@ -25,6 +25,9 @@ struct PersistentState {
     // TAG: surface=blockchain owner=blockchain-team rule=BC-001
     /// Deterministic ordered hash index with metadata
     hash_index: BTreeMap<String, HashMetadata>,
+    /// Secondary index mapping on-chain SHA-256 report digests -> bound RFC 6962 leaf hashes
+    #[serde(default)]
+    sha256_aliases: BTreeMap<String, String>,
     /// Current root hash (hex encoded)
     current_root: String,
     /// Total hashes stored
@@ -44,6 +47,8 @@ pub struct NomtStorage {
     data_dir: PathBuf,
     /// Deterministic ordered index of stored leaves (keyed by bound leaf hash)
     hash_index: BTreeMap<String, HashMetadata>,
+    /// Secondary index mapping SHA-256(data) -> bound leaf hash for on-chain hash lookup
+    sha256_aliases: BTreeMap<String, String>,
     /// Current NOMT root hash
     current_root: [u8; 32],
     /// Storage statistics
