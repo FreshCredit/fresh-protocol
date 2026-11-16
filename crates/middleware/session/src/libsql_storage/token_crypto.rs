@@ -44,15 +44,10 @@ pub fn try_encrypt_refresh_token_with_context(
     }
 }
 
-/// Backward-compatible wrapper around [`try_encrypt_refresh_token_with_context`] for non-prod helpers.
-pub fn encrypt_refresh_token_with_context(session_id: &str, user_id: &str, token: &str) -> String {
-    try_encrypt_refresh_token_with_context(session_id, user_id, token)
-        .unwrap_or_else(|_| token.to_string())
-}
-
 /// Decrypt an optional refresh token bound to `(session_id, user_id)` AEAD context.
 /// Fails closed (`Err`) if the stored token carries `enc:v2:` and AAD/key verification fails;
-/// unprefixed values fall back to legacy storage decoding for pre-migration sessions.
+/// in production, unprefixed tokens are also rejected unless
+/// `ALLOW_LEGACY_PLAINTEXT_SESSION_TOKENS=1` is explicitly set for migration.
 pub fn decrypt_optional_refresh_token_with_context(
     session_id: &str,
     user_id: &str,
@@ -64,7 +59,8 @@ pub fn decrypt_optional_refresh_token_with_context(
 }
 
 /// Decrypt a refresh token bound to `(session_id, user_id)` AEAD context.
-/// Fails closed (`Err`) when `enc:v2:` ciphertext fails AEAD verification (never returns raw ciphertext).
+/// Fails closed (`Err`) when `enc:v2:` ciphertext fails AEAD verification (never returns raw ciphertext)
+/// or when an unprefixed value is encountered in production without explicit migration opt-in.
 pub fn decrypt_refresh_token_with_context(
     session_id: &str,
     user_id: &str,
@@ -76,6 +72,16 @@ pub fn decrypt_refresh_token_with_context(
         return config
             .decrypt_with_aad(b64_ct, aad.as_bytes())
             .map_err(|_| "AEAD tag, key, or session context mismatch");
+    }
+    let is_prod = std::env::var("ENVIRONMENT").is_ok_and(|v| v == "production")
+        || std::env::var("PRODUCTION").is_ok_and(|v| v == "1" || v == "true")
+        || std::env::var("K_SERVICE").is_ok();
+    let allow_legacy = std::env::var("ALLOW_LEGACY_PLAINTEXT_SESSION_TOKENS")
+        .is_ok_and(|v| v == "1" || v.eq_ignore_ascii_case("true"));
+    if is_prod && !allow_legacy {
+        return Err(
+            "Unauthenticated or prefix-stripped session refresh token rejected in production",
+        );
     }
     Ok(decrypt_from_storage_with(
         freshcredit_security::get_encryption_config(),
@@ -221,6 +227,23 @@ mod tests {
     fn test_enc_v2_tagged_ciphertext_fails_closed_on_tamper_or_missing_key() {
         // An enc:v2: prefixed payload must NEVER fall back to returning raw ciphertext
         let err = decrypt_refresh_token_with_context("sess-1", "user-a", "enc:v2:tampered-payload");
+        assert!(err.is_err());
+    }
+
+    #[test]
+    fn test_production_rejects_prefix_stripped_or_legacy_plaintext_tokens() {
+        // Guard against prefix-strip downgrade attacks when production markers are set
+        let prev = std::env::var("ENVIRONMENT").ok();
+        std::env::set_var("ENVIRONMENT", "production");
+        let err = decrypt_refresh_token_with_context(
+            "sess-1",
+            "user-a",
+            "attacker-stripped-prefix-payload",
+        );
+        match prev {
+            Some(v) => std::env::set_var("ENVIRONMENT", v),
+            None => std::env::remove_var("ENVIRONMENT"),
+        }
         assert!(err.is_err());
     }
 }

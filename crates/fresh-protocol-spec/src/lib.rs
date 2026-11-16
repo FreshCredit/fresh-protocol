@@ -41,6 +41,7 @@
 #![warn(missing_docs)]
 
 mod db;
+pub mod hlc_oplog;
 mod identity;
 pub mod master_law;
 
@@ -48,6 +49,7 @@ pub use db::{
     AdapterError, AnchorIntent, AnchorStatus, BackupArchive, ConnectionInfo, EncryptionKey,
     ProvisionedDatabase, SqlConnection, SqlDatabase, SyncStatusReport, UserDbAdapter,
 };
+pub use hlc_oplog::{replay_gset_fixed_i64, HlcClock, HlcTimestamp, ValidationOp};
 pub use identity::{
     AuthenticationContext, AuthenticationResult, DidDocument, DidIssuer, DidVerifier,
     IdentityProvider, VerificationResult,

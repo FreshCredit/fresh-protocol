@@ -12,7 +12,7 @@ pub mod tokens;
 
 use crate::libsql_storage::core::LibSqlSessionStorage;
 use crate::libsql_storage::token_crypto::{
-    decrypt_refresh_token_with_context, encrypt_refresh_token_with_context,
+    decrypt_refresh_token_with_context, try_encrypt_refresh_token_with_context,
 };
 use crate::storage::{Session, SessionArtifact, SessionError, SessionStorage};
 use async_trait::async_trait;
@@ -228,7 +228,10 @@ impl SessionStorage for LibSqlSessionStorage {
             WHERE id = ?
         ";
 
-        let encrypted = encrypt_refresh_token_with_context(session_id, &user_id, refresh_token);
+        let encrypted = try_encrypt_refresh_token_with_context(session_id, &user_id, refresh_token)
+            .map_err(|e| {
+                SessionError::DatabaseError(format!("Refresh token encryption failed: {e}"))
+            })?;
         self.conn
             .execute(
                 query,

@@ -218,6 +218,37 @@ impl NomtProof {
         self.verify()
     }
 
+    /// Verify inclusion of raw `(namespace, data)` against an external trusted `expected_root`,
+    /// recomputing the domain-separated RFC 6962 `0x00` bound leaf hash and optionally enforcing
+    /// expected binary tree depth (`ceil_log2(leaf_count)`) so internal `0x01` nodes cannot
+    /// masquerade as leaves.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ProofError` if any digest is malformed or path lengths mismatch.
+    pub fn verify_bound_leaf(
+        &self,
+        namespace: &str,
+        data: &[u8],
+        expected_root: &str,
+        expected_leaf_count: Option<usize>,
+    ) -> Result<bool, ProofError> {
+        if let Some(n) = expected_leaf_count {
+            if n == 0 {
+                return Ok(false);
+            }
+            let min_depth = (usize::BITS - (n - 1).leading_zeros()) as usize;
+            if n > 1 && (self.depth() < min_depth.saturating_sub(1) || self.depth() > min_depth) {
+                return Ok(false);
+            }
+            if n == 1 && self.depth() != 0 {
+                return Ok(false);
+            }
+        }
+        let expected_leaf = compute_bound_leaf_hash(namespace, data);
+        self.verify_against(expected_root, &expected_leaf)
+    }
+
     /// Get the proof depth (number of levels)
     #[must_use]
     pub fn depth(&self) -> usize {
@@ -556,6 +587,40 @@ mod tests {
         );
 
         assert!(proof.verify().unwrap());
+    }
+
+    #[test]
+    fn test_verify_bound_leaf_rejects_internal_node_as_leaf_and_cross_namespace() {
+        let l1 = compute_bound_leaf_hash("alice:credit", b"payload-1");
+        let l2 = compute_bound_leaf_hash("bob:credit", b"payload-2");
+        let l3 = compute_bound_leaf_hash("carol:credit", b"payload-3");
+        let l4 = compute_bound_leaf_hash("dave:credit", b"payload-4");
+        let leaves = vec![l1.clone(), l2.clone(), l3.clone(), l4.clone()];
+        let root = compute_merkle_root(&leaves);
+        let proof = build_merkle_proof(&leaves, &l1).unwrap();
+
+        assert!(proof
+            .verify_bound_leaf("alice:credit", b"payload-1", &root, Some(4))
+            .unwrap());
+        // Cross-namespace transplant must fail
+        assert!(!proof
+            .verify_bound_leaf("eve:credit", b"payload-1", &root, Some(4))
+            .unwrap());
+
+        // Internal-node-as-leaf attack: forge a depth-1 proof claiming internal node H(0x01||l1||l2) is a leaf
+        let h1: [u8; 32] = hex::decode(&l1).unwrap().try_into().unwrap();
+        let h2: [u8; 32] = hex::decode(&l2).unwrap().try_into().unwrap();
+        let h3: [u8; 32] = hex::decode(&l3).unwrap().try_into().unwrap();
+        let h4: [u8; 32] = hex::decode(&l4).unwrap().try_into().unwrap();
+        let internal_left = hex::encode(hash_internal_nodes(&h1, &h2));
+        let internal_right = hex::encode(hash_internal_nodes(&h3, &h4));
+        let forged_internal_proof =
+            NomtProof::new(&internal_left, vec![internal_right], vec![false], &root);
+        // Raw verify() passes on forged internal node, proving why verify_bound_leaf is essential!
+        assert!(forged_internal_proof.verify().unwrap());
+        assert!(!forged_internal_proof
+            .verify_bound_leaf("alice:credit", b"payload-1", &root, Some(4))
+            .unwrap());
     }
 
     #[test]
