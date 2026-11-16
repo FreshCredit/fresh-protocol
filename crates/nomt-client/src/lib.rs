@@ -45,6 +45,7 @@ pub enum ClientError {
 pub struct NomtClient {
     http: Client,
     base_url: Url,
+    api_key: Option<String>,
 }
 
 impl NomtClient {
@@ -71,8 +72,15 @@ impl NomtClient {
             Url::parse(base_url.as_ref()).map_err(|e| ClientError::InvalidUrl(e.to_string()))?;
 
         let http = Client::builder().timeout(Duration::from_secs(30)).build()?;
+        let api_key = std::env::var("NOMT_SIDECAR_API_KEY")
+            .ok()
+            .filter(|s| !s.is_empty());
 
-        Ok(Self { http, base_url })
+        Ok(Self {
+            http,
+            base_url,
+            api_key,
+        })
     }
 
     /// Create a new client with custom timeout
@@ -87,8 +95,22 @@ impl NomtClient {
             // TAG: surface=blockchain owner=blockchain-team rule=BC-001
             .timeout(Duration::from_secs(timeout_secs))
             .build()?;
+        let api_key = std::env::var("NOMT_SIDECAR_API_KEY")
+            .ok()
+            .filter(|s| !s.is_empty());
 
-        Ok(Self { http, base_url })
+        Ok(Self {
+            http,
+            base_url,
+            api_key,
+        })
+    }
+
+    /// Attach an explicit `x-api-key` for authenticated sidecar/server deployments.
+    #[must_use]
+    pub fn with_api_key(mut self, api_key: impl Into<String>) -> Self {
+        self.api_key = Some(api_key.into());
+        self
     }
 
     /// Store data and get a proof
@@ -110,7 +132,13 @@ impl NomtClient {
         };
 
         let url = self.base_url.join("/store")?;
-        let response = self.http.post(url).json(&request).send().await?;
+        let mut req_builder = self.http.post(url).json(&request);
+        if let Some(ref key) = self.api_key {
+            if !key.is_empty() {
+                req_builder = req_builder.header("x-api-key", key);
+            }
+        }
+        let response = req_builder.send().await?;
 
         if response.status().is_success() {
             // TAG: surface=blockchain owner=blockchain-team rule=BC-001

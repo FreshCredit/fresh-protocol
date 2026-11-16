@@ -97,6 +97,22 @@ pub struct ConsentExtractor {
     pub validations: Vec<ConsentValidation>,
 }
 
+fn extract_consent_user_id(extensions: &axum::http::Extensions) -> Option<i64> {
+    if let Some(id) = extensions.get::<i64>().copied() {
+        return Some(id);
+    }
+    extensions.get::<auth::types::AuthenticatedUser>().map(|u| {
+        u.user_id.parse::<i64>().unwrap_or_else(|_| {
+            let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+            for b in u.user_id.as_bytes() {
+                h ^= u64::from(*b);
+                h = h.wrapping_mul(0x0100_0000_01b3);
+            }
+            i64::try_from(h & 0x7FFF_FFFF_FFFF_FFFF).unwrap_or(1).max(1)
+        })
+    })
+}
+
 #[axum::async_trait]
 impl<S> FromRequestParts<S> for ConsentExtractor
 where
@@ -115,12 +131,8 @@ where
                 "No consent validations found",
             ))?;
 
-        // Extract user ID (should be set by auth middleware)
-        let user_id = parts
-            .extensions
-            .get::<i64>()
-            // TAG: surface=security owner=security-team rule=SEC-001
-            .copied()
+        // Extract user ID (supports both legacy i64 and auth::AuthenticatedUser)
+        let user_id = extract_consent_user_id(&parts.extensions)
             .ok_or((StatusCode::UNAUTHORIZED, "No user ID found"))?;
 
         Ok(Self {
@@ -138,7 +150,7 @@ pub async fn consent_middleware<S: ConsentStorage + 'static>(
     next: Next,
 ) -> Response {
     // Extract user ID from request extensions (set by auth middleware)
-    let Some(user_id) = request.extensions().get::<i64>().copied() else {
+    let Some(user_id) = extract_consent_user_id(request.extensions()) else {
         warn!("No user ID found in request extensions");
         return (StatusCode::UNAUTHORIZED, "User not authenticated").into_response();
     };

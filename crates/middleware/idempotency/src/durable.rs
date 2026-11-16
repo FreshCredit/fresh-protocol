@@ -131,6 +131,7 @@ impl DurableIdempotencyStore {
         let conn = db
             .connect()
             .map_err(|e| DurableIdempotencyError::Store(e.to_string()))?;
+        let _ = conn.execute_batch("PRAGMA busy_timeout = 5000;").await;
         let conn = Arc::new(conn);
 
         conn.execute_batch(CREATE_TABLE_DDL)
@@ -418,6 +419,39 @@ impl DurableIdempotencyStore {
         Ok(Some(response))
     }
 
+    /// Build, size-check, and durably store a response bound to an optional request payload fingerprint.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`IdempotencyError::BodyTooLarge`] if the body exceeds the
+    /// configured maximum, or an error if persisting the response fails.
+    pub async fn store_response_with_fingerprint(
+        &self,
+        key: &str,
+        status: u16,
+        headers: Vec<(String, String)>,
+        body: Vec<u8>,
+        request_hash: Option<String>,
+    ) -> Result<StoredResponse, IdempotencyError> {
+        if body.len() > self.config.max_body_size {
+            return Err(IdempotencyError::BodyTooLarge {
+                size: body.len(),
+                max: self.config.max_body_size,
+            });
+        }
+
+        let response = StoredResponse::with_request_hash(
+            status,
+            headers,
+            body,
+            request_hash,
+            self.config.ttl,
+            &*self.clock,
+        );
+        self.complete(key, &response).await?;
+        Ok(response)
+    }
+
     /// Build, size-check, and durably store a response for `key`.
     ///
     /// # Errors
@@ -431,16 +465,8 @@ impl DurableIdempotencyStore {
         headers: Vec<(String, String)>,
         body: Vec<u8>,
     ) -> Result<StoredResponse, IdempotencyError> {
-        if body.len() > self.config.max_body_size {
-            return Err(IdempotencyError::BodyTooLarge {
-                size: body.len(),
-                max: self.config.max_body_size,
-            });
-        }
-
-        let response = StoredResponse::new(status, headers, body, self.config.ttl, &*self.clock);
-        self.complete(key, &response).await?;
-        Ok(response)
+        self.store_response_with_fingerprint(key, status, headers, body, None)
+            .await
     }
 
     /// Current unix time (seconds) from the database clock, matching the
@@ -491,6 +517,17 @@ impl crate::ResponseStore for DurableIdempotencyStore {
         body: Vec<u8>,
     ) -> Result<StoredResponse, IdempotencyError> {
         Self::store_response(self, key, status, headers, body).await
+    }
+
+    async fn store_response_with_fingerprint(
+        &self,
+        key: &str,
+        status: u16,
+        headers: Vec<(String, String)>,
+        body: Vec<u8>,
+        request_hash: Option<String>,
+    ) -> Result<StoredResponse, IdempotencyError> {
+        Self::store_response_with_fingerprint(self, key, status, headers, body, request_hash).await
     }
 }
 

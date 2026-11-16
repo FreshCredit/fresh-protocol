@@ -12,7 +12,7 @@ pub mod tokens;
 
 use crate::libsql_storage::core::LibSqlSessionStorage;
 use crate::libsql_storage::token_crypto::{
-    decrypt_refresh_token_from_storage, encrypt_refresh_token_for_storage,
+    decrypt_refresh_token_with_context, encrypt_refresh_token_with_context,
 };
 use crate::storage::{Session, SessionArtifact, SessionError, SessionStorage};
 use async_trait::async_trait;
@@ -210,13 +210,25 @@ impl SessionStorage for LibSqlSessionStorage {
         refresh_token: &str,
         expires_at: DateTime<Utc>,
     ) -> Result<(), SessionError> {
+        let mut user_rows = self
+            .conn
+            .query(
+                "SELECT user_id FROM sessions WHERE id = ?",
+                libsql::params![session_id],
+            )
+            .await?;
+        let Some(user_row) = user_rows.next().await? else {
+            return Ok(());
+        };
+        let user_id: String = user_row.get(0)?;
+
         let query = r"
             UPDATE sessions
             SET refresh_token_encrypted = ?, refresh_token_expires_at = ?
             WHERE id = ?
         ";
 
-        let encrypted = encrypt_refresh_token_for_storage(refresh_token);
+        let encrypted = encrypt_refresh_token_with_context(session_id, &user_id, refresh_token);
         self.conn
             .execute(
                 query,
@@ -230,7 +242,7 @@ impl SessionStorage for LibSqlSessionStorage {
 
     async fn get_refresh_token(&self, session_id: &str) -> Result<Option<String>, SessionError> {
         let query = r"
-            SELECT refresh_token_encrypted
+            SELECT user_id, refresh_token_encrypted
             FROM sessions
             WHERE id = ? AND refresh_token_expires_at > ?
         ";
@@ -243,9 +255,14 @@ impl SessionStorage for LibSqlSessionStorage {
             .await?;
 
         if let Some(row) = rows.next().await? {
-            let token: Option<String> = row.get(0)?;
-            // Decrypt on read; legacy plaintext values pass through unchanged.
-            Ok(token.map(|t| decrypt_refresh_token_from_storage(&t)))
+            let user_id: String = row.get(0)?;
+            let token: Option<String> = row.get(1)?;
+            token
+                .map(|t| decrypt_refresh_token_with_context(session_id, &user_id, &t))
+                .transpose()
+                .map_err(|e| {
+                    SessionError::InvalidData(format!("Refresh token decrypt failed: {e}"))
+                })
         } else {
             Ok(None)
         }

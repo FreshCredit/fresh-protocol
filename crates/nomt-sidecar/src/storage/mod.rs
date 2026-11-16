@@ -14,30 +14,17 @@
 //! The storage backend is selected at runtime based on `NOMT_NATIVE` environment variable.
 
 use crate::types::{HashMetadata, NomtProof, StoreResponse, VerifyResponse};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::atomic::AtomicU64;
 // fs2::FileExt used via fully qualified syntax for NFS file locking
 
-/// Stored proof data for a hash (generated at insert time)
-#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
-struct StoredProof {
-    /// The sibling hash (previous root for incremental tree)
-    sibling: String,
-    /// Path bit (true = hash is on right, false = hash is on left)
-    is_right: bool,
-    /// Root after this hash was inserted
-    root: String,
-}
-
-/// Persistent state for NOMT storage (legacy JSON mode)
+/// Persistent state for NOMT storage (deterministic BTreeMap JSON mode)
 #[derive(serde::Serialize, serde::Deserialize, Default)]
 struct PersistentState {
     // TAG: surface=blockchain owner=blockchain-team rule=BC-001
-    /// Hash index with metadata
-    hash_index: HashMap<String, HashMetadata>,
-    /// Proof index: hash -> proof generated at insert time
-    proof_index: HashMap<String, StoredProof>,
+    /// Deterministic ordered hash index with metadata
+    hash_index: BTreeMap<String, HashMetadata>,
     /// Current root hash (hex encoded)
     current_root: String,
     /// Total hashes stored
@@ -49,17 +36,14 @@ struct PersistentState {
 /// NOMT Storage wrapper
 ///
 /// Provides high-level operations for storing and verifying report data.
-/// Uses NOMT's binary Merkle trie for efficient proof generation.
-/// Persists state to disk for production reliability.
-
+/// Builds a deterministic RFC 6962 BLAKE3 binary Merkle tree across all stored
+/// leaves so every historical item verifies against the current anchored root.
 #[derive(Debug)]
 pub struct NomtStorage {
     /// Data directory for NOMT storage
     data_dir: PathBuf,
-    /// In-memory index of stored hashes (for quick lookups)
-    hash_index: HashMap<String, HashMetadata>,
-    /// Proof index: stores the proof generated at insert time for each hash
-    proof_index: HashMap<String, StoredProof>,
+    /// Deterministic ordered index of stored leaves (keyed by bound leaf hash)
+    hash_index: BTreeMap<String, HashMetadata>,
     /// Current NOMT root hash
     current_root: [u8; 32],
     /// Storage statistics

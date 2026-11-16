@@ -11,7 +11,6 @@ impl NomtStorage {
     fn persist(&self) -> anyhow::Result<()> {
         let state = PersistentState {
             hash_index: self.hash_index.clone(),
-            proof_index: self.proof_index.clone(),
             current_root: hex::encode(self.current_root),
             total_hashes: self.total_hashes.load(Ordering::Relaxed),
             total_bytes: self.total_bytes.load(Ordering::Relaxed),
@@ -54,19 +53,15 @@ impl NomtStorage {
         let state: PersistentState = serde_json::from_str(&content)?;
 
         self.hash_index = state.hash_index;
-        self.proof_index = state.proof_index;
-        self.current_root = hex::decode(&state.current_root)
+        let root_hex = if self.hash_index.is_empty() {
+            state.current_root
+        } else {
+            let ordered: Vec<String> = self.hash_index.keys().cloned().collect();
+            freshcredit_nomt_core::compute_merkle_root(&ordered)
+        };
+        self.current_root = hex::decode(&root_hex)
             .ok()
-            .and_then(|b| {
-                if b.len() == 32 {
-                    let mut arr = [0u8; 32];
-                    arr.copy_from_slice(&b);
-                    Some(arr)
-                } else {
-                    // TAG: surface=blockchain owner=blockchain-team rule=BC-001
-                    None
-                }
-            })
+            .and_then(|b| <[u8; 32]>::try_from(b).ok())
             .unwrap_or([0u8; 32]);
         self.total_hashes
             .store(state.total_hashes, Ordering::Relaxed);
@@ -83,7 +78,6 @@ impl NomtStorage {
         let data_dir = self.data_dir.clone();
         let state = PersistentState {
             hash_index: self.hash_index.clone(),
-            proof_index: self.proof_index.clone(),
             current_root: hex::encode(self.current_root),
             total_hashes: self.total_hashes.load(Ordering::Relaxed),
             total_bytes: self.total_bytes.load(Ordering::Relaxed),
@@ -159,19 +153,16 @@ impl NomtStorage {
 
         if let Some(state) = result? {
             self.hash_index = state.hash_index;
-            self.proof_index = state.proof_index;
             // TAG: surface=blockchain owner=blockchain-team rule=BC-001
-            self.current_root = hex::decode(&state.current_root)
+            let root_hex = if self.hash_index.is_empty() {
+                state.current_root
+            } else {
+                let ordered: Vec<String> = self.hash_index.keys().cloned().collect();
+                freshcredit_nomt_core::compute_merkle_root(&ordered)
+            };
+            self.current_root = hex::decode(&root_hex)
                 .ok()
-                .and_then(|b| {
-                    if b.len() == 32 {
-                        let mut arr = [0u8; 32];
-                        arr.copy_from_slice(&b);
-                        Some(arr)
-                    } else {
-                        None
-                    }
-                })
+                .and_then(|b| <[u8; 32]>::try_from(b).ok())
                 .unwrap_or([0u8; 32]);
             self.total_hashes
                 .store(state.total_hashes, Ordering::Relaxed);

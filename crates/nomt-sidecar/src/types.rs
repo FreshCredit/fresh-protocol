@@ -78,6 +78,19 @@ pub struct NomtProof {
 }
 
 impl NomtProof {
+    /// Verify this proof against an external expected root and expected leaf hash.
+    pub fn verify_against(&self, expected_root: &str, expected_leaf_hash: &str) -> bool {
+        let canonical = freshcredit_nomt_core::NomtProof {
+            leaf_hash: self.leaf_hash.clone(),
+            siblings: self.siblings.clone(),
+            path: self.path.clone(),
+            root: self.root.clone(),
+        };
+        canonical
+            .verify_against(expected_root, expected_leaf_hash)
+            .unwrap_or(false)
+    }
+
     /// Verify this proof against an expected root
     ///
     /// Uses Blake3 for consistency with freshcredit-nomt-core.

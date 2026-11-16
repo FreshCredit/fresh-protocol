@@ -11,23 +11,68 @@
 use freshcredit_security::EncryptionConfig;
 use tracing::debug;
 
-/// Encrypt a refresh token for storage.
-///
-/// Falls back to plaintext when encryption is not configured (e.g. local dev
-/// without `FRESHCREDIT_TOKEN_ENCRYPTION_KEY`) so behavior matches the
-/// pre-encryption storage format.
+const AAD_V2_PREFIX: &str = "enc:v2:";
+
+/// Encrypt a refresh token bound to its `(session_id, user_id)` AEAD context so
+/// ciphertext cannot be transplanted across sessions or users.
+pub fn encrypt_refresh_token_with_context(session_id: &str, user_id: &str, token: &str) -> String {
+    let aad = format!("sessions:refresh_token_encrypted:{session_id}:{user_id}");
+    let config = freshcredit_security::get_encryption_config();
+    match config.encrypt_with_aad(token, aad.as_bytes()) {
+        Ok(ct) => format!("{AAD_V2_PREFIX}{ct}"),
+        Err(e) => {
+            debug!("refresh token AAD encryption unavailable ({e}); storing plaintext");
+            token.to_string()
+        }
+    }
+}
+
+/// Decrypt an optional refresh token bound to `(session_id, user_id)` AEAD context.
+/// Fails closed (`Err`) if the stored token carries `enc:v2:` and AAD/key verification fails;
+/// unprefixed values fall back to legacy storage decoding for pre-migration sessions.
+pub fn decrypt_optional_refresh_token_with_context(
+    session_id: &str,
+    user_id: &str,
+    stored: Option<String>,
+) -> Result<Option<String>, &'static str> {
+    stored
+        .map(|s| decrypt_refresh_token_with_context(session_id, user_id, &s))
+        .transpose()
+}
+
+/// Decrypt a refresh token bound to `(session_id, user_id)` AEAD context.
+/// Fails closed (`Err`) when `enc:v2:` ciphertext fails AEAD verification (never returns raw ciphertext).
+pub fn decrypt_refresh_token_with_context(
+    session_id: &str,
+    user_id: &str,
+    stored: &str,
+) -> Result<String, &'static str> {
+    if let Some(b64_ct) = stored.strip_prefix(AAD_V2_PREFIX) {
+        let aad = format!("sessions:refresh_token_encrypted:{session_id}:{user_id}");
+        let config = freshcredit_security::get_encryption_config();
+        return config
+            .decrypt_with_aad(b64_ct, aad.as_bytes())
+            .map_err(|_| "AEAD tag, key, or session context mismatch");
+    }
+    Ok(decrypt_from_storage_with(
+        freshcredit_security::get_encryption_config(),
+        stored,
+    ))
+}
+
+/// Encrypt a refresh token for storage (legacy un-AAD'd helper, test-only).
+#[cfg(test)]
 pub fn encrypt_refresh_token_for_storage(token: &str) -> String {
     encrypt_for_storage_with(freshcredit_security::get_encryption_config(), token)
 }
 
-/// Decrypt a stored refresh token.
-///
-/// Legacy plaintext values (or any value that fails decryption) are returned
-/// as-is so pre-encryption sessions keep working.
+/// Decrypt a stored refresh token (legacy un-AAD'd helper, test-only).
+#[cfg(test)]
 pub fn decrypt_refresh_token_from_storage(stored: &str) -> String {
     decrypt_from_storage_with(freshcredit_security::get_encryption_config(), stored)
 }
 
+#[cfg(test)]
 fn encrypt_for_storage_with(config: &EncryptionConfig, token: &str) -> String {
     match config.encrypt(token) {
         Ok(ciphertext) => ciphertext,
@@ -53,13 +98,15 @@ fn decrypt_from_storage_with(config: &EncryptionConfig, stored: &str) -> String 
     )
 }
 
-/// Encrypt an optional refresh token (write path helper).
+/// Encrypt an optional refresh token (legacy un-AAD'd helper, test-only).
+#[cfg(test)]
 pub fn encrypt_optional_refresh_token(token: Option<&str>) -> Option<String> {
     token.map(encrypt_refresh_token_for_storage)
 }
 
-/// Decrypt an optional stored refresh token (read path helper).
-#[allow(clippy::single_option_map)] // named read-path helper mirroring `encrypt_optional_refresh_token`; it is public API and its sole job is the Option mapping
+/// Decrypt an optional stored refresh token (legacy un-AAD'd helper, test-only).
+#[cfg(test)]
+#[allow(clippy::single_option_map)]
 pub fn decrypt_optional_refresh_token(stored: Option<String>) -> Option<String> {
     stored.map(|t| decrypt_refresh_token_from_storage(&t))
 }
@@ -131,5 +178,26 @@ mod tests {
         // Decrypting with a different key fails -> legacy fallback returns the
         // stored value rather than panicking or erroring.
         assert_eq!(decrypt_from_storage_with(&config_b, &stored), stored);
+    }
+
+    #[test]
+    fn test_context_aad_roundtrip_and_swap_rejection() {
+        let key = generate_hex_key();
+        let cfg = EncryptionConfig {
+            enabled: true,
+            encryptor: Some(TokenEncryptor::from_hex_key(&key).unwrap()),
+        };
+        let aad_a = b"sessions:refresh_token_encrypted:sess-1:user-a";
+        let aad_b = b"sessions:refresh_token_encrypted:sess-2:user-b";
+        let ct = cfg.encrypt_with_aad("refresh-xyz", aad_a).unwrap();
+        assert_eq!(cfg.decrypt_with_aad(&ct, aad_a).unwrap(), "refresh-xyz");
+        assert!(cfg.decrypt_with_aad(&ct, aad_b).is_err());
+    }
+
+    #[test]
+    fn test_enc_v2_tagged_ciphertext_fails_closed_on_tamper_or_missing_key() {
+        // An enc:v2: prefixed payload must NEVER fall back to returning raw ciphertext
+        let err = decrypt_refresh_token_with_context("sess-1", "user-a", "enc:v2:tampered-payload");
+        assert!(err.is_err());
     }
 }

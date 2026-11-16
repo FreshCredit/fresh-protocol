@@ -1,6 +1,6 @@
 // TAG: surface=security owner=security-team rule=SEC-001
 use crate::libsql_storage::core::LibSqlSessionStorage;
-use crate::libsql_storage::token_crypto::encrypt_refresh_token_for_storage;
+use crate::libsql_storage::token_crypto::encrypt_refresh_token_with_context;
 use crate::storage::SessionError;
 use chrono::{Duration, Utc};
 use tracing::debug;
@@ -43,7 +43,20 @@ impl LibSqlSessionStorage {
         };
 
         if let Some(ref_token) = refresh_token {
-            let encrypted = encrypt_refresh_token_for_storage(ref_token);
+            let mut user_rows = self
+                .conn
+                .query(
+                    "SELECT user_id FROM sessions WHERE id = ?",
+                    libsql::params![session_id],
+                )
+                .await?;
+            let Some(user_row) = user_rows.next().await? else {
+                return Err(SessionError::InvalidData(format!(
+                    "Cannot update tokens for nonexistent session {session_id}"
+                )));
+            };
+            let user_id: String = user_row.get(0)?;
+            let encrypted = encrypt_refresh_token_with_context(session_id, &user_id, ref_token);
             self.conn
                 .execute(
                     query,

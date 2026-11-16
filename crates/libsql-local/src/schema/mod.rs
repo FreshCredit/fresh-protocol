@@ -134,7 +134,7 @@ pub use reports::{initialize_all_reports_tables, initialize_all_reports_tables_w
 pub use security::initialize_security_tables;
 pub use teams::{initialize_teams_indexes, initialize_teams_tables};
 pub use ticketing::initialize_ticketing_tables;
-pub use trust_score::initialize_trust_score_tables;
+pub use trust_score::{initialize_fcra_financial_trust_tables, initialize_trust_score_tables};
 pub use ucp::initialize_ucp_tables;
 pub use vault_vectors::initialize_vault_vector_tables;
 pub use webhook::initialize_webhook_tables;
@@ -155,7 +155,8 @@ pub use helpers::{add_column_if_not_exists, try_create_index};
 
 mod impls;
 pub use impls::{
-    initialize_all_schema_tables, initialize_all_schema_tables_no_seed, initialize_extracted_tables,
+    initialize_all_schema_tables, initialize_all_schema_tables_no_seed,
+    initialize_extracted_tables, initialize_fcra_underwriting_schema_tables,
 };
 
 #[cfg(test)]

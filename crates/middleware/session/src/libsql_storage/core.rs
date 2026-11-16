@@ -1,7 +1,7 @@
 // TAG: surface=security owner=security-team rule=SEC-001
 //! Core `LibSQL` session storage types and helpers
 
-use crate::libsql_storage::token_crypto::decrypt_optional_refresh_token;
+use crate::libsql_storage::token_crypto::decrypt_optional_refresh_token_with_context;
 use crate::storage::{DeviceInfo, Session, SessionArtifact, SessionArtifactType, SessionError};
 use chrono::{DateTime, Utc};
 use libsql::Connection;
@@ -24,6 +24,13 @@ impl LibSqlSessionStorage {
     pub(crate) fn row_to_session(row: &libsql::Row) -> Result<Option<Session>, SessionError> {
         let fields = extract_session_fields(row)?;
 
+        let refresh_token = decrypt_optional_refresh_token_with_context(
+            &fields.id,
+            &fields.user_id,
+            fields.refresh_token,
+        )
+        .map_err(|e| SessionError::InvalidData(format!("Refresh token decrypt failed: {e}")))?;
+
         Ok(Some(Session {
             id: fields.id,
             user_id: fields.user_id,
@@ -41,8 +48,7 @@ impl LibSqlSessionStorage {
                 country: fields.country,
             },
             access_token: fields.access_token,
-            // Decrypt the stored refresh token (legacy plaintext passes through).
-            refresh_token: decrypt_optional_refresh_token(fields.refresh_token),
+            refresh_token,
             refresh_token_expires_at: fields
                 .refresh_token_expires_at
                 .and_then(|ts| DateTime::from_timestamp(ts, 0)),

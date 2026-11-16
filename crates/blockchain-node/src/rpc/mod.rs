@@ -122,6 +122,17 @@ pub struct HashDetailTemplate {
 // Helpers
 // ============================================================================
 
+fn format_short_hash(h: &str) -> String {
+    let chars: Vec<char> = h.chars().collect();
+    if chars.len() <= 20 {
+        h.to_string()
+    } else {
+        let prefix: String = chars[..10].iter().collect();
+        let suffix: String = chars[chars.len() - 8..].iter().collect();
+        format!("{prefix}...{suffix}")
+    }
+}
+
 /// Helper to fetch recent blocks and convert to `BlockInfo`
 pub async fn fetch_recent_blocks(state: &AppState) -> Vec<BlockInfo> {
     let client = state.client.read().await;
@@ -149,13 +160,9 @@ pub async fn fetch_recent_blocks(state: &AppState) -> Vec<BlockInfo> {
 
                         Some(BlockInfo {
                             number,
-                            hash: hash.clone(),
-                            hash_short: format!("{}...{}", &hash[..10], &hash[hash.len() - 8..]),
-                            parent_hash_short: format!(
-                                "{}...{}",
-                                &parent_hash[..10],
-                                &parent_hash[parent_hash.len() - 8..]
-                            ),
+                            hash_short: format_short_hash(&hash),
+                            hash,
+                            parent_hash_short: format_short_hash(&parent_hash),
                             extrinsics_count,
                         })
                     })

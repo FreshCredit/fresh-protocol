@@ -34,6 +34,7 @@ tower-http = { workspace = true }
 
 # Authentication & Rate Limiting
 jsonwebtoken = { workspace = true }
+sha2 = { workspace = true }
 # Rate limiting (not in workspace, keep as-is for now)
 tower_governor = "0.5"
 governor = "0.8"
@@ -51,6 +52,7 @@ askama.workspace = true
 
 # FreshCredit crates
 blockchain-client = { path = "../blockchain-client", version = "0.1.0" }
+freshcredit-nomt-core = { path = "../freshcredit-nomt-core", version = "0.1.0" }
 
 [features]
 default = []

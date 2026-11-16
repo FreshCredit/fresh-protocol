@@ -260,6 +260,71 @@ impl Consistency {
         Ok(epoch == token.epoch && expires_at > now)
     }
 
+    /// Execute a SQL write (and optional outbox event) atomically inside an `IMMEDIATE`
+    /// transaction ONLY if `token` is still the live fencing holder in the same snapshot.
+    ///
+    /// Eliminates the TOCTOU race between `validate_fencing` and a subsequent commit.
+    /// Returns `Ok(true)` if committed, or `Ok(false)` if the lease expired or was reclaimed.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if beginning, executing, or committing the transaction fails.
+    pub async fn execute_fenced(
+        &self,
+        token: &FencingToken,
+        sql: &str,
+        params: Vec<libsql::Value>,
+    ) -> Result<bool, Error> {
+        let conn = self.connection().await?;
+        let tx = conn
+            .transaction_with_behavior(libsql::TransactionBehavior::Immediate)
+            .await
+            .map_err(|e| Error::Store(format!("begin fenced tx {}: {e}", token.name)))?;
+
+        let mut rows = tx
+            .query(
+                "SELECT epoch, CAST(expires_at AS REAL), unixepoch('subsec') AS now
+                 FROM job_leases WHERE name = ?1",
+                libsql::params![token.name.as_str()],
+            )
+            .await
+            .map_err(|e| Error::Store(format!("fenced check {}: {e}", token.name)))?;
+
+        let is_valid = match rows
+            .next()
+            .await
+            .map_err(|e| Error::Store(format!("fenced row {}: {e}", token.name)))?
+        {
+            Some(row) => {
+                let epoch: i64 = row
+                    .get(0)
+                    .map_err(|e| Error::Store(format!("fenced epoch {}: {e}", token.name)))?;
+                let expires_at: f64 = row
+                    .get(1)
+                    .map_err(|e| Error::Store(format!("fenced expiry {}: {e}", token.name)))?;
+                let now: f64 = row
+                    .get(2)
+                    .map_err(|e| Error::Store(format!("fenced now {}: {e}", token.name)))?;
+                epoch == token.epoch && expires_at > now
+            }
+            None => false,
+        };
+        drop(rows);
+
+        if !is_valid {
+            let _ = tx.rollback().await;
+            return Ok(false);
+        }
+
+        tx.execute(sql, libsql::params_from_iter(params))
+            .await
+            .map_err(|e| Error::Store(format!("fenced write {}: {e}", token.name)))?;
+        tx.commit()
+            .await
+            .map_err(|e| Error::Store(format!("commit fenced tx {}: {e}", token.name)))?;
+        Ok(true)
+    }
+
     /// Release the named lease if (and only if) `holder` currently holds it.
     ///
     /// Idempotent: a no-op when the lease is absent or held by somebody else.
@@ -294,6 +359,8 @@ impl Consistency {
                 .db
                 .connect()
                 .map_err(|e| Error::Store(format!("connect to platform database: {e}")))?;
+            // Configure WAL + 5s busy_timeout so concurrent BEGIN IMMEDIATE transactions wait instead of failing SQLITE_BUSY
+            let _ = conn.execute_batch("PRAGMA busy_timeout = 5000;").await;
             ensure_table(&conn, "job_leases", JOB_LEASES_DDL).await?;
             // If another task initialized concurrently, keep the existing
             // connection; `libsql::Connection` handles are cheap to clone but
@@ -353,6 +420,7 @@ pub async fn run_outbox_relay(
     let conn = db
         .connect()
         .map_err(|e| Error::Store(format!("outbox relay connect: {e}")))?;
+    let _ = conn.execute_batch("PRAGMA busy_timeout = 5000;").await;
     // Self-initialize before the first poll: if the migration runner has not
     // reached version 022, create the outbox table (+ partial index) instead
     // of failing the first SELECT. Log at info when created, debug otherwise.
@@ -679,6 +747,108 @@ mod tests {
                 .expect("validate current"),
             "current epoch must pass fencing"
         );
+
+        // Atomic execute_fenced must reject stale holder without mutating state
+        consistency
+            .connection()
+            .await
+            .unwrap()
+            .execute("CREATE TABLE IF NOT EXISTS fenced_sink (holder TEXT)", ())
+            .await
+            .unwrap();
+        let stale_committed = consistency
+            .execute_fenced(
+                &stale,
+                "INSERT INTO fenced_sink (holder) VALUES (?1)",
+                vec![libsql::Value::Text("holder-1".to_string())],
+            )
+            .await
+            .expect("stale execute_fenced");
+        assert!(
+            !stale_committed,
+            "stale token must not commit inside execute_fenced"
+        );
+
+        let cur_committed = consistency
+            .execute_fenced(
+                &current,
+                "INSERT INTO fenced_sink (holder) VALUES (?1)",
+                vec![libsql::Value::Text("holder-2".to_string())],
+            )
+            .await
+            .expect("current execute_fenced");
+        assert!(
+            cur_committed,
+            "live token must commit inside execute_fenced"
+        );
+    }
+
+    #[tokio::test]
+    async fn contended_file_backed_wal_16_tasks_zero_sqlite_busy() {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos();
+        let db_path = std::env::temp_dir().join(format!("fresh_consistency_wal_{nanos}.db"));
+        let db = Arc::new(
+            libsql::Builder::new_local(db_path.to_str().unwrap())
+                .build()
+                .await
+                .expect("open file db"),
+        );
+        let setup_conn = db.connect().expect("setup conn");
+        setup_conn
+            .execute_batch(
+                "PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;
+                 CREATE TABLE IF NOT EXISTS race_counter (id INTEGER PRIMARY KEY, n INTEGER);",
+            )
+            .await
+            .expect("setup WAL + table");
+
+        let consistency = Arc::new(Consistency::new(db));
+        let init_tok = consistency
+            .claim_lease("race.job", "init", Duration::from_secs(0))
+            .await
+            .expect("init claim");
+        if let Some(t) = init_tok {
+            let _ = consistency.release_lease("race.job", &t.holder).await;
+        }
+
+        let mut handles = Vec::new();
+        for tid in 0..16 {
+            let c = consistency.clone();
+            handles.push(tokio::spawn(async move {
+                let mut ok_ops = 0usize;
+                for iter in 0..8 {
+                    let holder = format!("task-{tid}-{iter}");
+                    if let Some(tok) = c
+                        .claim_lease("race.job", &holder, Duration::from_secs(5))
+                        .await?
+                    {
+                        let _ = c
+                            .execute_fenced(
+                                &tok,
+                                "INSERT INTO race_counter (n) VALUES (?1)",
+                                vec![libsql::Value::Integer(i64::try_from(tid).unwrap_or(0))],
+                            )
+                            .await?;
+                        c.release_lease("race.job", &holder).await?;
+                        ok_ops += 1;
+                    }
+                }
+                Ok::<usize, Error>(ok_ops)
+            }));
+        }
+
+        let mut total_wins = 0usize;
+        for h in handles {
+            total_wins += h.await.expect("join").expect("zero SQLITE_BUSY errors");
+        }
+        assert!(total_wins > 0, "at least one contended worker must succeed");
+        for ext in ["", "-wal", "-shm"] {
+            let p = format!("{}{}", db_path.display(), ext);
+            let _ = std::fs::remove_file(p);
+        }
     }
 
     #[tokio::test]

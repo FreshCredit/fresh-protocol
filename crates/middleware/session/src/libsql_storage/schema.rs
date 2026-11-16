@@ -13,6 +13,8 @@ impl LibSqlSessionStorage {
     /// Returns an error if the operation fails.
     #[allow(clippy::too_many_lines)] // Sequential DDL: one statement per migration step.
     pub async fn init(&self) -> Result<(), SessionError> {
+        // Configure busy_timeout so contended WAL sessions retry cleanly instead of immediate SQLITE_BUSY
+        let _ = self.conn.execute_batch("PRAGMA busy_timeout = 5000;").await;
         // Create the sessions table with device info and refresh token support
         // TAG: surface=security owner=security-team rule=SEC-001
         let create_table = r"

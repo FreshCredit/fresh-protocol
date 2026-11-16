@@ -31,6 +31,122 @@ pub struct NomtProof {
     pub root: String,
 }
 
+/// RFC 6962 §2.1 domain-separation byte for Merkle leaves.
+pub const LEAF_DOMAIN_PREFIX: u8 = 0x00;
+
+/// RFC 6962 §2.1 domain-separation byte for Merkle internal nodes.
+pub const NODE_DOMAIN_PREFIX: u8 = 0x01;
+
+/// Required byte length for 256-bit BLAKE3 digests.
+const DIGEST_LEN: usize = 32;
+
+/// Compute a domain-separated RFC 6962 leaf hash (`BLAKE3(0x00 || data)`).
+#[must_use]
+pub fn compute_leaf_hash(data: impl AsRef<[u8]>) -> String {
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(&[LEAF_DOMAIN_PREFIX]);
+    hasher.update(data.as_ref());
+    hex::encode(hasher.finalize().as_bytes())
+}
+
+/// Compute a key/namespace-bound RFC 6962 leaf hash:
+/// `BLAKE3(0x00 || u32_be(namespace.len()) || namespace || data)`.
+/// Prevents an attacker from substituting a valid proof for key A as proof for key B.
+#[must_use]
+pub fn compute_bound_leaf_hash(namespace: &str, data: impl AsRef<[u8]>) -> String {
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(&[LEAF_DOMAIN_PREFIX]);
+    let ns_bytes = namespace.as_bytes();
+    let ns_len = u32::try_from(ns_bytes.len()).unwrap_or(u32::MAX);
+    hasher.update(&ns_len.to_be_bytes());
+    hasher.update(ns_bytes);
+    hasher.update(data.as_ref());
+    hex::encode(hasher.finalize().as_bytes())
+}
+
+/// Compute a deterministic RFC 6962 binary Merkle root over sorted 32-byte hex leaves.
+#[must_use]
+pub fn compute_merkle_root(ordered_leaves: &[String]) -> String {
+    if ordered_leaves.is_empty() {
+        return compute_leaf_hash(b"empty");
+    }
+    if ordered_leaves.len() == 1 {
+        return ordered_leaves[0].clone();
+    }
+    let mut level: Vec<[u8; DIGEST_LEN]> = ordered_leaves
+        .iter()
+        .map(|h| decode_digest_32(h).unwrap_or_else(|_| *blake3::hash(h.as_bytes()).as_bytes()))
+        .collect();
+    while level.len() > 1 {
+        let mut next = Vec::with_capacity(level.len().div_ceil(2));
+        for pair in level.chunks(2) {
+            if pair.len() == 2 {
+                next.push(hash_internal_nodes(&pair[0], &pair[1]));
+            } else {
+                next.push(pair[0]);
+            }
+        }
+        level = next;
+    }
+    hex::encode(level[0])
+}
+
+/// Build an RFC 6962 binary Merkle inclusion proof for `target_leaf` over `ordered_leaves`.
+#[must_use]
+pub fn build_merkle_proof(ordered_leaves: &[String], target_leaf: &str) -> Option<NomtProof> {
+    let mut idx = ordered_leaves.iter().position(|h| h == target_leaf)?;
+    let mut level: Vec<[u8; DIGEST_LEN]> = ordered_leaves
+        .iter()
+        .map(|h| decode_digest_32(h).ok())
+        .collect::<Option<Vec<_>>>()?;
+
+    let mut siblings = Vec::new();
+    let mut path = Vec::new();
+    while level.len() > 1 {
+        let mut next = Vec::with_capacity(level.len().div_ceil(2));
+        for (pair_idx, pair) in level.chunks(2).enumerate() {
+            if pair.len() == 2 {
+                if idx / 2 == pair_idx {
+                    let is_right = idx % 2 == 1;
+                    let sibling = if is_right { pair[0] } else { pair[1] };
+                    siblings.push(hex::encode(sibling));
+                    path.push(is_right);
+                }
+                next.push(hash_internal_nodes(&pair[0], &pair[1]));
+            } else {
+                next.push(pair[0]);
+            }
+        }
+        idx /= 2;
+        level = next;
+    }
+    let root = hex::encode(level[0]);
+    Some(NomtProof::new(target_leaf, siblings, path, root))
+}
+
+/// Compute a domain-separated RFC 6962 internal node hash (`BLAKE3(0x01 || left || right)`).
+#[must_use]
+pub fn hash_internal_nodes(left: &[u8; DIGEST_LEN], right: &[u8; DIGEST_LEN]) -> [u8; DIGEST_LEN] {
+    let mut hasher = blake3::Hasher::new();
+    hasher.update(&[NODE_DOMAIN_PREFIX]);
+    hasher.update(left);
+    hasher.update(right);
+    *hasher.finalize().as_bytes()
+}
+
+fn decode_digest_32(hex_str: &str) -> Result<[u8; DIGEST_LEN], ProofError> {
+    let bytes = hex::decode(hex_str).map_err(|_| ProofError::InvalidHash(hex_str.to_string()))?;
+    if bytes.len() != DIGEST_LEN {
+        return Err(ProofError::InvalidHash(format!(
+            "expected {DIGEST_LEN}-byte digest, got {} bytes",
+            bytes.len()
+        )));
+    }
+    let mut out = [0u8; DIGEST_LEN];
+    out.copy_from_slice(&bytes);
+    Ok(out)
+}
+
 impl NomtProof {
     /// Create a new NOMT proof
     pub fn new(
@@ -63,37 +179,43 @@ impl NomtProof {
             ));
         }
 
-        let mut current_hash = hex::decode(&self.leaf_hash)
-            .map_err(|_| ProofError::InvalidHash(self.leaf_hash.clone()))?;
+        let mut current_hash = decode_digest_32(&self.leaf_hash)?;
+        let expected_root = decode_digest_32(&self.root)?;
 
         for (i, (sibling, is_right)) in self.siblings.iter().zip(&self.path).enumerate() {
-            let sibling_bytes =
-                hex::decode(sibling).map_err(|_| ProofError::InvalidHash(sibling.clone()))?;
+            let sibling_bytes = decode_digest_32(sibling)?;
 
-            // Combine hashes: if we're on the right, sibling is on the left
-            let combined = if *is_right {
-                // Sibling is left, current is right
-                let mut combined = sibling_bytes.clone();
-                combined.extend_from_slice(&current_hash);
-                combined
+            // RFC 6962 §2.1 domain-separated internal node hash: H(0x01 || left || right)
+            current_hash = if *is_right {
+                hash_internal_nodes(&sibling_bytes, &current_hash)
             } else {
-                // Current is left, sibling is right
-                let mut combined = current_hash.clone();
-                combined.extend_from_slice(&sibling_bytes);
-                combined
+                hash_internal_nodes(&current_hash, &sibling_bytes)
             };
-
-            current_hash = blake3::hash(&combined).as_bytes().to_vec();
 
             tracing::debug!(
                 level = i,
-                hash = hex::encode(&current_hash),
+                hash = hex::encode(current_hash),
                 "Computed intermediate hash"
             );
         }
 
-        let computed_root = hex::encode(current_hash);
-        Ok(computed_root == self.root)
+        Ok(current_hash == expected_root)
+    }
+
+    /// Verify this proof against an external trusted `expected_root` and `expected_leaf_hash`
+    /// (preventing self-signed `proof.root` or cross-key leaf substitution).
+    /// # Errors
+    ///
+    /// Returns `ProofError` if any digest is invalid or path lengths mismatch.
+    pub fn verify_against(
+        &self,
+        expected_root: &str,
+        expected_leaf_hash: &str,
+    ) -> Result<bool, ProofError> {
+        if self.root != expected_root || self.leaf_hash != expected_leaf_hash {
+            return Ok(false);
+        }
+        self.verify()
     }
 
     /// Get the proof depth (number of levels)
@@ -101,6 +223,27 @@ impl NomtProof {
     pub fn depth(&self) -> usize {
         // TAG: surface=blockchain owner=blockchain-team rule=BC-001
         self.siblings.len()
+    }
+
+    /// Checked binary conversion (fails closed on malformed hex instead of dropping siblings).
+    /// # Errors
+    ///
+    /// Returns `ProofError::InvalidHash` if any hex digest is invalid.
+    pub fn try_to_binary(&self) -> Result<NomtProofBinary, ProofError> {
+        let leaf_hash = hex::decode(&self.leaf_hash)
+            .map_err(|_| ProofError::InvalidHash(self.leaf_hash.clone()))?;
+        let mut siblings = Vec::with_capacity(self.siblings.len());
+        for s in &self.siblings {
+            siblings.push(hex::decode(s).map_err(|_| ProofError::InvalidHash(s.clone()))?);
+        }
+        let root =
+            hex::decode(&self.root).map_err(|_| ProofError::InvalidHash(self.root.clone()))?;
+        Ok(NomtProofBinary {
+            leaf_hash,
+            siblings,
+            path: self.path.clone(),
+            root,
+        })
     }
 
     /// Convert to binary format (for WASM/JS compatibility)
@@ -397,17 +540,13 @@ mod tests {
 
     #[test]
     fn test_verify_success_single_level() {
-        // Create a genuine 1-level Merkle proof
-        let leaf_data = b"test data";
-        let leaf_hash = compute_hash(leaf_data);
-        let sibling_data = b"sibling data";
-        let sibling_hash = compute_hash(sibling_data);
+        // Create a genuine domain-separated 1-level Merkle proof (RFC 6962)
+        let leaf_hash = compute_leaf_hash(b"test data");
+        let sibling_hash = compute_leaf_hash(b"sibling data");
 
-        // Compute root: leaf is on the right, so root = hash(sibling || leaf)
-        let mut combined = hex::decode(&sibling_hash).unwrap();
-        // TAG: surface=blockchain owner=blockchain-team rule=BC-001
-        combined.extend_from_slice(&hex::decode(&leaf_hash).unwrap());
-        let root = hex::encode(blake3::hash(&combined).as_bytes());
+        let sib_arr: [u8; 32] = hex::decode(&sibling_hash).unwrap().try_into().unwrap();
+        let leaf_arr: [u8; 32] = hex::decode(&leaf_hash).unwrap().try_into().unwrap();
+        let root = hex::encode(hash_internal_nodes(&sib_arr, &leaf_arr));
 
         let proof = NomtProof::new(
             &leaf_hash,
@@ -417,6 +556,27 @@ mod tests {
         );
 
         assert!(proof.verify().unwrap());
+    }
+
+    #[test]
+    fn test_rfc6962_second_preimage_forgery_rejected() {
+        // Forging a depth-0 leaf whose raw data equals (sib || leaf) must NOT match
+        // an internal node hash because leaves use 0x00 prefix and nodes use 0x01.
+        let sib_arr: [u8; 32] = *blake3::hash(b"\x00sibling").as_bytes();
+        let leaf_arr: [u8; 32] = *blake3::hash(b"\x00leaf").as_bytes();
+        let internal_root = hex::encode(hash_internal_nodes(&sib_arr, &leaf_arr));
+
+        let mut forged_leaf_preimage = Vec::with_capacity(64);
+        forged_leaf_preimage.extend_from_slice(&sib_arr);
+        forged_leaf_preimage.extend_from_slice(&leaf_arr);
+        let forged_leaf_hash = compute_leaf_hash(&forged_leaf_preimage);
+
+        let forged_proof = NomtProof::new(&forged_leaf_hash, vec![], vec![], &internal_root);
+        assert!(!forged_proof.verify().unwrap());
+
+        // Short-length digests are also rejected
+        let short = NomtProof::new("abcd", vec![], vec![], "abcd");
+        assert!(matches!(short.verify(), Err(ProofError::InvalidHash(_))));
     }
 
     #[test]
@@ -527,17 +687,15 @@ mod tests {
 
     #[test]
     fn test_proof_binary_verify_success() {
-        let leaf_data = b"test data";
-        let leaf_hash = compute_hash(leaf_data);
-        let sibling_data = b"sibling data";
-        let sibling_hash = compute_hash(sibling_data);
+        let leaf_hash = compute_leaf_hash(b"test data");
+        let sibling_hash = compute_leaf_hash(b"sibling data");
 
-        let mut combined = hex::decode(&sibling_hash).unwrap();
-        combined.extend_from_slice(&hex::decode(&leaf_hash).unwrap());
-        let root = hex::encode(blake3::hash(&combined).as_bytes());
+        let sib_arr: [u8; 32] = hex::decode(&sibling_hash).unwrap().try_into().unwrap();
+        let leaf_arr: [u8; 32] = hex::decode(&leaf_hash).unwrap().try_into().unwrap();
+        let root = hex::encode(hash_internal_nodes(&sib_arr, &leaf_arr));
 
         let proof = NomtProof::new(&leaf_hash, vec![sibling_hash], vec![true], &root);
-        let binary = proof.to_binary();
+        let binary = proof.try_to_binary().unwrap();
         assert!(binary.verify().unwrap());
     }
 

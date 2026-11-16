@@ -933,6 +933,7 @@ dependencies = [
  "anyhow",
  "base64 0.22.1",
  "chrono",
+ "freshcredit-nomt-core",
  "hex",
  "reqwest",
  "serde",
@@ -2067,6 +2068,7 @@ dependencies = [
  "blockchain-client",
  "chrono",
  "clap",
+ "freshcredit-nomt-core",
  "futures",
  "governor",
  "jsonwebtoken",
@@ -2075,6 +2077,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serial_test",
+ "sha2 0.10.9",
  "thiserror 2.0.20",
  "tokio",
  "tower 0.4.13",
@@ -2209,6 +2212,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "auth",
  "axum",
  "chrono",
  "freshcredit-core-timing",
@@ -2230,12 +2234,15 @@ dependencies = [
  "chrono",
  "dashmap 6.2.1",
  "freshcredit-core-timing",
+ "hex",
  "http-body-util",
  "libsql",
  "serde",
  "serde_json",
+ "sha2 0.10.9",
  "thiserror 2.0.20",
  "tokio",
+ "tower 0.4.13",
  "tracing",
  "uuid",
 ]
@@ -2244,6 +2251,7 @@ dependencies = [
 name = "freshcredit-middleware-rate-limit"
 version = "0.1.0"
 dependencies = [
+ "auth",
  "axum",
  "chrono",
  "dashmap 6.2.1",
@@ -2306,6 +2314,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tracing",
+ "zeroize",
 ]
 
 [[package]]
@@ -3989,6 +3998,7 @@ dependencies = [
 name = "nomt-wasm"
 version = "0.1.0"
 dependencies = [
+ "blake3",
  "getrandom 0.2.17",
  "getrandom 0.3.4",
  "hex",

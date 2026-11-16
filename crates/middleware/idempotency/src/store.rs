@@ -52,6 +52,10 @@ pub struct StoredResponse {
 
     /// When the response expires
     pub expires_at: DateTime<Utc>,
+
+    /// Optional SHA-256 fingerprint of `(method, path, request_body)` per IETF Idempotency-Key spec
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub request_hash: Option<String>,
     // TAG: surface=security owner=platform-team rule=GENERAL-001
 }
 
@@ -61,6 +65,18 @@ impl StoredResponse {
         status: u16,
         headers: Vec<(String, String)>,
         body: Vec<u8>,
+        ttl: std::time::Duration,
+        clock: &dyn Clock,
+    ) -> Self {
+        Self::with_request_hash(status, headers, body, None, ttl, clock)
+    }
+
+    /// Create a new stored response bound to a request payload fingerprint
+    pub fn with_request_hash(
+        status: u16,
+        headers: Vec<(String, String)>,
+        body: Vec<u8>,
+        request_hash: Option<String>,
         ttl: std::time::Duration,
         clock: &dyn Clock,
     ) -> Self {
@@ -76,6 +92,7 @@ impl StoredResponse {
             body,
             stored_at,
             expires_at,
+            request_hash,
         }
     }
 
@@ -139,16 +156,17 @@ impl IdempotencyStore {
         }
     }
 
-    /// Store a response with an idempotency key
+    /// Store a response with an idempotency key and optional request payload fingerprint.
     /// # Errors
     ///
-    /// Returns an error if the operation fails.
-    pub fn store(
+    /// Returns [`IdempotencyError::BodyTooLarge`] if the response body exceeds `max_body_size`.
+    pub fn store_with_fingerprint(
         &self,
         key: &str,
         status: u16,
         headers: Vec<(String, String)>,
         body: Vec<u8>,
+        request_hash: Option<String>,
     ) -> Result<(), IdempotencyError> {
         // Check body size
         if body.len() > self.config.max_body_size {
@@ -173,7 +191,14 @@ impl IdempotencyStore {
             }
         }
 
-        let response = StoredResponse::new(status, headers, body, self.config.ttl, &*self.clock);
+        let response = StoredResponse::with_request_hash(
+            status,
+            headers,
+            body,
+            request_hash,
+            self.config.ttl,
+            &*self.clock,
+        );
 
         self.store.insert(key.to_string(), response);
         info!(
@@ -182,6 +207,20 @@ impl IdempotencyStore {
         );
 
         Ok(())
+    }
+
+    /// Store a response with an idempotency key
+    /// # Errors
+    ///
+    /// Returns an error if the operation fails.
+    pub fn store(
+        &self,
+        key: &str,
+        status: u16,
+        headers: Vec<(String, String)>,
+        body: Vec<u8>,
+    ) -> Result<(), IdempotencyError> {
+        self.store_with_fingerprint(key, status, headers, body, None)
     }
 
     /// Clean up expired entries
@@ -270,6 +309,18 @@ pub trait ResponseStore: Send + Sync + 'static {
         headers: Vec<(String, String)>,
         body: Vec<u8>,
     ) -> impl std::future::Future<Output = Result<StoredResponse, IdempotencyError>> + Send;
+
+    /// Persist a response bound to a request payload fingerprint (defaults to `store_response`).
+    fn store_response_with_fingerprint(
+        &self,
+        key: &str,
+        status: u16,
+        headers: Vec<(String, String)>,
+        body: Vec<u8>,
+        _request_hash: Option<String>,
+    ) -> impl std::future::Future<Output = Result<StoredResponse, IdempotencyError>> + Send {
+        self.store_response(key, status, headers, body)
+    }
 }
 
 impl ResponseStore for IdempotencyStore {
@@ -290,7 +341,21 @@ impl ResponseStore for IdempotencyStore {
         headers: Vec<(String, String)>,
         body: Vec<u8>,
     ) -> Result<StoredResponse, IdempotencyError> {
-        self.store(key, status, headers, body)?;
+        self.store_with_fingerprint(key, status, headers, body, None)?;
+        self.get(key).ok_or_else(|| {
+            IdempotencyError::SerializationError("Failed to retrieve stored response".to_string())
+        })
+    }
+
+    async fn store_response_with_fingerprint(
+        &self,
+        key: &str,
+        status: u16,
+        headers: Vec<(String, String)>,
+        body: Vec<u8>,
+        request_hash: Option<String>,
+    ) -> Result<StoredResponse, IdempotencyError> {
+        self.store_with_fingerprint(key, status, headers, body, request_hash)?;
         self.get(key).ok_or_else(|| {
             IdempotencyError::SerializationError("Failed to retrieve stored response".to_string())
         })

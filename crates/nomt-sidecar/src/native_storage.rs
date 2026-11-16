@@ -19,7 +19,6 @@ use crate::types::{HashMetadata, NomtProof, StoreResponse, VerifyResponse};
 use nomt::{
     hasher::Blake3Hasher, trie::KeyPath, KeyReadWrite, Nomt, Options, SessionParams, WitnessMode,
 };
-use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -144,16 +143,17 @@ impl NativeNomtStorage {
         report_type: &str,
         data: &[u8],
     ) -> anyhow::Result<StoreResponse> {
-        // Compute SHA-256 hash of the data
-        let mut hasher = Sha256::new();
-        hasher.update(data);
-        let hash_bytes: [u8; 32] = hasher.finalize().into();
-        let hash = hex::encode(hash_bytes);
+        // Compute key-bound RFC 6962 BLAKE3 leaf digest matching LegacyStorage
+        let namespace = format!("{user_id}:{report_type}");
+        let hash = freshcredit_nomt_core::compute_bound_leaf_hash(&namespace, data);
+        let hash_bytes_vec = hex::decode(&hash)?;
+        let hash_bytes: [u8; 32] = hash_bytes_vec
+            .try_into()
+            .map_err(|_| anyhow::anyhow!("Invalid leaf digest length"))?;
 
         debug!(hash = %hash, report_type = %report_type, "Storing data in native NOMT");
 
-        let key_path = hash_bytes.to_vec(); // Use hash as key (KeyPath is Vec<u8>)
-        let prev_root = self.nomt.root();
+        let key_path = hash_bytes.to_vec(); // Use bound digest as 256-bit KeyPath
 
         // Begin a session with witness generation
         let session = self
@@ -177,53 +177,36 @@ impl NativeNomtStorage {
         // Commit the changes
         finished.commit(&self.nomt)?;
 
-        // Generate proof from witness
-        let proof = if let Some(w) = witness {
-            // Extract proof data from witness - sibling_chunks are the sibling nodes along the path
-            // ENOMT API changed: siblings -> sibling_chunks (Vec<SiblingChunk>)
-            let siblings: Vec<String> = w
-                .path_proofs
-                .iter()
-                .flat_map(|pp| {
-                    // Get sibling hashes from the path proof
-                    pp.inner
-                        .sibling_chunks
-                        .iter()
-                        .map(|chunk| {
-                            // SiblingChunk is an enum with Sibling(Node) and Terminators(u16) variants
-                            // TAG: surface=blockchain owner=blockchain-team rule=BC-001
-                            match chunk {
-                                nomt::proof::SiblingChunk::Sibling(node) => hex::encode(node),
-                                nomt::proof::SiblingChunk::Terminators(_) => {
-                                    // Terminator chunks don't have a hash, use zero hash
-                                    hex::encode([0u8; 32])
-                                }
-                            }
-                        })
-                        .collect::<Vec<_>>()
-                })
-                .collect();
+        // Generate proof from witness — fail closed rather than fabricating a fake proof
+        let w = witness.ok_or_else(|| {
+            anyhow::anyhow!("Native NOMT failed to emit cryptographic witness proof")
+        })?;
+        let siblings: Vec<String> = w
+            .path_proofs
+            .iter()
+            .flat_map(|pp| {
+                pp.inner
+                    .sibling_chunks
+                    .iter()
+                    .flat_map(|chunk| match chunk {
+                        nomt::proof::SiblingChunk::Sibling(node) => vec![hex::encode(node)],
+                        nomt::proof::SiblingChunk::Terminators(count) => {
+                            vec![hex::encode([0u8; 32]); usize::from(*count)]
+                        }
+                    })
+            })
+            .collect();
 
-            // Path bits derived from the key hash
-            let path_bits: Vec<bool> = (0..siblings.len())
-                .map(|i| (hash_bytes[i / 8] >> (7 - (i % 8))) & 1 == 1)
-                .collect();
+        // Path bits derived from the 256-bit key path (MSB-first, wrapping safely if > 256)
+        let path_bits: Vec<bool> = (0..siblings.len())
+            .map(|i| (hash_bytes[(i / 8) % 32] >> (7 - (i % 8))) & 1 == 1)
+            .collect();
 
-            NomtProof {
-                leaf_hash: hash.clone(),
-                siblings,
-                path: path_bits,
-                root: hex::encode(new_root.into_inner()),
-            }
-        } else {
-            // Fallback proof if witness not available
-            NomtProof {
-                leaf_hash: hash.clone(),
-                siblings: vec![hex::encode(prev_root.into_inner())],
-                path: vec![true],
-                root: hex::encode(new_root.into_inner()),
-            }
-            // TAG: surface=blockchain owner=blockchain-team rule=BC-001
+        let proof = NomtProof {
+            leaf_hash: hash.clone(),
+            siblings,
+            path: path_bits,
+            root: hex::encode(new_root.into_inner()),
         };
 
         // Store metadata
@@ -245,7 +228,6 @@ impl NativeNomtStorage {
 
         info!(
             hash = %hash,
-            prev_root = %hex::encode(prev_root.into_inner()),
             new_root = %hex::encode(new_root.into_inner()),
             "Data stored in native NOMT"
         );

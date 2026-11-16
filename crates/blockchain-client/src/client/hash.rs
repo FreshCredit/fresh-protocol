@@ -48,10 +48,9 @@ impl BlockchainClient {
             .await
             .map_err(|e| anyhow::anyhow!("Failed to submit transaction: {e}"))?;
 
-        // TAG: surface=blockchain owner=blockchain-team rule=BLOCKCHAIN-001
-        let events = tokio::time::timeout(
+        let in_block = tokio::time::timeout(
             crate::helpers::finalize_timeout(),
-            tx_progress.wait_for_finalized_success(),
+            tx_progress.wait_for_finalized(),
         )
         .await
         .map_err(|_| {
@@ -60,11 +59,16 @@ impl BlockchainClient {
                 crate::helpers::finalize_timeout().as_secs()
             )
         })?
-        .map_err(|e| anyhow::anyhow!("Transaction failed: {e}"))?;
+        .map_err(|e| anyhow::anyhow!("Transaction finalization failed: {e}"))?;
+        let finalized_hash = in_block.block_hash();
+        let events = in_block
+            .wait_for_success()
+            .await
+            .map_err(|e| anyhow::anyhow!("Transaction failed: {e}"))?;
 
-        // Get block number from the latest header (transaction was just finalized)
+        // Resolve block number directly from the finalized block hash (not the unfinalized best tip!)
         let _tx_hash = events.extrinsic_hash();
-        let header = self.rpc.chain_get_header(None).await?;
+        let header = self.rpc.chain_get_header(Some(finalized_hash)).await?;
         let block_number = header.map_or(0, |h| h.number);
 
         info!("Successfully anchored hash at block {}", block_number);

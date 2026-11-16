@@ -12,6 +12,7 @@ categories.workspace = true
 [dependencies]
 # Internal dependencies
 freshcredit-core-timing = { workspace = true }
+auth = { path = "../../auth" }
 
 # Workspace dependencies
 axum = { workspace = true }

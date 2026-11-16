@@ -25,6 +25,9 @@ impl LocalClient {
 
         let db = libsql::Builder::new_local(database_path).build().await?;
         let connection = db.connect()?;
+        let _ = connection
+            .execute_batch("PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;")
+            .await;
 
         Ok(Self {
             // File-backed clients carry no parent database: reconnection is

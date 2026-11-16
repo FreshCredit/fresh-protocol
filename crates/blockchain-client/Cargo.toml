@@ -27,6 +27,7 @@ subxt-signer = { workspace = true, features = ["subxt", "sr25519"] }
 
 # Substrate hashing for transaction IDs
 sp-crypto-hashing = { workspace = true }
+freshcredit-nomt-core = { path = "../freshcredit-nomt-core", version = "0.1.0" }
 
 # HTTP client for NOMT sidecar
 reqwest = { workspace = true }

@@ -28,8 +28,11 @@ pub struct PeerSyncConfig {
     pub namespace: String,
     /// Port for NOMT HTTP API
     pub port: u16,
-    /// Current pod name (to exclude self from peers)
+    /// Current pod name (to exclude self from peers when POD_IP is unset)
+    #[allow(dead_code)]
     pub pod_name: String,
+    /// Optional shared API key sent via `x-api-key` on peer `/sync/store` broadcasts
+    pub api_key: Option<String>,
     /// Enable peer sync
     pub enabled: bool,
 }
@@ -42,6 +45,7 @@ impl Default for PeerSyncConfig {
             namespace: "freshcredit-blockchain".to_string(),
             port: 8081,
             pod_name: String::new(),
+            api_key: None,
             enabled: false,
         }
     }
@@ -87,9 +91,10 @@ impl PeerSyncService {
 
         match tokio::net::lookup_host(format!("{}:{}", dns_name, self.config.port)).await {
             Ok(addrs) => {
+                let self_ip = std::env::var("POD_IP").ok().filter(|s| !s.is_empty());
                 let peers: Vec<String> = addrs
+                    .filter(|addr| self_ip.as_deref() != Some(&addr.ip().to_string()))
                     .map(|addr| format!("http://{}:{}", addr.ip(), self.config.port))
-                    .filter(|url| !url.contains(&self.config.pod_name))
                     .collect();
 
                 // Update cached peers
@@ -129,10 +134,17 @@ impl PeerSyncService {
             let client = self.client.clone();
             let req = request.clone();
             let peer_clone = peer.clone();
+            let api_key = self.config.api_key.clone();
 
             // Fire and forget - don't block on peer responses
             tokio::spawn(async move {
-                match client.post(&url).json(&req).send().await {
+                let mut builder = client.post(&url).json(&req);
+                if let Some(ref key) = api_key {
+                    if !key.is_empty() {
+                        builder = builder.header("x-api-key", key);
+                    }
+                }
+                match builder.send().await {
                     Ok(resp) if resp.status().is_success() => {
                         debug!(peer = %peer_clone, "Broadcast to peer succeeded");
                     }

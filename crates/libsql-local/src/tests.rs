@@ -347,3 +347,45 @@ async fn test_user_profile_not_found() {
     let result = client.get_user_profile("nonexistent-user").await.unwrap();
     assert!(result.is_none());
 }
+
+/// Verify FCRA § 604(g) / 12 C.F.R. § 1022.30 sequestration wall:
+/// underwriting schema initialization MUST NOT provision physiological, HealthKit,
+/// Apple Music, LinkedIn, or linguistic stream tables.
+#[tokio::test]
+async fn test_fcra_underwriting_schema_sequestration_wall() {
+    let client = LocalClient::new_in_memory().await.unwrap();
+    let conn = client.connection();
+    crate::schema::initialize_fcra_underwriting_schema_tables(&conn)
+        .await
+        .unwrap();
+
+    let mut rows = conn
+        .query("SELECT name FROM sqlite_master WHERE type='table'", ())
+        .await
+        .unwrap();
+    let mut tables = std::collections::HashSet::new();
+    while let Some(row) = rows.next().await.unwrap() {
+        let name: String = row.get(0).unwrap();
+        tables.insert(name);
+    }
+
+    assert!(
+        tables.contains("gtt_fin_stream"),
+        "Financial GTT stream required"
+    );
+    assert!(tables.contains("reports"), "Credit reports table required");
+    for forbidden in [
+        "gtt_physio_stream",
+        "gtt_ling_stream",
+        "gtt_composite_index",
+        "healthkit_records",
+        "healthkit_profiles",
+        "apple_music_profiles",
+        "linkedin_profiles",
+    ] {
+        assert!(
+            !tables.contains(forbidden),
+            "FCRA Sequestration Wall breach: forbidden table '{forbidden}' provisioned in underwriting DB"
+        );
+    }
+}

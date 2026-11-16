@@ -16,7 +16,7 @@
 //! - NEVER disable encryption in production!
 
 use aes_gcm::{
-    aead::{Aead, KeyInit},
+    aead::{Aead, KeyInit, Payload},
     Aes256Gcm, Nonce,
 };
 use anyhow::{anyhow, Result};
@@ -111,6 +111,18 @@ impl EncryptionConfig {
         Ok(Self { enabled, encryptor })
     }
 
+    /// Require encryption to be enabled and configured with a valid 256-bit key.
+    /// Fail-closed constructor for production startup paths.
+    pub fn require_from_env() -> Result<Self> {
+        let cfg = Self::from_env()?;
+        if !cfg.is_available() {
+            return Err(anyhow!(
+                "FRESHCREDIT_TOKEN_ENCRYPTION_KEY must be configured and encryption enabled"
+            ));
+        }
+        Ok(cfg)
+    }
+
     /// Check if encryption is actually available (enabled AND key is configured)
     #[must_use]
     /// # Errors
@@ -128,8 +140,16 @@ impl EncryptionConfig {
     ///
     /// Returns an error if the operation fails.
     pub fn encrypt(&self, plaintext: &str) -> Result<String> {
+        self.encrypt_with_aad(plaintext, b"")
+    }
+
+    /// Encrypt a token bound to Additional Authenticated Data (AAD), such as `table:column:record_id`.
+    /// # Errors
+    ///
+    /// Returns an error if encryption is disabled/unconfigured or fails.
+    pub fn encrypt_with_aad(&self, plaintext: &str, aad: &[u8]) -> Result<String> {
         match &self.encryptor {
-            Some(enc) if self.enabled => enc.encrypt(plaintext).map_err(|e| {
+            Some(enc) if self.enabled => enc.encrypt_with_aad(plaintext, aad).map_err(|e| {
                 tracing::error!("Encryption failed: {e}");
                 anyhow!("Encryption operation failed")
             }),
@@ -146,9 +166,21 @@ impl EncryptionConfig {
     ///
     /// Returns an error if the operation fails.
     pub fn decrypt(&self, ciphertext: &str) -> Result<String, EncryptionError> {
+        self.decrypt_with_aad(ciphertext, b"")
+    }
+
+    /// Decrypt a token and verify Additional Authenticated Data (AAD) matches the encryption context.
+    /// # Errors
+    ///
+    /// Returns `EncryptionError` if unconfigured, malformed, or AAD/tag check fails.
+    pub fn decrypt_with_aad(
+        &self,
+        ciphertext: &str,
+        aad: &[u8],
+    ) -> Result<String, EncryptionError> {
         match &self.encryptor {
             Some(enc) if self.enabled => enc
-                .decrypt(ciphertext)
+                .decrypt_with_aad(ciphertext, aad)
                 .map_err(|e| EncryptionError::DecryptionFailed(e.to_string())),
             _ => Err(EncryptionError::NotConfigured),
         }
@@ -195,10 +227,12 @@ pub fn decrypt_token(ciphertext: &str) -> Result<String, EncryptionError> {
     get_encryption_config().decrypt(ciphertext)
 }
 
-/// Token encryptor using AES-256-GCM
+/// Token encryptor using AES-256-GCM (zeroizes raw key material on drop).
+#[derive(zeroize::Zeroize, zeroize::ZeroizeOnDrop)]
 pub struct TokenEncryptor {
+    #[zeroize(skip)]
     cipher: Aes256Gcm,
-    /// Store key for Clone implementation
+    /// Store key for Clone implementation (scrubbed from memory on Drop)
     key: [u8; KEY_SIZE],
 }
 
@@ -284,16 +318,29 @@ impl TokenEncryptor {
     ///
     /// Returns an error if the operation fails.
     pub fn encrypt(&self, plaintext: &str) -> Result<String> {
+        self.encrypt_with_aad(plaintext, b"")
+    }
+
+    /// Encrypt a plaintext token with Additional Authenticated Data (AAD) binding
+    /// (e.g., `b"sessions:refresh_token_encrypted:<session_id>:<user_id>"`) so ciphertext
+    /// cannot be transplanted across rows or columns.
+    pub fn encrypt_with_aad(&self, plaintext: &str, aad: &[u8]) -> Result<String> {
         // Generate random nonce using cryptographically secure RNG
         // SECURITY FIX: Use OsRng instead of thread_rng() for cryptographic operations
         let mut nonce_bytes = [0u8; NONCE_SIZE];
         rand::rngs::OsRng.fill_bytes(&mut nonce_bytes);
         let nonce = Nonce::from_slice(&nonce_bytes);
 
-        // Encrypt
+        // Encrypt with AAD binding
         let ciphertext = self
             .cipher
-            .encrypt(nonce, plaintext.as_bytes())
+            .encrypt(
+                nonce,
+                Payload {
+                    msg: plaintext.as_bytes(),
+                    aad,
+                },
+            )
             .map_err(|e| anyhow!("Encryption failed: {e}"))?;
 
         // Combine: nonce || ciphertext (tag is appended by aes-gcm)
@@ -314,6 +361,11 @@ impl TokenEncryptor {
     ///
     /// Returns an error if the operation fails.
     pub fn decrypt(&self, ciphertext: &str) -> Result<String> {
+        self.decrypt_with_aad(ciphertext, b"")
+    }
+
+    /// Decrypt a ciphertext token while verifying Additional Authenticated Data (AAD).
+    pub fn decrypt_with_aad(&self, ciphertext: &str, aad: &[u8]) -> Result<String> {
         let combined = BASE64
             .decode(ciphertext)
             .map_err(|e| anyhow!("Invalid base64 ciphertext: {e}"))?;
@@ -330,8 +382,16 @@ impl TokenEncryptor {
 
         let plaintext = self
             .cipher
-            .decrypt(nonce, ciphertext_bytes)
-            .map_err(|_| anyhow!("Decryption failed - invalid key or corrupted data"))?;
+            .decrypt(
+                nonce,
+                Payload {
+                    msg: ciphertext_bytes,
+                    aad,
+                },
+            )
+            .map_err(|_| {
+                anyhow!("Decryption failed - invalid key, AAD mismatch, or corrupted data")
+            })?;
 
         String::from_utf8(plaintext).map_err(|e| anyhow!("Decrypted data is not valid UTF-8: {e}"))
     }
@@ -529,5 +589,25 @@ mod tests {
         // (unless they happen to be set in the test environment)
         let _ = EncryptionConfig::from_env();
         // Just ensure it doesn't panic; result depends on environment
+    }
+
+    #[test]
+    fn test_encrypt_decrypt_with_aad_blocks_swap() {
+        let key = generate_key();
+        let encryptor = TokenEncryptor::new(&key).unwrap();
+        let ct = encryptor
+            .encrypt_with_aad("oauth-refresh-secret", b"sessions:refresh_token:user-a")
+            .unwrap();
+        assert_eq!(
+            encryptor
+                .decrypt_with_aad(&ct, b"sessions:refresh_token:user-a")
+                .unwrap(),
+            "oauth-refresh-secret"
+        );
+        // Cross-record ciphertext transplantation or empty AAD must fail authentication
+        assert!(encryptor
+            .decrypt_with_aad(&ct, b"sessions:refresh_token:user-b")
+            .is_err());
+        assert!(encryptor.decrypt(&ct).is_err());
     }
 }

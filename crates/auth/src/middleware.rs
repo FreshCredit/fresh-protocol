@@ -150,25 +150,22 @@ pub async fn optional_auth(
 ///
 /// Returns an error if the operation fails.
 pub fn require_role(
-    _role: &'static str,
+    role: &'static str,
 ) -> impl Fn(
     Request<Body>,
     Next,
 ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Response<Body>> + Send>>
        + Clone {
     move |request: Request<Body>, next: Next| {
-        // This is a simplified version - in production, you'd check
-        // the user's roles from a database or JWT claims
         let has_role = request
             .extensions()
             .get::<AuthenticatedUser>()
-            .is_some_and(|_| true);
+            .is_some_and(|user| user.has_role(role));
 
         Box::pin(async move {
             if has_role {
                 next.run(request).await
             } else {
-                // This should never fail with Body::empty(), but handle gracefully
                 Response::builder()
                     .status(StatusCode::FORBIDDEN)
                     .body(Body::empty())
@@ -379,6 +376,38 @@ mod tests {
             .layer(middleware::from_fn(require_role("admin")));
 
         let request = Request::builder().uri("/test").body(Body::empty()).unwrap();
+        let response = app.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    }
+
+    #[tokio::test]
+    async fn test_require_role_denies_authenticated_user_without_role() {
+        let app = Router::new()
+            .route("/admin-only", get(|| async { "secret" }))
+            .layer(middleware::from_fn(require_role("admin")));
+
+        let mut request = Request::builder()
+            .uri("/admin-only")
+            .body(Body::empty())
+            .unwrap();
+        request.extensions_mut().insert(AuthenticatedUser {
+            user_id: "user-2".to_string(),
+            email: "user2@example.com".to_string(),
+            name: "Regular User".to_string(),
+            given_name: None,
+            family_name: None,
+            mobile_phone: None,
+            job_title: None,
+            street_address: None,
+            city: None,
+            state: None,
+            postal_code: None,
+            country: None,
+            entra_id: "entra-2".to_string(),
+            verified_id_credential_id: None,
+            roles: vec!["user".to_string(), "viewer".to_string()],
+        });
+
         let response = app.oneshot(request).await.unwrap();
         assert_eq!(response.status(), StatusCode::FORBIDDEN);
     }

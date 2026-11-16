@@ -1,6 +1,6 @@
 // TAG: surface=security owner=security-team rule=SEC-001
 use crate::libsql_storage::core::LibSqlSessionStorage;
-use crate::libsql_storage::token_crypto::encrypt_optional_refresh_token;
+use crate::libsql_storage::token_crypto::encrypt_refresh_token_with_context;
 use crate::storage::{Session, SessionError};
 use tracing::debug;
 
@@ -18,10 +18,11 @@ impl LibSqlSessionStorage {
         let session_id = session.id.clone();
         let user_id = session.user_id.clone();
         let device = &session.device_info;
-        // Encrypt the OAuth refresh token before it touches the database
-        // (no-op passthrough when encryption is not configured).
-        let refresh_token_encrypted =
-            encrypt_optional_refresh_token(session.refresh_token.as_deref());
+        // Encrypt the OAuth refresh token bound to (session_id, user_id) AAD before storage
+        let refresh_token_encrypted = session
+            .refresh_token
+            .as_deref()
+            .map(|t| encrypt_refresh_token_with_context(&session.id, &session.user_id, t));
 
         self.conn
             .execute(

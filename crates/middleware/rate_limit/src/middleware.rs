@@ -286,49 +286,35 @@ fn is_auth_endpoint(method: &Method, path: &str) -> bool {
 /// absent we fall back to the connection's peer address (`ConnectInfo`),
 /// which the platform sets from the real TCP peer.
 fn extract_identifier(req: &Request) -> String {
-    // Try to get user ID from extensions (set by auth middleware)
+    // Try to get user ID from extensions (supports both AuthenticatedUser and String)
+    if let Some(user) = req.extensions().get::<auth::types::AuthenticatedUser>() {
+        return format!("user:{}", user.user_id);
+    }
     if let Some(user_id) = req.extensions().get::<String>() {
         return format!("user:{user_id}");
     }
 
-    // Try multiple headers for client IP (Cloud Run + Load Balancer compatibility)
-    // Priority order: X-Forwarded-For (last entry) > X-Real-IP > X-Client-IP > CF-Connecting-IP
-    // Final fallback: the connection's peer address inserted by the platform.
-    let peer_ip = req
+    // Check connection peer address first; only trust X-Forwarded-For (rightmost proxy-appended IP)
+    // when behind a reverse proxy (peer is absent in unit tests or is loopback/private, or TRUST_PROXY_HEADERS=1).
+    let peer_addr = req
         .extensions()
         .get::<ConnectInfo<SocketAddr>>()
-        .map(|connect_info| connect_info.0.ip().to_string());
-    let client_ip = req
-        // TAG: surface=security owner=platform-team rule=GENERAL-001
-        .headers()
-        .get("X-Forwarded-For")
-        .and_then(|h| h.to_str().ok())
-        .and_then(|s| {
-            // X-Forwarded-For can contain multiple IPs: client, proxy1, proxy2, ...
-            // SECURITY: Only the LAST entry is appended by our trusted proxy
-            // (nginx `$proxy_add_x_forwarded_for`); earlier entries are
-            // client-spoofable, so we key on the last one.
-            s.split(',').next_back().map(str::trim)
-        })
-        .or_else(|| {
-            req.headers()
-                .get("X-Real-IP")
-                .and_then(|h| h.to_str().ok())
-                .map(str::trim)
-        })
-        .or_else(|| {
-            req.headers()
-                .get("X-Client-IP")
-                .and_then(|h| h.to_str().ok())
-                .map(str::trim)
-        })
-        .or_else(|| {
-            req.headers()
-                .get("CF-Connecting-IP") // Cloudflare
-                .and_then(|h| h.to_str().ok())
-                .map(str::trim)
-        })
-        .or(peer_ip.as_deref());
+        .map(|ci| ci.0.ip());
+    let behind_proxy = peer_addr.is_none_or(|ip| ip.is_loopback())
+        || std::env::var("TRUST_PROXY_HEADERS")
+            .is_ok_and(|v| v == "1" || v.eq_ignore_ascii_case("true"));
+
+    let client_ip = if behind_proxy {
+        req.headers()
+            .get("X-Forwarded-For")
+            .and_then(|h| h.to_str().ok())
+            .and_then(|s| s.split(',').next_back().map(str::trim))
+            .filter(|s| !s.is_empty())
+            .map(str::to_string)
+            .or_else(|| peer_addr.map(|ip| ip.to_string()))
+    } else {
+        peer_addr.map(|ip| ip.to_string())
+    };
 
     if let Some(ip) = client_ip {
         if !ip.is_empty() && ip != "unknown" {
@@ -410,18 +396,41 @@ mod tests {
     }
 
     #[test]
-    fn test_extract_identifier_from_x_real_ip() {
+    fn test_extract_identifier_ignores_x_real_ip_spoofing() {
         let mut req = Request::new(Body::empty());
         req.headers_mut()
             // TAG: surface=security owner=platform-team rule=GENERAL-001
             .insert("X-Real-IP", HeaderValue::from_static("10.0.0.1"));
-        assert_eq!(extract_identifier(&req), "ip:10.0.0.1");
+        assert_eq!(extract_identifier(&req), "ip:unknown");
     }
 
     #[test]
     fn test_extract_identifier_fallback() {
         let req = Request::new(Body::empty());
         assert_eq!(extract_identifier(&req), "ip:unknown");
+    }
+
+    #[test]
+    fn test_extract_identifier_with_authenticated_user() {
+        let mut req = Request::new(Body::empty());
+        req.extensions_mut().insert(auth::types::AuthenticatedUser {
+            user_id: "usr-auth-99".to_string(),
+            email: "auth@example.com".to_string(),
+            name: "Auth User".to_string(),
+            given_name: None,
+            family_name: None,
+            mobile_phone: None,
+            job_title: None,
+            street_address: None,
+            city: None,
+            state: None,
+            postal_code: None,
+            country: None,
+            entra_id: "oid-99".to_string(),
+            verified_id_credential_id: None,
+            roles: vec!["user".to_string()],
+        });
+        assert_eq!(extract_identifier(&req), "user:usr-auth-99");
     }
 
     #[test]
@@ -514,19 +523,29 @@ mod tests {
     }
 
     #[test]
-    fn test_extract_identifier_x_client_ip() {
+    fn test_extract_identifier_ignores_x_client_ip_spoofing() {
         let mut req = Request::new(Body::empty());
         req.headers_mut()
             .insert("X-Client-IP", HeaderValue::from_static("10.0.0.2"));
-        assert_eq!(extract_identifier(&req), "ip:10.0.0.2");
+        assert_eq!(extract_identifier(&req), "ip:unknown");
     }
 
     #[test]
-    fn test_extract_identifier_cf_connecting_ip() {
+    fn test_extract_identifier_ignores_cf_connecting_ip_spoofing() {
         let mut req = Request::new(Body::empty());
         req.headers_mut()
             .insert("CF-Connecting-IP", HeaderValue::from_static("203.0.113.1"));
-        assert_eq!(extract_identifier(&req), "ip:203.0.113.1");
+        assert_eq!(extract_identifier(&req), "ip:unknown");
+    }
+
+    #[test]
+    fn test_extract_identifier_non_loopback_peer_ignores_xff() {
+        let mut req = Request::new(Body::empty());
+        req.extensions_mut()
+            .insert(ConnectInfo(SocketAddr::from(([198, 51, 100, 42], 44321))));
+        req.headers_mut()
+            .insert("X-Forwarded-For", HeaderValue::from_static("1.2.3.4"));
+        assert_eq!(extract_identifier(&req), "ip:198.51.100.42");
     }
 
     #[test]

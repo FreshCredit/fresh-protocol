@@ -355,6 +355,34 @@ async fn init_business_group_no_seed(
     Ok(())
 }
 
+/// Initialize strictly FCRA § 604(g) / 12 C.F.R. § 1022.30 compliant underwriting schema tables.
+/// Structural sequestration wall: omits `healthkit_*`, `apple_music_*`, `linkedin_*`,
+/// `correlation_*`, `gtt_physio_stream`, `gtt_ling_stream`, and `gtt_composite_index`.
+/// # Errors
+///
+/// Returns an error if the operation fails.
+pub async fn initialize_fcra_underwriting_schema_tables(conn: &Connection) -> Result<()> {
+    use tracing::info;
+
+    conn.execute("PRAGMA foreign_keys = OFF", ()).await?;
+    let mut validations = Vec::new();
+    init_core_group(conn, &mut validations).await?;
+    init_business_group(conn, &mut validations).await?;
+
+    initialize_ip_tables(conn).await?;
+    initialize_publication_tables(conn).await?;
+    initialize_fcra_financial_trust_tables(conn).await?;
+    initialize_platform_tables(conn).await?;
+    initialize_vault_vector_tables(conn).await?;
+    init_platform_group(conn, &mut validations).await?;
+
+    info!(
+        "[FCRA-WALL] Underwriting schema initialized cleanly without medical/social tables ({} core/business/platform groups)",
+        validations.len()
+    );
+    Ok(())
+}
+
 /// Initialize extracted schema tables (legacy function for compatibility)
 /// # Errors
 ///

@@ -1,7 +1,6 @@
 // TAG: surface=blockchain owner=blockchain-team rule=BC-001
 use crate::storage::*;
-use sha2::{Digest, Sha256};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use tracing::{debug, info, warn};
@@ -21,26 +20,22 @@ impl NomtStorage {
 
         // Try to load existing state from disk
         let state_file = path.join("nomt_state.json");
-        let (hash_index, proof_index, current_root, total_hashes, total_bytes) = if state_file
-            .exists()
-        {
+        let (hash_index, current_root, total_hashes, total_bytes) = if state_file.exists() {
             let state_file_clone = state_file.clone();
             match tokio::task::spawn_blocking(move || std::fs::read_to_string(&state_file_clone))
                 .await?
             {
                 Ok(content) => match serde_json::from_str::<PersistentState>(&content) {
                     Ok(state) => {
-                        let root_bytes = hex::decode(&state.current_root)
+                        let root_hex = if state.hash_index.is_empty() {
+                            state.current_root.clone()
+                        } else {
+                            let ordered: Vec<String> = state.hash_index.keys().cloned().collect();
+                            freshcredit_nomt_core::compute_merkle_root(&ordered)
+                        };
+                        let root_bytes = hex::decode(&root_hex)
                             .ok()
-                            .and_then(|b| {
-                                if b.len() == 32 {
-                                    let mut arr = [0u8; 32];
-                                    arr.copy_from_slice(&b);
-                                    Some(arr)
-                                } else {
-                                    None
-                                }
-                            })
+                            .and_then(|b| <[u8; 32]>::try_from(b).ok())
                             .unwrap_or([0u8; 32]);
                         info!(
                             path = %state_file.display(),
@@ -49,8 +44,6 @@ impl NomtStorage {
                         );
                         (
                             state.hash_index,
-                            // TAG: surface=blockchain owner=blockchain-team rule=BC-001
-                            state.proof_index,
                             root_bytes,
                             state.total_hashes,
                             state.total_bytes,
@@ -58,17 +51,17 @@ impl NomtStorage {
                     }
                     Err(e) => {
                         warn!(error = %e, "Failed to parse NOMT state, starting fresh");
-                        (HashMap::new(), HashMap::new(), [0u8; 32], 0, 0)
+                        (BTreeMap::new(), [0u8; 32], 0, 0)
                     }
                 },
                 Err(e) => {
                     warn!(error = %e, "Failed to read NOMT state file, starting fresh");
-                    (HashMap::new(), HashMap::new(), [0u8; 32], 0, 0)
+                    (BTreeMap::new(), [0u8; 32], 0, 0)
                 }
             }
         } else {
             info!(path = %path.display(), "No existing NOMT state, starting fresh");
-            (HashMap::new(), HashMap::new(), [0u8; 32], 0, 0)
+            (BTreeMap::new(), [0u8; 32], 0, 0)
         };
 
         info!(
@@ -81,7 +74,6 @@ impl NomtStorage {
         Ok(Self {
             data_dir: path,
             hash_index,
-            proof_index,
             current_root,
             total_hashes: AtomicU64::new(total_hashes),
             total_bytes: AtomicU64::new(total_bytes),
@@ -89,12 +81,11 @@ impl NomtStorage {
         })
     }
 
-    /// Store report data and generate Merkle proof
+    /// Store report data and generate an RFC 6962 BLAKE3 Merkle inclusion proof
+    /// against the updated global `current_root`.
     ///
-    /// Implements an incremental Merkle tree where:
-    /// - `new_root` = `SHA256(previous_root` || `leaf_hash`)
-    /// - proof.sibling = `previous_root` (allows verification by computing hash(sibling || leaf))
-    /// - `proof.is_right` = true (leaf is always on the right in our scheme)
+    /// Leaf preimage binds `(user_id, report_type)` to `data` via
+    /// `compute_bound_leaf_hash` so proofs cannot be transplanted across identities.
     pub async fn store(
         &mut self,
         user_id: &str,
@@ -102,15 +93,11 @@ impl NomtStorage {
         data: &[u8],
         // TAG: surface=blockchain owner=blockchain-team rule=BC-001
     ) -> anyhow::Result<StoreResponse> {
-        // Compute SHA-256 hash of the data
-        let mut hasher = Sha256::new();
-        hasher.update(data);
-        let hash_bytes: [u8; 32] = hasher.finalize().into();
-        let hash = hex::encode(hash_bytes);
+        let namespace = format!("{user_id}:{report_type}");
+        let hash = freshcredit_nomt_core::compute_bound_leaf_hash(&namespace, data);
 
         debug!(hash = %hash, report_type = %report_type, "Storing report data");
 
-        // Store metadata
         let timestamp = chrono::Utc::now().to_rfc3339();
         let metadata = HashMetadata {
             user_id: user_id.to_string(),
@@ -118,45 +105,30 @@ impl NomtStorage {
             timestamp: timestamp.clone(),
             data_size: data.len(),
         };
-        self.hash_index.insert(hash.clone(), metadata);
+        let inserted_new = self.hash_index.insert(hash.clone(), metadata).is_none();
+        if inserted_new {
+            self.total_hashes.fetch_add(1, Ordering::Relaxed);
+            self.total_bytes
+                .fetch_add(data.len() as u64, Ordering::Relaxed);
+        }
 
-        // Update statistics
-        self.total_hashes.fetch_add(1, Ordering::Relaxed);
-        self.total_bytes
-            .fetch_add(data.len() as u64, Ordering::Relaxed);
+        let ordered_leaves: Vec<String> = self.hash_index.keys().cloned().collect();
+        let new_root = freshcredit_nomt_core::compute_merkle_root(&ordered_leaves);
+        if let Ok(decoded) = hex::decode(&new_root) {
+            if let Ok(arr) = <[u8; 32]>::try_from(decoded) {
+                self.current_root = arr;
+            }
+        }
 
-        // Store the previous root as the sibling for this hash's proof
-        // TAG: surface=blockchain owner=blockchain-team rule=BC-001
-        // This enables verification: new_root = SHA256(previous_root || leaf_hash)
-        let previous_root = hex::encode(self.current_root);
-
-        // Update root hash: new_root = SHA256(previous_root || leaf_hash)
-        let mut root_hasher = Sha256::new();
-        root_hasher.update(self.current_root);
-        root_hasher.update(hash_bytes);
-        self.current_root = root_hasher.finalize().into();
-
-        let new_root = hex::encode(self.current_root);
-
-        // Store the proof for later retrieval
-        // The proof shows: SHA256(sibling || leaf_hash) = root when is_right = true
-        let stored_proof = StoredProof {
-            sibling: previous_root.clone(),
-            is_right: true, // leaf is always on the right in our incremental scheme
-            root: new_root.clone(),
-        };
-        self.proof_index.insert(hash.clone(), stored_proof);
-
-        // Generate proof for response
+        let core_proof = freshcredit_nomt_core::build_merkle_proof(&ordered_leaves, &hash)
+            .ok_or_else(|| anyhow::anyhow!("Failed to construct Merkle proof for stored leaf"))?;
         let proof = NomtProof {
-            leaf_hash: hash.clone(),
-            siblings: vec![previous_root],
-            path: vec![true], // true = leaf is on the right (sibling || leaf = parent)
-            root: new_root.clone(),
-            // TAG: surface=blockchain owner=blockchain-team rule=BC-001
+            leaf_hash: core_proof.leaf_hash,
+            siblings: core_proof.siblings,
+            path: core_proof.path,
+            root: core_proof.root,
         };
 
-        // Persist state to disk for durability (async to avoid blocking)
         if let Err(e) = self.persist_async().await {
             warn!(error = %e, "Failed to persist NOMT state to disk");
         }
@@ -190,48 +162,31 @@ impl NomtStorage {
         })
     }
 
-    /// Get Merkle proof for a hash
-    ///
-    /// Returns the proof that was stored at insert time. The proof enables
-    /// verification by computing: SHA256(sibling || `leaf_hash`) = root
-    /// when `path[0] = true` (leaf is on the right).
-    /// Reloads from disk first to ensure freshness with shared NFS storage
+    /// Get Merkle proof for a hash against the live `current_root`.
+    /// Reloads from disk first to ensure freshness with shared NFS storage.
     pub async fn get_proof(&mut self, hash: &str) -> anyhow::Result<Option<NomtProof>> {
         // Reload from disk to get latest state from other replicas (async to avoid blocking)
         if let Err(e) = self.reload_from_disk_async().await {
             warn!(error = %e, "Failed to reload from disk before get_proof");
         }
 
-        // Check if hash exists
         if !self.hash_index.contains_key(hash) {
             // TAG: surface=blockchain owner=blockchain-team rule=BC-001
             return Ok(None);
         }
 
-        // Look up the stored proof
-        if let Some(stored) = self.proof_index.get(hash) {
-            // Return the proof that was generated at insert time
-            let proof = NomtProof {
-                leaf_hash: hash.to_string(),
-                siblings: vec![stored.sibling.clone()],
-                path: vec![stored.is_right],
-                root: stored.root.clone(),
-            };
-            return Ok(Some(proof));
-        }
-
-        // Fallback for legacy hashes without stored proofs (migrated from old format)
-        // These will use self-verifying proof pattern for backward compatibility
-        warn!(hash = %hash, "No stored proof found, using legacy self-verifying proof");
-        let proof = NomtProof {
-            leaf_hash: hash.to_string(),
-            siblings: vec![],
-            path: vec![],
-            root: hash.to_string(), // Legacy: root equals leaf for self-verification
+        let ordered_leaves: Vec<String> = self.hash_index.keys().cloned().collect();
+        let Some(core_proof) = freshcredit_nomt_core::build_merkle_proof(&ordered_leaves, hash)
+        else {
+            return Ok(None);
         };
 
-        // TAG: surface=blockchain owner=blockchain-team rule=BC-001
-        Ok(Some(proof))
+        Ok(Some(NomtProof {
+            leaf_hash: core_proof.leaf_hash,
+            siblings: core_proof.siblings,
+            path: core_proof.path,
+            root: core_proof.root,
+        }))
     }
 
     /// Get storage statistics
@@ -351,6 +306,10 @@ mod tests {
         let verify = storage.verify(&resp.hash).await.unwrap();
         assert!(verify.exists);
         assert!(verify.verified);
+        assert!(
+            resp.proof.verify(&resp.nomt_root),
+            "Sidecar proof must pass canonical RFC 6962 NomtProof::verify()"
+        );
     }
 
     #[tokio::test]
@@ -449,6 +408,39 @@ mod tests {
         let mut storage2 = NomtStorage::new(path).await.unwrap();
         let verify = storage2.verify(&hash).await.unwrap();
         assert!(verify.exists);
+    }
+
+    #[tokio::test]
+    async fn test_historical_leaves_verify_against_latest_root_and_bind_keys() {
+        let tmp = TempDir::new().unwrap();
+        let mut storage = NomtStorage::new(tmp.path().to_str().unwrap())
+            .await
+            .unwrap();
+        let mut hashes = Vec::new();
+        for i in 0..5 {
+            let resp = storage
+                .store(&format!("user-{i}"), "CreditReport", b"identical_payload")
+                .await
+                .unwrap();
+            hashes.push(resp.hash);
+        }
+        // Key-binding guarantees identical payloads under different users yield distinct leaves
+        let unique: std::collections::HashSet<_> = hashes.iter().collect();
+        assert_eq!(unique.len(), 5);
+
+        let latest_root = storage.current_root();
+        for h in &hashes {
+            let proof = storage.get_proof(h).await.unwrap().expect("proof exists");
+            assert_eq!(proof.root, latest_root);
+            assert!(
+                proof.verify_against(&latest_root, h),
+                "Historical leaf {h} must verify against latest root {latest_root}"
+            );
+            assert!(
+                !proof.verify_against(&latest_root, &hashes[0]) || h == &hashes[0],
+                "Cross-key proof substitution must fail"
+            );
+        }
     }
 
     #[tokio::test]

@@ -13,7 +13,7 @@ categories.workspace = true
 [features]
 default = ["jwt", "oauth", "rbac"]
 jwt = ["jsonwebtoken", "sha2", "hmac"]
-oauth = ["reqwest"]
+oauth = ["reqwest", "sha2"]
 rbac = []
 session = ["freshcredit-middleware-session"]
 biometric = ["webauthn-rs"]

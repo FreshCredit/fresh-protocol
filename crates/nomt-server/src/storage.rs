@@ -3,10 +3,10 @@
 
 use async_trait::async_trait;
 use freshcredit_nomt_core::{
-    compute_hash, HashMetadata, NomtProof, StorageStats, StoreRequest, StoreResponse,
-    VerifyRequest, VerifyResponse,
+    build_merkle_proof, compute_leaf_hash, compute_merkle_root, HashMetadata, NomtProof,
+    StorageStats, StoreRequest, StoreResponse, VerifyRequest, VerifyResponse,
 };
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::fs;
@@ -33,7 +33,7 @@ pub struct LegacyStorage {
 
 #[derive(Debug, Default)]
 struct StorageState {
-    items: HashMap<String, StoredItem>,
+    items: BTreeMap<String, StoredItem>,
     current_root: String,
     total_count: u64,
 }
@@ -69,15 +69,15 @@ impl LegacyStorage {
 
         if state_file.exists() {
             let data = fs::read_to_string(&state_file).await?;
-            let items: HashMap<String, StoredItem> = serde_json::from_str(&data)?;
+            let items: BTreeMap<String, StoredItem> = serde_json::from_str(&data)?;
 
             let mut state = self.state.write().await;
             state.total_count = items.len() as u64;
             state.items = items;
 
-            // Compute root from items (simplified)
+            // Compute deterministic RFC 6962 Merkle root in sorted key order
             if !state.items.is_empty() {
-                let hashes: Vec<_> = state.items.values().map(|i| i.hash.clone()).collect();
+                let hashes: Vec<_> = state.items.keys().cloned().collect();
                 state.current_root = compute_root(&hashes);
             }
         }
@@ -112,40 +112,27 @@ impl LegacyStorage {
 #[async_trait]
 impl Storage for LegacyStorage {
     async fn store(&self, request: StoreRequest) -> Result<StoreResponse, ServerError> {
-        let hash = compute_hash(&request.data);
-
-        // Generate a simple proof (in production, this would be a real Merkle proof)
-        let proof = NomtProof {
-            leaf_hash: hash.clone(),
-            siblings: vec![], // Simplified
-            path: vec![],     // Simplified
-            // TAG: surface=blockchain owner=blockchain-team rule=BC-001
-            root: hash.clone(), // Simplified
-        };
+        let hash = compute_leaf_hash(&request.data);
 
         let item = StoredItem {
             hash: hash.clone(),
             metadata: request.metadata.clone(),
-            proof: Some(proof.clone()),
+            proof: None,
         };
 
         let mut state = self.state.write().await;
         state.items.insert(hash.clone(), item);
-        state.total_count += 1;
-        state.current_root = compute_root(
-            &state
-                .items
-                .values()
-                .map(|i| i.hash.clone())
-                .collect::<Vec<_>>(),
-        );
+        state.total_count = state.items.len() as u64;
+        let ordered_leaves: Vec<String> = state.items.keys().cloned().collect();
+        let new_root = compute_root(&ordered_leaves);
+        state.current_root = new_root.clone();
 
         drop(state);
         self.save().await?;
 
         Ok(StoreResponse {
-            hash: hash.clone(),
-            root: hash, // Simplified
+            hash,
+            root: new_root,
             metadata: request.metadata,
         })
         // TAG: surface=blockchain owner=blockchain-team rule=BC-001
@@ -158,19 +145,34 @@ impl Storage for LegacyStorage {
     async fn verify(&self, request: VerifyRequest) -> Result<VerifyResponse, ServerError> {
         let state = self.state.read().await;
 
-        match state.items.get(&request.hash) {
-            Some(item) => Ok(VerifyResponse {
-                verified: true,
-                proof: item.proof.clone(),
+        if state.items.contains_key(&request.hash) {
+            let ordered_leaves: Vec<String> = state.items.keys().cloned().collect();
+            let proof =
+                build_merkle_proof_for_root(&ordered_leaves, &request.hash, &state.current_root);
+            let verified = proof.as_ref().is_some_and(|p| {
+                p.verify_against(&state.current_root, &request.hash)
+                    .unwrap_or(false)
+            }) && request
+                .expected_root
+                .as_ref()
+                .is_none_or(|exp| exp == &state.current_root);
+            Ok(VerifyResponse {
+                verified,
+                proof,
                 current_root: state.current_root.clone(),
-                error: None,
-            }),
-            None => Ok(VerifyResponse {
+                error: if verified {
+                    None
+                } else {
+                    Some("Merkle root or proof verification failed".to_string())
+                },
+            })
+        } else {
+            Ok(VerifyResponse {
                 verified: false,
                 proof: None,
                 current_root: state.current_root.clone(),
                 error: Some("Hash not found".to_string()),
-            }),
+            })
         }
     }
 
@@ -262,20 +264,22 @@ impl Storage for NativeStorage {
     }
 }
 
-/// Compute a root hash from a list of leaf hashes
+/// Compute a deterministic RFC 6962 binary Merkle root from sorted leaf hashes.
 fn compute_root(hashes: &[String]) -> String {
-    if hashes.is_empty() {
-        return compute_hash("empty");
-    }
+    compute_merkle_root(hashes)
+}
 
-    // TAG: surface=blockchain owner=blockchain-team rule=BC-001
-    if hashes.len() == 1 {
-        return hashes[0].clone();
+/// Build an RFC 6962 binary Merkle inclusion proof for `target_hash` over `ordered_leaves`.
+fn build_merkle_proof_for_root(
+    ordered_leaves: &[String],
+    target_hash: &str,
+    expected_root: &str,
+) -> Option<NomtProof> {
+    let proof = build_merkle_proof(ordered_leaves, target_hash)?;
+    if proof.root != expected_root {
+        return None;
     }
-
-    // Simple Merkle tree root computation
-    let combined: String = hashes.iter().cloned().collect();
-    compute_hash(combined)
+    Some(proof)
 }
 
 #[cfg(test)]
@@ -298,8 +302,9 @@ mod tests {
     #[test]
     fn test_compute_root_single() {
         // TAG: surface=blockchain owner=blockchain-team rule=BC-001
-        let root = compute_root(&["hash1".to_string()]);
-        assert_eq!(root, "hash1");
+        let leaf = compute_leaf_hash(b"hash1");
+        let root = compute_root(&[leaf.clone()]);
+        assert_eq!(root, leaf);
     }
 
     #[test]
@@ -338,8 +343,30 @@ mod tests {
         };
         let verify_resp = storage.verify(verify_req).await.unwrap();
         assert!(verify_resp.verified);
-        assert!(verify_resp.proof.is_some());
+        assert!(verify_resp.proof.as_ref().unwrap().verify().unwrap());
         assert!(!verify_resp.current_root.is_empty());
+
+        // Multi-leaf deterministic Merkle proof + reload parity check
+        let resp2 = storage
+            .store(StoreRequest {
+                data: "second item".to_string(),
+                metadata: None,
+            })
+            .await
+            .unwrap();
+        let verify2 = storage
+            .verify(VerifyRequest {
+                hash: resp2.hash.clone(),
+                expected_root: Some(resp2.root.clone()),
+            })
+            .await
+            .unwrap();
+        assert!(verify2.verified);
+        assert!(verify2.proof.as_ref().unwrap().verify().unwrap());
+
+        let reloaded = LegacyStorage::new(tmp.path()).unwrap();
+        reloaded.load().await.unwrap();
+        assert_eq!(reloaded.current_root().await.unwrap(), resp2.root);
     }
 
     #[tokio::test]

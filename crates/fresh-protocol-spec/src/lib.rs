@@ -42,6 +42,7 @@
 
 mod db;
 mod identity;
+pub mod master_law;
 
 pub use db::{
     AdapterError, AnchorIntent, AnchorStatus, BackupArchive, ConnectionInfo, EncryptionKey,
@@ -51,3 +52,4 @@ pub use identity::{
     AuthenticationContext, AuthenticationResult, DidDocument, DidIssuer, DidVerifier,
     IdentityProvider, VerificationResult,
 };
+pub use master_law::{format_audit_entry_payload, MasterLawError, MasterLawParams};

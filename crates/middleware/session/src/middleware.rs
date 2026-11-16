@@ -100,6 +100,14 @@ where
 }
 // TAG: surface=security owner=platform-team rule=MID-001
 
+fn safe_session_fingerprint(session_id: &str) -> String {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+    let mut h = DefaultHasher::new();
+    session_id.hash(&mut h);
+    format!("sid#{:016x}", h.finish())
+}
+
 /// Middleware function for session validation
 pub async fn session_middleware<S: SessionStorage + 'static>(
     middleware: Arc<SessionMiddleware<S>>,
@@ -110,21 +118,22 @@ pub async fn session_middleware<S: SessionStorage + 'static>(
     let session_id = extract_session_cookie(&request, &middleware.config.cookie_name);
 
     if let Some(session_id) = session_id {
+        let sid_tag = safe_session_fingerprint(&session_id);
         match middleware.validate_session(&session_id).await {
             Ok(session) => {
                 debug!("Valid session found for user {}", session.user_id);
                 request.extensions_mut().insert(session);
             }
             Err(SessionError::Expired) => {
-                warn!("Session {} expired", session_id);
+                warn!(session = %sid_tag, "Session expired");
                 return (StatusCode::UNAUTHORIZED, "Session expired").into_response();
             }
             Err(SessionError::MaxAgeExceeded) => {
-                warn!("Session {} max age exceeded", session_id);
+                warn!(session = %sid_tag, "Session max age exceeded");
                 return (StatusCode::UNAUTHORIZED, "Session max age exceeded").into_response();
             }
             Err(SessionError::NotFound) => {
-                warn!("Session {} not found", session_id);
+                warn!(session = %sid_tag, "Session not found");
                 return (StatusCode::UNAUTHORIZED, "Session not found").into_response();
             }
             Err(err) => {
@@ -180,7 +189,12 @@ pub fn create_session_cookie(session_id: &str, config: &SessionConfig) -> String
         cookie.push_str(domain);
     }
 
-    if config.cookie_secure {
+    let max_age_secs = config.max_age.num_seconds().max(0);
+    cookie.push_str(&format!("; Max-Age={max_age_secs}"));
+
+    // RFC 6265bis: SameSite=None MUST carry the Secure attribute
+    let force_secure = matches!(config.cookie_same_site, SameSitePolicy::None);
+    if config.cookie_secure || force_secure {
         cookie.push_str("; Secure");
     }
 

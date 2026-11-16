@@ -17,19 +17,7 @@ struct VerifyResponse {
     verified: bool,
 }
 
-// TAG: surface=blockchain owner=blockchain-team rule=BLOCKCHAIN-001
-/// NOMT Merkle proof for off-chain state verification
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NomtProof {
-    /// Hash of the leaf node (the stored data)
-    pub leaf_hash: String,
-    /// Sibling hashes along the path to root
-    pub siblings: Vec<String>,
-    /// Path direction at each level (true = right, false = left)
-    pub path: Vec<bool>,
-    /// Root hash this proof verifies against
-    pub root: String,
-}
+pub use freshcredit_nomt_core::NomtProof;
 
 // TAG: surface=blockchain owner=blockchain-team rule=BLOCKCHAIN-001
 /// Result from storing data with NOMT proof
@@ -52,15 +40,31 @@ pub struct NomtClient {
     http_client: reqwest::Client,
     /// NOMT sidecar URL
     sidecar_url: String,
+    /// Optional API key sent as `x-api-key` when `NOMT_SIDECAR_API_KEY` is configured
+    api_key: Option<String>,
 }
 
 impl NomtClient {
-    /// Create a new NOMT client
+    /// Create a new NOMT client (reading optional `NOMT_SIDECAR_API_KEY` from env)
     #[must_use]
     pub fn new(sidecar_url: &str) -> Self {
+        let api_key = std::env::var("NOMT_SIDECAR_API_KEY")
+            .ok()
+            .filter(|s| !s.is_empty());
         Self {
             http_client: reqwest::Client::new(),
             sidecar_url: sidecar_url.to_string(),
+            api_key,
+        }
+    }
+
+    /// Create a new NOMT client with an explicit API key
+    #[must_use]
+    pub fn with_api_key(sidecar_url: &str, api_key: impl Into<String>) -> Self {
+        Self {
+            http_client: reqwest::Client::new(),
+            sidecar_url: sidecar_url.to_string(),
+            api_key: Some(api_key.into()),
         }
     }
 
@@ -77,16 +81,17 @@ impl NomtClient {
     ) -> Result<NomtAnchorResult> {
         let url = format!("{}/store", self.sidecar_url);
 
-        let response = self
-            .http_client
-            .post(&url)
-            .json(&serde_json::json!({
-                "user_id": user_id,
-                "report_type": report_type,
-                "data": data
-            }))
-            .send()
-            .await?;
+        let mut req_builder = self.http_client.post(&url).json(&serde_json::json!({
+            "user_id": user_id,
+            "report_type": report_type,
+            "data": data
+        }));
+        if let Some(ref key) = self.api_key {
+            if !key.is_empty() {
+                req_builder = req_builder.header("x-api-key", key);
+            }
+        }
+        let response = req_builder.send().await?;
 
         if !response.status().is_success() {
             anyhow::bail!("NOMT store failed: {}", response.status());

@@ -25,7 +25,13 @@ pub fn extract_jwt(auth_header: &str) -> Option<&str> {
 // TAG: surface=blockchain owner=blockchain-team rule=BLOCKCHAIN-001
 /// Validate JWT token and return claims
 pub fn validate_jwt(token: &str) -> Result<crate::config::Claims, jsonwebtoken::errors::Error> {
-    let validation = Validation::new(Algorithm::HS256);
+    assert!(
+        JWT_SECRET.len() >= 32,
+        "JWT_SECRET must be at least 32 bytes for HS256 security"
+    );
+    let mut validation = Validation::new(Algorithm::HS256);
+    validation.set_required_spec_claims(&["exp", "iat", "sub"]);
+    validation.leeway = 60;
     decode::<crate::config::Claims>(
         token,
         &DecodingKey::from_secret(JWT_SECRET.as_bytes()),
@@ -39,18 +45,17 @@ pub fn validate_api_key(api_key: &str) -> bool {
     constant_time_compare(api_key, &API_KEY)
 }
 
-/// Constant-time string comparison to prevent timing attacks
+/// Constant-time string comparison over fixed-length SHA-256 digests (no length oracle)
 pub fn constant_time_compare(a: &str, b: &str) -> bool {
-    use std::iter::zip;
+    use sha2::{Digest, Sha256};
 
-    if a.len() != b.len() {
-        return false;
+    let da: [u8; 32] = Sha256::digest(a.as_bytes()).into();
+    let db: [u8; 32] = Sha256::digest(b.as_bytes()).into();
+    let mut diff = 0u8;
+    for (x, y) in da.iter().zip(db.iter()) {
+        diff |= x ^ y;
     }
-
-    zip(a.bytes(), b.bytes())
-        .map(|(a, b)| a ^ b)
-        .fold(0u8, |acc, x| acc | x)
-        == 0
+    diff == 0 && a.len() == b.len()
 }
 
 /// JWT Authentication middleware
@@ -334,12 +339,30 @@ pub async fn verify_hash_via_nomt(
             .and_then(serde_json::Value::as_bool)
             .unwrap_or(false)
         {
+            let root = body
+                .get("root")
+                .or_else(|| body.get("nomt_root"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            // Fail closed if the sidecar omits a valid 32-byte hex root or supplies an invalid Merkle proof
+            let root_valid = root.len() == 64 && root.bytes().all(|b| b.is_ascii_hexdigit());
+            if !root_valid {
+                tracing::warn!("[NOMT] Sidecar returned verified=true without a valid 64-hex root");
+                return Ok(None);
+            }
+            if let Some(proof_val) = body.get("proof") {
+                if !proof_val.is_null() {
+                    let proof: freshcredit_nomt_core::NomtProof =
+                        serde_json::from_value(proof_val.clone())?;
+                    if proof.root != root || !proof.verify().unwrap_or(false) {
+                        tracing::warn!("[NOMT] Sidecar Merkle proof failed local verification!");
+                        return Ok(None);
+                    }
+                }
+            }
             Ok(Some(crate::config::NomtVerifyResult {
-                root: body
-                    .get("root")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("")
-                    .to_string(),
+                root,
                 proof_available: body
                     .get("proof_available")
                     .and_then(serde_json::Value::as_bool)

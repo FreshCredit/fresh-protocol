@@ -44,25 +44,24 @@ pub async fn store_report(
     State(state): State<Arc<AppState>>,
     Json(request): Json<StoreRequest>,
 ) -> Result<Json<StoreResponse>, StatusCode> {
-    let mut storage = state.storage.write().await;
+    let store_res = {
+        let mut storage = state.storage.write().await;
+        storage
+            .store(&request.user_id, &request.report_type, &request.data)
+            .await
+    }; // Release storage write lock BEFORE network peer broadcast / Substrate RPC anchoring
 
-    match storage
-        .store(&request.user_id, &request.report_type, &request.data)
-        .await
-    {
+    match store_res {
         Ok(result) => {
-            // Broadcast to peers (fire and forget)
             if state.peer_sync.is_enabled() {
                 state.peer_sync.broadcast_store(&request).await;
             }
 
-            // Check if we should anchor the root to Substrate
             if state.anchoring.notify_store().await {
                 let root = result.nomt_root.clone();
                 let user_id = request.user_id.clone();
                 let anchoring = &state.anchoring;
 
-                // Spawn anchoring in background (don't block the response)
                 let anchor_result = anchoring.anchor_root(&root, &user_id).await;
                 if let Ok(ar) = anchor_result {
                     if ar.success {

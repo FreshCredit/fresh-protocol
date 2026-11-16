@@ -508,6 +508,17 @@ fn test_create_session_cookie_not_http_only() {
     assert!(!cookie.contains("HttpOnly"));
 }
 
+#[test]
+fn test_create_session_cookie_samesite_none_forces_secure_and_max_age() {
+    let mut config = test_config();
+    config.cookie_secure = false;
+    config.cookie_same_site = SameSitePolicy::None;
+    let cookie = create_session_cookie("sid_123", &config);
+    assert!(cookie.contains("SameSite=None"));
+    assert!(cookie.contains("Secure"));
+    assert!(cookie.contains("Max-Age="));
+}
+
 #[tokio::test]
 async fn test_session_extractor() {
     let session = valid_session();

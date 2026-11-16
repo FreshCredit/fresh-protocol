@@ -112,10 +112,74 @@ impl<S: ResponseStore> IdempotencyLayer<S> {
             return next.run(req).await;
         };
 
+        // Extract principal/credential scope so Idempotency-Keys can NEVER leak across users
+        let principal_scope = if let Some(auth_hdr) = req
+            .headers()
+            .get(axum::http::header::AUTHORIZATION)
+            .and_then(|v| v.to_str().ok())
+        {
+            format!("auth:{auth_hdr}")
+        } else if let Some(api_key) = req.headers().get("x-api-key").and_then(|v| v.to_str().ok()) {
+            format!("apikey:{api_key}")
+        } else if let Some(cookie) = req
+            .headers()
+            .get(axum::http::header::COOKIE)
+            .and_then(|v| v.to_str().ok())
+        {
+            format!("cookie:{cookie}")
+        } else {
+            "anon".to_string()
+        };
+
+        let uri_path = req.uri().path().to_string();
+        let (parts, req_body) = req.into_parts();
+        let req_bytes = match req_body.collect().await {
+            Ok(collected) => collected.to_bytes(),
+            Err(e) => {
+                warn!("Failed to read request body for idempotency check: {e}");
+                return (StatusCode::BAD_REQUEST, "Invalid request body").into_response();
+            }
+        };
+        if req_bytes.len() > self.config.max_body_size {
+            return (StatusCode::PAYLOAD_TOO_LARGE, "Request body too large").into_response();
+        }
+
+        let (scoped_key, request_hash) = {
+            use sha2::{Digest, Sha256};
+            let mut ks = Sha256::new();
+            ks.update(principal_scope.as_bytes());
+            ks.update(b"\x00");
+            ks.update(method.as_str().as_bytes());
+            ks.update(b"\x00");
+            ks.update(uri_path.as_bytes());
+            ks.update(b"\x00");
+            ks.update(key.as_bytes());
+
+            let mut rf = Sha256::new();
+            rf.update(method.as_str().as_bytes());
+            rf.update(b"\x00");
+            rf.update(uri_path.as_bytes());
+            rf.update(b"\x00");
+            rf.update(&req_bytes);
+            (hex::encode(ks.finalize()), hex::encode(rf.finalize()))
+        };
+
+        let req = Request::from_parts(parts, Body::from(req_bytes));
+
         // Decide whether to replay, proceed, or conflict.
-        match self.store.lookup(&key).await {
+        match self.store.lookup(&scoped_key).await {
             Ok(LookupOutcome::Replay(stored)) => {
-                info!("Returning cached response for idempotency key: {}", key);
+                if let Some(ref prev_hash) = stored.request_hash {
+                    if prev_hash != &request_hash {
+                        warn!("Idempotency key reused with mismatched request payload");
+                        return (
+                            StatusCode::UNPROCESSABLE_ENTITY,
+                            "Idempotency-Key already used with a different request payload",
+                        )
+                            .into_response();
+                    }
+                }
+                info!("Returning cached response for idempotency key");
                 let mut response = Self::build_response_from_stored(stored);
                 if let Some(header_name) = &self.config.replay_header {
                     if let Ok(name) = HeaderName::try_from(header_name.clone()) {
@@ -127,21 +191,23 @@ impl<S: ResponseStore> IdempotencyLayer<S> {
                 response
             }
             Ok(LookupOutcome::Conflict) => {
-                warn!("Concurrent request with same idempotency key: {}", key);
+                warn!("Concurrent request with same idempotency key");
                 StatusCode::CONFLICT.into_response()
             }
             Ok(LookupOutcome::Proceed) => {
                 // Process the request
-                debug!("Processing new request with idempotency key: {}", key);
+                debug!("Processing new request with scoped idempotency key");
                 let response = next.run(req).await;
 
                 // Store the response if it's a success (2xx or 3xx)
                 let status = response.status();
                 if status.is_success() || status.is_redirection() {
-                    // Store the response and return the stored version
-                    match self.store_response(&key, response).await {
+                    match self
+                        .store_response_with_fingerprint(&scoped_key, response, Some(request_hash))
+                        .await
+                    {
                         Ok(stored) => {
-                            info!("Stored response for idempotency key: {}", key);
+                            info!("Stored response for scoped idempotency key");
                             Self::build_response_from_stored(stored)
                         }
                         Err(e) => {
@@ -161,12 +227,13 @@ impl<S: ResponseStore> IdempotencyLayer<S> {
         }
     }
 
-    /// Store a response with the idempotency key and return the stored response
-    async fn store_response(
+    /// Store a response with the idempotency key and request fingerprint
+    async fn store_response_with_fingerprint(
         &self,
         key: &str,
         // TAG: surface=security owner=platform-team rule=MID-001
         response: Response,
+        request_hash: Option<String>,
     ) -> Result<StoredResponse, IdempotencyError> {
         let (parts, body) = response.into_parts();
 
@@ -192,7 +259,13 @@ impl<S: ResponseStore> IdempotencyLayer<S> {
 
         // Store the response
         self.store
-            .store_response(key, parts.status.as_u16(), headers, body_bytes)
+            .store_response_with_fingerprint(
+                key,
+                parts.status.as_u16(),
+                headers,
+                body_bytes,
+                request_hash,
+            )
             .await
     }
 }
@@ -274,10 +347,125 @@ mod tests {
             body: b"{\"ok\": true}".to_vec(),
             stored_at: chrono::Utc::now(),
             expires_at: chrono::Utc::now() + chrono::Duration::hours(1),
+            request_hash: None,
         };
         let response =
             IdempotencyLayer::<crate::IdempotencyStore>::build_response_from_stored(stored);
         assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_idempotency_key_isolated_across_users_and_rejects_body_mismatch() {
+        use axum::{routing::post, Router};
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use tower::ServiceExt;
+
+        let counter = Arc::new(AtomicUsize::new(0));
+        let layer = IdempotencyLayer::new(
+            IdempotencyConfig::new(std::time::Duration::from_secs(60))
+                .with_replay_header("X-Idempotent-Replay".to_string()),
+        );
+        let counter_cloned = Arc::clone(&counter);
+        let app = Router::new()
+            .route(
+                "/pay",
+                post(move |body: String| {
+                    let c = Arc::clone(&counter_cloned);
+                    async move {
+                        let n = c.fetch_add(1, Ordering::SeqCst) + 1;
+                        format!("exec-{n}:{body}")
+                    }
+                }),
+            )
+            .layer(axum::middleware::from_fn(move |req, next| {
+                let l = layer.clone();
+                async move { l.handle(req, next).await }
+            }));
+
+        // User A executes with key K1 and body {"amt":10}
+        let resp_a1 = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/pay")
+                    .header("Authorization", "Bearer token-alice")
+                    .header("Idempotency-Key", "K1")
+                    .body(Body::from("{\"amt\":10}"))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp_a1.status(), StatusCode::OK);
+        let bytes_a1 = resp_a1.into_body().collect().await.unwrap().to_bytes();
+        assert_eq!(&bytes_a1[..], b"exec-1:{\"amt\":10}");
+
+        // User B sending the SAME Idempotency-Key K1 must NOT receive Alice's cached response
+        let resp_b = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/pay")
+                    .header("Authorization", "Bearer token-bob")
+                    .header("Idempotency-Key", "K1")
+                    .body(Body::from("{\"amt\":10}"))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp_b.status(), StatusCode::OK);
+        assert!(resp_b.headers().get("X-Idempotent-Replay").is_none());
+        let bytes_b = resp_b.into_body().collect().await.unwrap().to_bytes();
+        assert_eq!(&bytes_b[..], b"exec-2:{\"amt\":10}");
+
+        // Alice replaying K1 with the SAME payload gets cached exec-1
+        let resp_a_replay = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/pay")
+                    .header("Authorization", "Bearer token-alice")
+                    .header("Idempotency-Key", "K1")
+                    .body(Body::from("{\"amt\":10}"))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp_a_replay.status(), StatusCode::OK);
+        assert_eq!(
+            resp_a_replay
+                .headers()
+                .get("X-Idempotent-Replay")
+                .unwrap()
+                .to_str()
+                .unwrap(),
+            "true"
+        );
+        let bytes_a_rep = resp_a_replay
+            .into_body()
+            .collect()
+            .await
+            .unwrap()
+            .to_bytes();
+        assert_eq!(&bytes_a_rep[..], b"exec-1:{\"amt\":10}");
+
+        // Alice reusing K1 with a DIFFERENT payload is rejected with 422 Unprocessable Entity
+        let resp_a_mismatch = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/pay")
+                    .header("Authorization", "Bearer token-alice")
+                    .header("Idempotency-Key", "K1")
+                    .body(Body::from("{\"amt\":999}"))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp_a_mismatch.status(), StatusCode::UNPROCESSABLE_ENTITY);
+        assert_eq!(counter.load(Ordering::SeqCst), 2);
     }
     // TAG: surface=security owner=platform-team rule=GENERAL-001
 }

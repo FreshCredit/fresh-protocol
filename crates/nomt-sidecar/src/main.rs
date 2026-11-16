@@ -311,12 +311,16 @@ fn build_peer_sync_config(http_port: &str) -> (PeerSyncConfig, bool, String) {
     let namespace = std::env::var("PEER_SYNC_NAMESPACE")
         .unwrap_or_else(|_| "freshcredit-blockchain".to_string());
     let pod_name = std::env::var("POD_NAME").unwrap_or_default();
+    let api_key = std::env::var("NOMT_SIDECAR_API_KEY")
+        .ok()
+        .filter(|s| !s.is_empty());
 
     let config = PeerSyncConfig {
         headless_service,
         namespace,
         port: http_port.parse().unwrap_or(8081),
         pod_name: pod_name.clone(),
+        api_key,
         enabled: peer_sync_enabled,
     };
     (config, peer_sync_enabled, pod_name)
@@ -369,19 +373,53 @@ async fn main() -> anyhow::Result<()> {
         });
     }
 
+    /// Constant-time API key check for sidecar write/sync endpoints when `NOMT_SIDECAR_API_KEY` is set.
+    async fn sidecar_auth_middleware(
+        req: axum::extract::Request,
+        next: axum::middleware::Next,
+    ) -> Result<axum::response::Response, axum::http::StatusCode> {
+        if let Ok(expected) = std::env::var("NOMT_SIDECAR_API_KEY") {
+            if !expected.is_empty() {
+                use sha2::{Digest, Sha256};
+                let provided = req
+                    .headers()
+                    .get("x-api-key")
+                    .and_then(|v| v.to_str().ok())
+                    .unwrap_or("");
+                let a: [u8; 32] = Sha256::digest(provided.as_bytes()).into();
+                let b: [u8; 32] = Sha256::digest(expected.as_bytes()).into();
+                let diff = a
+                    .iter()
+                    .zip(b.iter())
+                    .fold(0u8, |acc, (x, y)| acc | (x ^ y));
+                if diff != 0 {
+                    return Err(axum::http::StatusCode::UNAUTHORIZED);
+                }
+            }
+        }
+        Ok(next.run(req).await)
+    }
+
     // Build HTTP router
+    let write_routes = Router::new()
+        .route("/store", post(store_report))
+        .route("/sync/store", post(sync_store)) // Peer sync endpoint
+        .route("/peer/discover", post(discover_peers)) // Manual peer discovery
+        .layer(axum::middleware::from_fn(sidecar_auth_middleware));
+
     let app = Router::new()
         .route("/health", get(health_check))
         .route("/ready", get(readiness_check))
         .route("/metrics", get(metrics))
-        .route("/store", post(store_report))
-        .route("/sync/store", post(sync_store)) // Peer sync endpoint
         // TAG: surface=blockchain owner=blockchain-team rule=BC-001
         .route("/verify/:hash", get(verify_hash))
         .route("/proof/:hash", get(get_proof))
         .route("/stats", get(get_stats))
         .route("/anchoring/stats", get(get_anchoring_stats))
-        .route("/peer/discover", post(discover_peers)) // Manual peer discovery
+        .merge(write_routes)
+        .layer(tower_http::limit::RequestBodyLimitLayer::new(
+            10 * 1024 * 1024,
+        ))
         .layer(cors_layer())
         .layer(TraceLayer::new_for_http())
         .with_state(state);
@@ -402,6 +440,92 @@ mod tests {
     #[test]
     fn test_cors_layer_does_not_panic() {
         let _layer = cors_layer();
+    }
+
+    #[tokio::test]
+    async fn test_two_pod_authenticated_peer_sync_roundtrip() {
+        use axum::routing::post;
+        use tokio::net::TcpListener;
+
+        let tmp_b = tempfile::tempdir().unwrap();
+        let legacy_b = NomtStorage::new(tmp_b.path().to_str().unwrap())
+            .await
+            .unwrap();
+        let state_b = Arc::new(AppState {
+            storage: RwLock::new(StorageBackend::Legacy(legacy_b)),
+            anchoring: AnchoringService::new(AnchoringConfig {
+                enabled: false,
+                ..Default::default()
+            }),
+            peer_sync: PeerSyncService::new(PeerSyncConfig::default()),
+        });
+
+        let expected_key = "cluster-shared-secret-key".to_string();
+        let key_for_mw = expected_key.clone();
+        let router_b = Router::new()
+            .route("/sync/store", post(crate::handlers::sync_store))
+            .layer(axum::middleware::from_fn(
+                move |req: axum::extract::Request, next: axum::middleware::Next| {
+                    let expected = key_for_mw.clone();
+                    async move {
+                        let got = req
+                            .headers()
+                            .get("x-api-key")
+                            .and_then(|v| v.to_str().ok())
+                            .unwrap_or("");
+                        if got == expected {
+                            Ok(next.run(req).await)
+                        } else {
+                            Err(axum::http::StatusCode::UNAUTHORIZED)
+                        }
+                    }
+                },
+            ))
+            .with_state(state_b.clone());
+
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            let _ = axum::serve(listener, router_b).await;
+        });
+
+        // Unauthenticated POST must be rejected (401)
+        let unauth_status = reqwest::Client::new()
+            .post(format!("http://{addr}/sync/store"))
+            .json(&crate::types::StoreRequest {
+                user_id: "u1".to_string(),
+                report_type: "CreditReport".to_string(),
+                data: b"payload".to_vec(),
+            })
+            .send()
+            .await
+            .unwrap()
+            .status();
+        assert_eq!(unauth_status, reqwest::StatusCode::UNAUTHORIZED);
+
+        // Authenticated PeerSync broadcast using matching x-api-key must replicate to Pod B
+        let sync_url = format!("http://{addr}/sync/store");
+        let resp = reqwest::Client::new()
+            .post(&sync_url)
+            .header("x-api-key", &expected_key)
+            .json(&crate::types::StoreRequest {
+                user_id: "u1".to_string(),
+                report_type: "CreditReport".to_string(),
+                data: b"payload".to_vec(),
+            })
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), reqwest::StatusCode::OK);
+        let body: crate::types::StoreResponse = resp.json().await.unwrap();
+        let verify_b = {
+            let mut guard = state_b.storage.write().await;
+            match &mut *guard {
+                StorageBackend::Legacy(s) => s.verify(&body.hash).await.unwrap(),
+                StorageBackend::Native(_) => unreachable!(),
+            }
+        };
+        assert!(verify_b.exists && verify_b.verified);
     }
     // TAG: surface=blockchain owner=blockchain-team rule=BC-001
 }
