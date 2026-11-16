@@ -11,7 +11,8 @@ use axum::{
 use governor::middleware::StateInformationMiddleware;
 use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
 use tower_governor::{
-    governor::GovernorConfigBuilder, key_extractor::SmartIpKeyExtractor, GovernorLayer,
+    errors::GovernorError, governor::GovernorConfigBuilder, key_extractor::KeyExtractor,
+    GovernorLayer,
 };
 use tower_http::cors::{AllowOrigin, CorsLayer};
 use tracing::{info, warn};
@@ -292,16 +293,60 @@ pub fn build_cors_layer() -> CorsLayer {
         .max_age(std::time::Duration::from_secs(CORS_MAX_AGE_SECS.into()))
 }
 
+/// Reverse-proxy-safe client IP extractor for `tower_governor`.
+///
+/// Unlike `SmartIpKeyExtractor` (which trusts the leftmost spoofable `X-Forwarded-For` entry),
+/// behind Cloud Run / nginx (`$proxy_add_x_forwarded_for`), proxies APPEND the verified peer to
+/// the RIGHT end of `X-Forwarded-For`. Only when the direct peer is absent (unit tests) or
+/// loopback, or `TRUST_PROXY_HEADERS=1`, do we read the RIGHTMOST valid IP from `X-Forwarded-For`;
+/// otherwise we key strictly on the TCP peer from `ConnectInfo<SocketAddr>`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct TrustedClientIpExtractor;
+
+impl KeyExtractor for TrustedClientIpExtractor {
+    type Key = std::net::IpAddr;
+
+    fn extract<T>(&self, req: &axum::http::Request<T>) -> Result<Self::Key, GovernorError> {
+        let peer_ip = req
+            .extensions()
+            .get::<axum::extract::ConnectInfo<std::net::SocketAddr>>()
+            .map(|ci| ci.0.ip());
+
+        let behind_proxy = peer_ip.is_none_or(|ip| ip.is_loopback())
+            || std::env::var("TRUST_PROXY_HEADERS")
+                .is_ok_and(|v| v == "1" || v.eq_ignore_ascii_case("true"));
+
+        if behind_proxy {
+            if let Some(xff_ip) = req
+                .headers()
+                .get("x-forwarded-for")
+                .and_then(|v| v.to_str().ok())
+                .and_then(|s| {
+                    s.split(',')
+                        .rev()
+                        .map(str::trim)
+                        .find_map(|entry| entry.parse::<std::net::IpAddr>().ok())
+                })
+            {
+                return Ok(xff_ip);
+            }
+        }
+
+        peer_ip.ok_or(GovernorError::UnableToExtractKey)
+    }
+}
+
 /// Build rate limiting layer
 ///
 /// Limits requests to `RATE_LIMIT_REQUESTS` per `RATE_LIMIT_WINDOW_SECS` per IP
-pub fn build_rate_limit_layer() -> GovernorLayer<SmartIpKeyExtractor, StateInformationMiddleware> {
+pub fn build_rate_limit_layer(
+) -> GovernorLayer<TrustedClientIpExtractor, StateInformationMiddleware> {
     let config = std::sync::Arc::new(
         GovernorConfigBuilder::default()
             .per_second(1)
             .burst_size(u32::try_from(RATE_LIMIT_REQUESTS).unwrap_or(u32::MAX))
             .use_headers() // Enable X-RateLimit headers
-            .key_extractor(SmartIpKeyExtractor) // Use client IP as key
+            .key_extractor(TrustedClientIpExtractor) // Use rightmost proxy-attested client IP
             .finish()
             .expect("valid governor config"),
     );

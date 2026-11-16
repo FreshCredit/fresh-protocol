@@ -136,7 +136,16 @@ impl MasterLawParams {
         #[allow(clippy::cast_possible_truncation)]
         let s_base = (self.s_base * (Self::FIXED_SCALE as f64)).round() as i128;
 
-        let eps = v - e;
+        #[allow(clippy::cast_possible_truncation)]
+        let s_d_fixed = (self.scale_s_d.max(1e-4) * (Self::FIXED_SCALE as f64))
+            .round()
+            .max(1.0) as i128;
+
+        let eps = if s_d_fixed == Self::FIXED_SCALE {
+            v - e
+        } else {
+            ((v - e) * Self::FIXED_SCALE).div_euclid(s_d_fixed)
+        };
         let (eps_p, eps_n) = if eps >= 0 { (eps, 0) } else { (0, -eps) };
         let num_d = (lp * eps_p - ln * eps_n) * r;
         let q_d = num_d.div_euclid(Self::FIXED_SCALE * Self::FIXED_SCALE);
@@ -217,5 +226,47 @@ mod tests {
             .step_fixed_i64(430_802_000, 500_000_000, 500_000_000, 1_000_000_000)
             .unwrap();
         assert_eq!(s3, 431_493_980);
+    }
+
+    #[test]
+    fn test_step_fixed_i64_and_step_clamped_agree_across_scale_s_d() {
+        let mut seed: u64 = 0x9e37_79b9_7f4a_7c15;
+        let mut next_unit = || -> f64 {
+            seed = seed
+                .wrapping_mul(6_364_136_223_846_793_005)
+                .wrapping_add(1_442_695_040_888_963_407);
+            ((seed >> 11) as f64) / ((1u64 << 53) as f64)
+        };
+
+        for _ in 0..2000 {
+            let lp = 0.01 + 0.45 * next_unit();
+            let ln = lp + 0.45 * next_unit();
+            let delta = 0.01 + 0.25 * next_unit();
+            let s_base = next_unit();
+            let scale_s_d = 0.5 + 2.5 * next_unit();
+            let params = MasterLawParams {
+                lambda_plus: lp,
+                lambda_minus: ln,
+                leak_delta: delta,
+                s_base,
+                scale_s_d,
+            };
+            let s = next_unit();
+            let v = next_unit();
+            let e = next_unit();
+            let r = next_unit();
+
+            let s_float = params.step_clamped(s, v, e, r).unwrap();
+            let to_fixed = |x: f64| -> i64 { (x * 1_000_000_000.0).round() as i64 };
+            let s_fixed = params
+                .step_fixed_i64(to_fixed(s), to_fixed(v), to_fixed(e), to_fixed(r))
+                .unwrap();
+            let diff = (s_float - (s_fixed as f64) / 1_000_000_000.0).abs();
+            // Bound within quantization slack across floating vs Euclidean fixed division
+            assert!(
+                diff <= 5e-8 / delta.max(0.01),
+                "scale_s_d={scale_s_d}, diff={diff}, float={s_float}, fixed={s_fixed}"
+            );
+        }
     }
 }

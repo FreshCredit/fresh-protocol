@@ -96,14 +96,21 @@ impl LegacyStorage {
     // would narrow that critical section.
     #[allow(clippy::significant_drop_tightening)]
     pub async fn save(&self) -> Result<(), ServerError> {
+        use tokio::io::AsyncWriteExt;
+
         let state_file = self.data_dir.join("state.json");
+        let tmp_file = self.data_dir.join("state.json.tmp");
 
         // Ensure directory exists
         fs::create_dir_all(&self.data_dir).await?;
 
         let state = self.state.read().await;
         let data = serde_json::to_string_pretty(&state.items)?;
-        fs::write(&state_file, data).await?;
+        let mut file = fs::File::create(&tmp_file).await?;
+        file.write_all(data.as_bytes()).await?;
+        file.sync_all().await?;
+        drop(file);
+        fs::rename(&tmp_file, &state_file).await?;
 
         Ok(())
     }

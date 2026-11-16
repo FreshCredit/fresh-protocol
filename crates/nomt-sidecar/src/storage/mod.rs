@@ -60,3 +60,19 @@ pub struct NomtStorage {
 
 // TAG: surface=blockchain owner=blockchain-team rule=BC-001
 pub mod impls;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn corrupt_nomt_state_fails_closed_instead_of_silently_resetting() {
+        let dir = tempfile::tempdir().unwrap();
+        let state_path = dir.path().join("nomt_state.json");
+        std::fs::write(&state_path, "{corrupt-truncated-json").unwrap();
+
+        let res = NomtStorage::new(dir.path().to_str().unwrap()).await;
+        assert!(res.is_err(), "corrupt nomt_state.json must fail closed");
+        assert!(dir.path().join("nomt_state.json.corrupt").exists());
+    }
+}

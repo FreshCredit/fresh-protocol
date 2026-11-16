@@ -17,23 +17,39 @@ impl NomtStorage {
             total_bytes: self.total_bytes.load(Ordering::Relaxed),
         };
 
+        let lock_file = self.data_dir.join("nomt_state.lock");
         let state_file = self.data_dir.join("nomt_state.json");
+        let tmp_file = self.data_dir.join("nomt_state.json.tmp");
         let content = serde_json::to_string_pretty(&state)?;
 
-        // Use exclusive file lock for NFS-safe writes
-        let file = OpenOptions::new()
+        // Acquire exclusive lock on dedicated lockfile, write temp + sync_all + atomic rename
+        // (never open nomt_state.json with O_TRUNC before locking!)
+        let lock = OpenOptions::new()
             .write(true)
             .create(true)
-            .truncate(true)
-            .open(&state_file)?;
-        fs2::FileExt::lock_exclusive(&file)?;
-        let mut writer = std::io::BufWriter::new(&file);
-        writer.write_all(content.as_bytes())?;
-        writer.flush()?;
-        // TAG: surface=blockchain owner=blockchain-team rule=BC-001
-        fs2::FileExt::unlock(&file)?;
+            .truncate(false)
+            .open(&lock_file)?;
+        fs2::FileExt::lock_exclusive(&lock)?;
 
-        debug!(path = %state_file.display(), "Persisted NOMT state to disk with lock");
+        let write_res = (|| -> anyhow::Result<()> {
+            let file = OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .open(&tmp_file)?;
+            let mut writer = std::io::BufWriter::new(&file);
+            writer.write_all(content.as_bytes())?;
+            writer.flush()?;
+            drop(writer);
+            file.sync_all()?;
+            std::fs::rename(&tmp_file, &state_file)?;
+            Ok(())
+        })();
+
+        let _ = fs2::FileExt::unlock(&lock);
+        write_res?;
+
+        debug!(path = %state_file.display(), "Atomically persisted NOMT state to disk with lock");
         Ok(())
     }
 
@@ -44,12 +60,23 @@ impl NomtStorage {
             return Ok(());
         }
 
-        // Use shared lock for reading
-        let file = OpenOptions::new().read(true).open(&state_file)?;
-        fs2::FileExt::lock_shared(&file)?;
-        let mut content = String::new();
-        std::io::BufReader::new(&file).read_to_string(&mut content)?;
-        fs2::FileExt::unlock(&file)?;
+        let lock_file = self.data_dir.join("nomt_state.lock");
+        let lock = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .open(&lock_file)?;
+        fs2::FileExt::lock_shared(&lock)?;
+
+        let read_res = (|| -> anyhow::Result<String> {
+            let file = OpenOptions::new().read(true).open(&state_file)?;
+            let mut content = String::new();
+            std::io::BufReader::new(&file).read_to_string(&mut content)?;
+            Ok(content)
+        })();
+        let _ = fs2::FileExt::unlock(&lock);
+        let content = read_res?;
 
         let state: PersistentState = serde_json::from_str(&content)?;
 
@@ -87,31 +114,49 @@ impl NomtStorage {
         };
 
         tokio::task::spawn_blocking(move || {
+            let lock_file = data_dir.join("nomt_state.lock");
             let state_file = data_dir.join("nomt_state.json");
+            let tmp_file = data_dir.join("nomt_state.json.tmp");
             let content = serde_json::to_string_pretty(&state)
                 .map_err(|e| anyhow::anyhow!("Failed to serialize state: {e}"))?;
 
-            // Use exclusive file lock for NFS-safe writes
+            // Acquire exclusive lock on dedicated lockfile, write temp + sync_all + atomic rename
             // TAG: surface=blockchain owner=blockchain-team rule=BC-001
-            let file = OpenOptions::new()
+            let lock = OpenOptions::new()
                 .write(true)
                 .create(true)
-                .truncate(true)
-                .open(&state_file)
-                .map_err(|e| anyhow::anyhow!("Failed to open state file: {e}"))?;
-            fs2::FileExt::lock_exclusive(&file)
-                .map_err(|e| anyhow::anyhow!("Failed to lock file: {e}"))?;
-            let mut writer = std::io::BufWriter::new(&file);
-            writer
-                .write_all(content.as_bytes())
-                .map_err(|e| anyhow::anyhow!("Failed to write state: {e}"))?;
-            writer
-                .flush()
-                .map_err(|e| anyhow::anyhow!("Failed to flush state: {e}"))?;
-            fs2::FileExt::unlock(&file)
-                .map_err(|e| anyhow::anyhow!("Failed to unlock file: {e}"))?;
+                .truncate(false)
+                .open(&lock_file)
+                .map_err(|e| anyhow::anyhow!("Failed to open lock file: {e}"))?;
+            fs2::FileExt::lock_exclusive(&lock)
+                .map_err(|e| anyhow::anyhow!("Failed to lock state: {e}"))?;
 
-            debug!(path = %state_file.display(), "Persisted NOMT state to disk with lock");
+            let write_res = (|| -> anyhow::Result<()> {
+                let file = OpenOptions::new()
+                    .write(true)
+                    .create(true)
+                    .truncate(true)
+                    .open(&tmp_file)
+                    .map_err(|e| anyhow::anyhow!("Failed to open temp state file: {e}"))?;
+                let mut writer = std::io::BufWriter::new(&file);
+                writer
+                    .write_all(content.as_bytes())
+                    .map_err(|e| anyhow::anyhow!("Failed to write temp state: {e}"))?;
+                writer
+                    .flush()
+                    .map_err(|e| anyhow::anyhow!("Failed to flush temp state: {e}"))?;
+                drop(writer);
+                file.sync_all()
+                    .map_err(|e| anyhow::anyhow!("Failed to fsync temp state: {e}"))?;
+                std::fs::rename(&tmp_file, &state_file)
+                    .map_err(|e| anyhow::anyhow!("Failed to atomically replace state file: {e}"))?;
+                Ok(())
+            })();
+
+            let _ = fs2::FileExt::unlock(&lock);
+            write_res?;
+
+            debug!(path = %state_file.display(), "Atomically persisted NOMT state to disk with lock");
             Ok(())
         })
         .await
@@ -132,19 +177,30 @@ impl NomtStorage {
                     return Ok(None);
                 }
 
-                // Use shared lock for reading
-                let file = OpenOptions::new()
+                let lock_file = data_dir.join("nomt_state.lock");
+                let lock = OpenOptions::new()
                     .read(true)
-                    .open(&state_file)
-                    .map_err(|e| anyhow::anyhow!("Failed to open state file: {e}"))?;
-                fs2::FileExt::lock_shared(&file)
-                    .map_err(|e| anyhow::anyhow!("Failed to lock file: {e}"))?;
-                let mut content = String::new();
-                std::io::BufReader::new(&file)
-                    .read_to_string(&mut content)
-                    .map_err(|e| anyhow::anyhow!("Failed to read state: {e}"))?;
-                fs2::FileExt::unlock(&file)
-                    .map_err(|e| anyhow::anyhow!("Failed to unlock file: {e}"))?;
+                    .write(true)
+                    .create(true)
+                    .truncate(false)
+                    .open(&lock_file)
+                    .map_err(|e| anyhow::anyhow!("Failed to open lock file: {e}"))?;
+                fs2::FileExt::lock_shared(&lock)
+                    .map_err(|e| anyhow::anyhow!("Failed to shared-lock state: {e}"))?;
+
+                let read_res = (|| -> anyhow::Result<String> {
+                    let file = OpenOptions::new()
+                        .read(true)
+                        .open(&state_file)
+                        .map_err(|e| anyhow::anyhow!("Failed to open state file: {e}"))?;
+                    let mut content = String::new();
+                    std::io::BufReader::new(&file)
+                        .read_to_string(&mut content)
+                        .map_err(|e| anyhow::anyhow!("Failed to read state: {e}"))?;
+                    Ok(content)
+                })();
+                let _ = fs2::FileExt::unlock(&lock);
+                let content = read_res?;
 
                 let state: PersistentState = serde_json::from_str(&content)
                     .map_err(|e| anyhow::anyhow!("Failed to parse state: {e}"))?;

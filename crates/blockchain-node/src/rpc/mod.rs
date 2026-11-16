@@ -371,4 +371,46 @@ mod tests {
         std::env::remove_var("JWT_SECRET");
         std::env::remove_var("API_KEY");
     }
+
+    #[tokio::test]
+    async fn test_rate_limiter_uses_rightmost_xff_not_spoofed_leftmost() {
+        use tower_governor::key_extractor::KeyExtractor;
+
+        let extractor = crate::helpers::TrustedClientIpExtractor;
+        let req_a = Request::builder()
+            .uri("/health")
+            .header("X-Forwarded-For", "9.9.9.1, 198.51.100.7")
+            .body(Body::empty())
+            .unwrap();
+        let req_b = Request::builder()
+            .uri("/health")
+            .header("X-Forwarded-For", "1.1.1.2, 198.51.100.7")
+            .body(Body::empty())
+            .unwrap();
+        assert_eq!(
+            extractor.extract(&req_a).unwrap(),
+            "198.51.100.7".parse::<std::net::IpAddr>().unwrap()
+        );
+        assert_eq!(
+            extractor.extract(&req_a).unwrap(),
+            extractor.extract(&req_b).unwrap()
+        );
+
+        // Non-loopback TCP peer with untrusted X-Forwarded-For must ignore spoofed XFF
+        let mut req_direct = Request::builder()
+            .uri("/health")
+            .header("X-Forwarded-For", "8.8.8.8")
+            .body(Body::empty())
+            .unwrap();
+        req_direct
+            .extensions_mut()
+            .insert(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                [203, 0, 113, 42],
+                4444,
+            ))));
+        assert_eq!(
+            extractor.extract(&req_direct).unwrap(),
+            "203.0.113.42".parse::<std::net::IpAddr>().unwrap()
+        );
+    }
 }

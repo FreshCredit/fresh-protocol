@@ -53,13 +53,31 @@ impl NomtStorage {
                         )
                     }
                     Err(e) => {
-                        warn!(error = %e, "Failed to parse NOMT state, starting fresh");
-                        (BTreeMap::new(), BTreeMap::new(), [0u8; 32], 0, 0)
+                        let backup = state_file.with_extension("json.corrupt");
+                        let _ = std::fs::copy(&state_file, &backup);
+                        if std::env::var("NOMT_ALLOW_CORRUPT_RECOVERY")
+                            .is_ok_and(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+                        {
+                            warn!(
+                                error = %e,
+                                backup = %backup.display(),
+                                "Corrupt NOMT state backed up; starting fresh because NOMT_ALLOW_CORRUPT_RECOVERY=1"
+                            );
+                            (BTreeMap::new(), BTreeMap::new(), [0u8; 32], 0, 0)
+                        } else {
+                            anyhow::bail!(
+                                "Refusing to silently reset corrupt NOMT state at {} (backed up to {}): {e}",
+                                state_file.display(),
+                                backup.display()
+                            );
+                        }
                     }
                 },
                 Err(e) => {
-                    warn!(error = %e, "Failed to read NOMT state file, starting fresh");
-                    (BTreeMap::new(), BTreeMap::new(), [0u8; 32], 0, 0)
+                    anyhow::bail!(
+                        "Failed to read existing NOMT state at {}: {e}",
+                        state_file.display()
+                    );
                 }
             }
         } else {

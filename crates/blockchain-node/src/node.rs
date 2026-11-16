@@ -125,9 +125,12 @@ pub async fn run(cli: Cli) -> anyhow::Result<()> {
     info!("Explorer started successfully - serving traffic while connecting to blockchain");
 
     // P0-BEST-PRACTICES: Graceful shutdown for zero-downtime deployments
-    axum::serve(listener, app)
-        .with_graceful_shutdown(crate::helpers::shutdown_signal())
-        .await?;
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+    )
+    .with_graceful_shutdown(crate::helpers::shutdown_signal())
+    .await?;
 
     info!("👋 Blockchain explorer stopped gracefully");
     Ok(())
