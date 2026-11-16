@@ -1,4 +1,5 @@
 use super::*;
+use axum::http::StatusCode;
 
 // ============================================================================
 // JSON API Handlers
@@ -245,92 +246,44 @@ pub(super) async fn verify_hash_api(
     }
 }
 
-#[allow(dead_code)]
-pub(super) async fn get_user_hashes(
-    Path(user_id): Path<String>,
-    State(state): State<AppState>,
-    // TAG: surface=blockchain owner=blockchain-team rule=BLOCKCHAIN-001
-) -> impl IntoResponse {
-    let client = state.client.read().await;
-
-    // Check if client is initialized
-    let Some(ref client) = *client else {
-        return Json(serde_json::json!({
-            "user_id": user_id,
-            "count": 0,
-            "hashes": [],
-            "error": "Blockchain connection not yet established - please retry shortly"
-        }));
-    };
-
-    match client.get_user_hashes(&user_id).await {
-        Ok(hashes) => {
-            let list: Vec<serde_json::Value> = hashes
-                .iter()
-                .map(|h| {
-                    serde_json::json!({
-                        "id": h.id,
-                        "user_id": h.user_id,
-                        "report_type": h.report_type,
-                        "hash": h.hash,
-                        "block_number": h.block_number,
-                        "timestamp": h.timestamp
-                    })
-                })
-                // TAG: surface=blockchain owner=platform-team rule=GENERAL-001
-                .collect();
-            Json(serde_json::json!({
-                "user_id": user_id,
-                "count": list.len(),
-                "hashes": list
-            }))
-        }
-        Err(e) => {
-            // MED-001 FIXED: Sanitized error message
-            tracing::error!("Failed to get user hashes: {}", e);
-            Json(serde_json::json!({
-                "user_id": user_id,
-                "count": 0,
-                "hashes": [],
-                "error": "Failed to retrieve hashes. Please try again later."
-            }))
-        }
-    }
-}
-
-/// Secured version of `get_user_hashes` with authorization check
+/// Secured version of `get_user_hashes` with strict object-level authorization (OWASP API1:2023).
 ///
-/// Users can only access their own hashes. Service accounts can access any user's hashes.
+/// Users can only access their own hashes (`403 Forbidden` otherwise). Service accounts can access any user.
 pub(super) async fn get_user_hashes_secured(
     Path(requested_user_id): Path<String>,
     State(state): State<AppState>,
     axum::Extension(claims): axum::Extension<crate::config::Claims>,
     // TAG: surface=blockchain owner=blockchain-team rule=BLOCKCHAIN-001
 ) -> impl IntoResponse {
-    // Authorization check: users can only access their own data
-    // Service accounts (token_type = "service") can access any user
     if claims.token_type != "service" && claims.sub != requested_user_id {
         warn!(
             requester = %claims.sub,
             requested_user = %requested_user_id,
-            "Unauthorized access attempt to user hashes"
+            "Unauthorized BOLA attempt to user hashes"
         );
-        return Json(serde_json::json!({
-            "error": "Forbidden",
-            "message": "You can only access your own hashes"
-        }));
+        return (
+            StatusCode::FORBIDDEN,
+            Json(serde_json::json!({
+                "error": "Forbidden",
+                "message": "You can only access your own hashes"
+            })),
+        )
+            .into_response();
     }
 
-    // Proceed with the request
     let client = state.client.read().await;
 
     let Some(ref client) = *client else {
-        return Json(serde_json::json!({
-            "user_id": requested_user_id,
-            "count": 0,
-            "hashes": [],
-            "error": "Blockchain connection not yet established - please retry shortly"
-        }));
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({
+                "user_id": requested_user_id,
+                "count": 0,
+                "hashes": [],
+                "error": "Blockchain connection not yet established - please retry shortly"
+            })),
+        )
+            .into_response();
     };
 
     info!(
@@ -356,11 +309,15 @@ pub(super) async fn get_user_hashes_secured(
                     })
                 })
                 .collect();
-            Json(serde_json::json!({
-                "user_id": requested_user_id,
-                "count": list.len(),
-                "hashes": list
-            }))
+            (
+                StatusCode::OK,
+                Json(serde_json::json!({
+                    "user_id": requested_user_id,
+                    "count": list.len(),
+                    "hashes": list
+                })),
+            )
+                .into_response()
         }
         Err(e) => {
             error!(
@@ -368,37 +325,70 @@ pub(super) async fn get_user_hashes_secured(
                 error = %e,
                 "Failed to fetch user hashes"
             );
-            Json(serde_json::json!({
-                "user_id": requested_user_id,
-                "count": 0,
-                "hashes": [],
-                "error": e.to_string()
-            }))
+            (
+                StatusCode::BAD_GATEWAY,
+                Json(serde_json::json!({
+                    "user_id": requested_user_id,
+                    "count": 0,
+                    "hashes": [],
+                    "error": "Failed to retrieve user hashes"
+                })),
+            )
+                .into_response()
         }
     }
 }
 
 pub(super) async fn anchor_hash(
     State(state): State<AppState>,
+    axum::Extension(claims): axum::Extension<crate::config::Claims>,
     Json(req): Json<crate::config::AnchorRequest>,
     // TAG: surface=blockchain owner=blockchain-team rule=BLOCKCHAIN-001
 ) -> impl IntoResponse {
+    // OWASP API1:2023 BOLA guard: user tokens may only anchor their own user_id and never system nomt_root
+    if claims.token_type != "service"
+        && (claims.sub != req.user_id || req.report_type.eq_ignore_ascii_case("nomt_root"))
+    {
+        warn!(
+            requester = %claims.sub,
+            target_user = %req.user_id,
+            report_type = %req.report_type,
+            "Rejected cross-tenant or privileged /anchor attempt"
+        );
+        return (
+            StatusCode::FORBIDDEN,
+            Json(serde_json::json!({
+                "success": false,
+                "error": "Forbidden: insufficient authorization for target user_id or report_type"
+            })),
+        )
+            .into_response();
+    }
+
     // Validate request
     if let Err(e) = req.validate() {
-        return Json(serde_json::json!({
-            "success": false,
-            "error": e
-        }));
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "success": false,
+                "error": e
+            })),
+        )
+            .into_response();
     }
 
     let client_guard = state.client.read().await;
 
     // Check if client is initialized
     let Some(ref client) = *client_guard else {
-        return Json(serde_json::json!({
-            "success": false,
-            "error": "Blockchain connection not yet established - please retry shortly"
-        }));
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({
+                "success": false,
+                "error": "Blockchain connection not yet established - please retry shortly"
+            })),
+        )
+            .into_response();
     };
 
     let create_request = CreateHashRequest {
@@ -432,18 +422,18 @@ pub(super) async fn anchor_hash(
     match client.create_hash(create_request).await {
         Ok(result) => {
             store_via_nomt();
-            Json(serde_json::json!({
-                "success": true,
-                "hash": result.hash,
-                "block_number": result.block_number
-            }))
+            (
+                StatusCode::OK,
+                Json(serde_json::json!({
+                    "success": true,
+                    "hash": result.hash,
+                    "block_number": result.block_number
+                })),
+            )
+                .into_response()
         }
         Err(e) => {
             let error_str = e.to_string();
-            // A dead WS background task ("restart required") kills every
-            // anchor until something reconnects — previously only /health and
-            // /stats did that, so anchors failed until pod restart. Reconnect
-            // on connection-class errors and retry once, same as get_stats.
             if error_str.contains("connection closed")
                 || error_str.contains("background task")
                 || error_str.contains("restart required")
@@ -462,19 +452,28 @@ pub(super) async fn anchor_hash(
                         };
                         if let Ok(result) = retry_client.create_hash(retry_request).await {
                             store_via_nomt();
-                            return Json(serde_json::json!({
-                                "success": true,
-                                "hash": result.hash,
-                                "block_number": result.block_number
-                            }));
+                            return (
+                                StatusCode::OK,
+                                Json(serde_json::json!({
+                                    "success": true,
+                                    "hash": result.hash,
+                                    "block_number": result.block_number
+                                })),
+                            )
+                                .into_response();
                         }
                     }
                 }
             }
-            Json(serde_json::json!({
-                "success": false,
-                "error": error_str
-            }))
+            error!(error = %error_str, "Failed to anchor hash");
+            (
+                StatusCode::BAD_GATEWAY,
+                Json(serde_json::json!({
+                    "success": false,
+                    "error": "Failed to anchor hash"
+                })),
+            )
+                .into_response()
         }
     }
 }

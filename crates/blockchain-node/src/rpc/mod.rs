@@ -265,3 +265,110 @@ pub fn create_app(state: AppState) -> Router {
         )
         .with_state(state)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::node::ConnectionStatus;
+    use axum::body::Body;
+    use axum::http::{Request, StatusCode};
+    use std::sync::Arc;
+    use tokio::sync::RwLock;
+    use tower::ServiceExt;
+
+    #[tokio::test]
+    #[serial_test::serial]
+    async fn test_bola_enforced_on_anchor_and_user_hashes_and_api_key_uniform() {
+        let jwt_secret = "test-blockchain-node-secret-32-bytes!";
+        let api_key = "test-node-service-api-key";
+        std::env::set_var("JWT_SECRET", jwt_secret);
+        std::env::set_var("API_KEY", api_key);
+
+        let state = AppState {
+            client: Arc::new(RwLock::new(None)),
+            substrate_url: "ws://127.0.0.1:9944".to_string(),
+            nomt_sidecar_url: None,
+            http_client: reqwest::Client::new(),
+            connection_status: Arc::new(RwLock::new(ConnectionStatus::Disconnected)),
+        };
+        let app = create_app(state);
+
+        let alice_claims = crate::config::Claims::new_user("alice", 1);
+        let alice_jwt = jsonwebtoken::encode(
+            &jsonwebtoken::Header::new(jsonwebtoken::Algorithm::HS256),
+            &alice_claims,
+            &jsonwebtoken::EncodingKey::from_secret(jwt_secret.as_bytes()),
+        )
+        .unwrap();
+
+        // 1. Alice cannot fetch Bob's hashes (403 Forbidden, not 200)
+        let resp_hashes = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/user/bob/hashes")
+                    .header("X-Forwarded-For", "127.0.0.1")
+                    .header("Authorization", format!("Bearer {alice_jwt}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp_hashes.status(), StatusCode::FORBIDDEN);
+
+        // 2. Alice cannot anchor under Bob's user_id (403 Forbidden)
+        let resp_anchor_bob = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/anchor")
+                    .header("X-Forwarded-For", "127.0.0.1")
+                    .header("Authorization", format!("Bearer {alice_jwt}"))
+                    .header("Content-Type", "application/json")
+                    .body(Body::from(
+                        r#"{"user_id":"bob","report_type":"financial","report_data":"abc"}"#,
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp_anchor_bob.status(), StatusCode::FORBIDDEN);
+
+        // 3. Alice cannot spoof system nomt_root report_type (403 Forbidden)
+        let resp_anchor_root = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/anchor")
+                    .header("X-Forwarded-For", "127.0.0.1")
+                    .header("Authorization", format!("Bearer {alice_jwt}"))
+                    .header("Content-Type", "application/json")
+                    .body(Body::from(
+                        r#"{"user_id":"alice","report_type":"nomt_root","report_data":"abc"}"#,
+                    ))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp_anchor_root.status(), StatusCode::FORBIDDEN);
+
+        // 4. Service X-API-Key populates service Claims uniformly -> 503 (client disconnected), NEVER 500 Missing Extension
+        let resp_apikey = app
+            .oneshot(
+                Request::builder()
+                    .uri("/user/bob/hashes")
+                    .header("X-Forwarded-For", "127.0.0.1")
+                    .header("X-API-Key", api_key)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp_apikey.status(), StatusCode::SERVICE_UNAVAILABLE);
+
+        std::env::remove_var("JWT_SECRET");
+        std::env::remove_var("API_KEY");
+    }
+}

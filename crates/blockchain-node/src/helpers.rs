@@ -138,7 +138,7 @@ pub async fn jwt_auth_middleware(
 /// API Key Authentication middleware
 pub async fn api_key_auth_middleware(
     State(_state): State<AppState>,
-    request: Request,
+    mut request: Request,
     next: Next,
 ) -> Result<Response, (StatusCode, Json<crate::config::AuthError>)> {
     // Extract X-API-Key header
@@ -167,6 +167,11 @@ pub async fn api_key_auth_middleware(
             }),
         ));
     }
+
+    // Inject canonical service Claims so downstream BOLA handlers work uniformly for X-API-Key and JWT
+    request
+        .extensions_mut()
+        .insert(crate::config::Claims::new_service("api-key-service", 1));
 
     Ok(next.run(request).await)
 }

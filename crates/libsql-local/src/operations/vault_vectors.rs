@@ -56,6 +56,7 @@ impl LocalClient {
         source_ids: &[String],
         vector: &[f32],
     ) -> Result<()> {
+        validate_vector_input(vector)?;
         let source_ids_json = serde_json::to_string(source_ids)?;
         let vector_literal = format_vector32_literal(vector);
         let now = chrono::Utc::now().to_rfc3339();
@@ -157,6 +158,17 @@ impl LocalClient {
         query_vector: &[f32],
         k: usize,
     ) -> Result<Vec<VaultVectorSearchResult>> {
+        validate_vector_input(query_vector)?;
+        if !(1..=1000).contains(&k) {
+            anyhow::bail!("ANN search k must lie in 1..=1000 (got {k})");
+        }
+        let norm_sq: f64 = query_vector
+            .iter()
+            .map(|&v| f64::from(v) * f64::from(v))
+            .sum();
+        if norm_sq <= 1e-12 {
+            anyhow::bail!("Cosine ANN search query vector must have positive non-zero norm");
+        }
         let vector_literal = format_vector32_literal(query_vector);
         let sql = format!(
             "SELECT id, user_id, scope, category, source_ids,
@@ -181,6 +193,20 @@ impl LocalClient {
         }
         Ok(out)
     }
+}
+
+/// Validate vector dimension and finiteness before interpolating into SQL literal.
+fn validate_vector_input(vector: &[f32]) -> Result<()> {
+    if vector.len() != VAULT_VECTOR_DIM {
+        anyhow::bail!(
+            "Expected {VAULT_VECTOR_DIM}-dim vector, got {}",
+            vector.len()
+        );
+    }
+    if !vector.iter().all(|v| v.is_finite()) {
+        anyhow::bail!("Vector components must all be finite (no NaN/Inf)");
+    }
+    Ok(())
 }
 
 /// Format a slice of f32 values as a libSQL `vector32('[...]')` literal.
@@ -306,5 +332,36 @@ mod tests {
     fn parse_vector_text_handles_output() {
         let parsed = parse_vector_text("[0.1, 0.2, 0.3]").unwrap();
         assert_eq!(parsed, vec![0.1, 0.2, 0.3]);
+    }
+
+    #[tokio::test]
+    async fn vector_ops_reject_nan_wrong_dim_and_zero_norm() {
+        let client = LocalClient::new_in_memory().await.unwrap();
+        client.initialize_schema().await.unwrap();
+
+        let mut bad_nan = vec![0.0f32; VAULT_VECTOR_DIM];
+        bad_nan[0] = f32::NAN;
+        assert!(client
+            .store_vault_category_vector("u1", "consumer", "fin", &[], &bad_nan)
+            .await
+            .is_err());
+
+        assert!(client
+            .store_vault_category_vector("u1", "consumer", "fin", &[], &[1.0, 2.0])
+            .await
+            .is_err());
+
+        let zero = vec![0.0f32; VAULT_VECTOR_DIM];
+        assert!(client
+            .search_vault_category_vectors(&zero, 5)
+            .await
+            .is_err());
+
+        let mut valid = vec![0.0f32; VAULT_VECTOR_DIM];
+        valid[0] = 1.0;
+        assert!(client
+            .search_vault_category_vectors(&valid, 0)
+            .await
+            .is_err());
     }
 }
