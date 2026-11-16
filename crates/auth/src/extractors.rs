@@ -115,7 +115,7 @@ where
 /// This extractor performs full JWT validation on each request.
 /// For better performance, use middleware to validate once and
 /// `AuthExtractor` to retrieve the user.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct JwtExtractor {
     /// The authenticated user
     pub user: AuthenticatedUser,
@@ -125,11 +125,29 @@ pub struct JwtExtractor {
     pub token: String,
 }
 
+impl std::fmt::Debug for JwtExtractor {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("JwtExtractor")
+            .field("user", &self.user)
+            .field("claims", &self.claims)
+            .field("token", &"[REDACTED]")
+            .finish()
+    }
+}
+
 /// State required for JWT extraction
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct JwtExtractorState {
     /// JWT secret key
     pub secret: String,
+}
+
+impl std::fmt::Debug for JwtExtractorState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("JwtExtractorState")
+            .field("secret", &"[REDACTED]")
+            .finish()
+    }
 }
 
 // TAG: surface=auth owner=security-team rule=RBAC-001
@@ -153,10 +171,9 @@ impl FromRequestParts<Arc<JwtExtractorState>> for JwtExtractor {
             JwtManager::extract_bearer_token(auth_header).map_err(|_| StatusCode::UNAUTHORIZED)?;
 
         let manager = JwtManager::new(&state.secret);
-        let claims = manager.validate_token(token).map_err(|e| match e {
-            AuthError::TokenExpired | AuthError::InvalidSignature => StatusCode::UNAUTHORIZED,
-            _ => StatusCode::BAD_REQUEST,
-        })?;
+        let claims = manager
+            .validate_token(token)
+            .map_err(|_| StatusCode::UNAUTHORIZED)?;
 
         let user = claims.to_authenticated_user();
 
@@ -254,5 +271,28 @@ mod tests {
         let result = OptionalAuthExtractor::from_request_parts(&mut parts, &()).await;
         assert!(result.is_ok());
         assert!(result.unwrap().0.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_jwt_extractor_redacts_secrets_and_returns_uniform_401() {
+        let state = Arc::new(JwtExtractorState {
+            secret: "super-secret-hs256-signing-key-32b!".to_string(),
+        });
+        let dbg_state = format!("{state:?}");
+        assert!(!dbg_state.contains("super-secret-hs256-signing-key-32b!"));
+        assert!(dbg_state.contains("[REDACTED]"));
+
+        // Malformed JWT must return 401 Unauthorized per RFC 6750 (not 400 oracle)
+        let mut parts = Request::builder()
+            .uri("/test")
+            .header("Authorization", "Bearer not-a-valid-jwt")
+            .body(())
+            .unwrap()
+            .into_parts()
+            .0;
+        let err = JwtExtractor::from_request_parts(&mut parts, &state)
+            .await
+            .unwrap_err();
+        assert_eq!(err, StatusCode::UNAUTHORIZED);
     }
 }

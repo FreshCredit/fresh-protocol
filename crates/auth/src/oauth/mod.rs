@@ -165,8 +165,8 @@ impl OAuthClient {
     }
 }
 
-/// Token response from OAuth provider
-#[derive(Debug, Clone)]
+/// Token response from OAuth provider (`access_token` / `refresh_token` redacted in `Debug`)
+#[derive(Clone)]
 pub struct TokenResponse {
     /// Access token
     pub access_token: String,
@@ -176,4 +176,18 @@ pub struct TokenResponse {
     pub expires_in: Option<i64>,
     /// Refresh token
     pub refresh_token: Option<String>,
+}
+
+impl std::fmt::Debug for TokenResponse {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TokenResponse")
+            .field("access_token", &"[REDACTED]")
+            .field("token_type", &self.token_type)
+            .field("expires_in", &self.expires_in)
+            .field(
+                "refresh_token",
+                &self.refresh_token.as_ref().map(|_| "[REDACTED]"),
+            )
+            .finish()
+    }
 }

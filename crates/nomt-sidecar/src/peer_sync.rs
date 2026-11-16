@@ -19,7 +19,7 @@ use tracing::{debug, info, warn};
 
 use crate::types::StoreRequest;
 
-/// Peer sync configuration
+/// Peer sync configuration (`api_key` redacted in `Debug`)
 #[derive(Clone)]
 pub struct PeerSyncConfig {
     /// Kubernetes headless service name (e.g., "freshcredit-blockchain-headless")
@@ -35,6 +35,29 @@ pub struct PeerSyncConfig {
     pub api_key: Option<String>,
     /// Enable peer sync
     pub enabled: bool,
+}
+
+impl std::fmt::Debug for PeerSyncConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PeerSyncConfig")
+            .field("headless_service", &self.headless_service)
+            .field("namespace", &self.namespace)
+            .field("port", &self.port)
+            .field("pod_name", &self.pod_name)
+            .field("api_key", &self.api_key.as_ref().map(|_| "[REDACTED]"))
+            .field("enabled", &self.enabled)
+            .finish()
+    }
+}
+
+fn is_valid_k8s_dns_label(label: &str) -> bool {
+    !label.is_empty()
+        && label.len() <= 63
+        && !label.starts_with('-')
+        && !label.ends_with('-')
+        && label
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'-')
 }
 // TAG: surface=blockchain owner=blockchain-team rule=BC-001
 
@@ -81,6 +104,17 @@ impl PeerSyncService {
             return vec![];
         }
 
+        if !is_valid_k8s_dns_label(&self.config.headless_service)
+            || !is_valid_k8s_dns_label(&self.config.namespace)
+        {
+            warn!(
+                service = %self.config.headless_service,
+                namespace = %self.config.namespace,
+                "Rejected invalid Kubernetes DNS label in peer sync config"
+            );
+            return vec![];
+        }
+
         // Kubernetes headless service DNS format:
         // <pod-name>.<headless-service>.<namespace>.svc.cluster.local
         // For StatefulSet: freshcredit-blockchain-0.freshcredit-blockchain-headless.freshcredit-blockchain.svc.cluster.local
@@ -93,7 +127,11 @@ impl PeerSyncService {
             Ok(addrs) => {
                 let self_ip = std::env::var("POD_IP").ok().filter(|s| !s.is_empty());
                 let peers: Vec<String> = addrs
-                    .filter(|addr| self_ip.as_deref() != Some(&addr.ip().to_string()))
+                    .filter(|addr| {
+                        !addr.ip().is_loopback()
+                            && !addr.ip().is_unspecified()
+                            && self_ip.as_deref() != Some(&addr.ip().to_string())
+                    })
                     .map(|addr| format!("http://{}:{}", addr.ip(), self.config.port))
                     .collect();
 
@@ -219,6 +257,23 @@ mod tests {
         };
         // Should not panic when peer sync is disabled
         service.broadcast_store(&request).await;
+    }
+
+    #[tokio::test]
+    async fn test_peer_sync_redacts_api_key_and_rejects_invalid_dns_label() {
+        let cfg = PeerSyncConfig {
+            headless_service: "bad.host/evil".to_string(),
+            namespace: "default".to_string(),
+            api_key: Some("peer-sync-secret-abc".to_string()),
+            enabled: true,
+            ..Default::default()
+        };
+        let dbg = format!("{cfg:?}");
+        assert!(!dbg.contains("peer-sync-secret-abc"));
+        assert!(dbg.contains("[REDACTED]"));
+
+        let service = PeerSyncService::new(cfg);
+        assert!(service.discover_peers().await.is_empty());
     }
     // TAG: surface=blockchain owner=blockchain-team rule=BC-001
 }
