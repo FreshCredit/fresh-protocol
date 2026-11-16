@@ -529,6 +529,17 @@ impl crate::ResponseStore for DurableIdempotencyStore {
     ) -> Result<StoredResponse, IdempotencyError> {
         Self::store_response_with_fingerprint(self, key, status, headers, body, request_hash).await
     }
+
+    async fn release_claim(&self, key: &str) -> Result<(), IdempotencyError> {
+        self.conn
+            .execute(
+                "DELETE FROM idempotency_records WHERE key = ?1 AND status = 'in_flight'",
+                libsql::params![key],
+            )
+            .await
+            .map_err(|e| DurableIdempotencyError::Store(e.to_string()))?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]

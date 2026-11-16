@@ -41,11 +41,20 @@ pub enum ClientError {
 }
 
 /// NOMT HTTP client
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct NomtClient {
     http: Client,
     base_url: Url,
     api_key: Option<String>,
+}
+
+impl std::fmt::Debug for NomtClient {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("NomtClient")
+            .field("base_url", &self.base_url.as_str())
+            .field("api_key", &self.api_key.as_ref().map(|_| "[REDACTED]"))
+            .finish_non_exhaustive()
+    }
 }
 
 impl NomtClient {
@@ -168,7 +177,13 @@ impl NomtClient {
         };
 
         let url = self.base_url.join("/verify")?;
-        let response = self.http.post(url).json(&request).send().await?;
+        let mut req_builder = self.http.post(url).json(&request);
+        if let Some(ref key) = self.api_key {
+            if !key.is_empty() {
+                req_builder = req_builder.header("x-api-key", key);
+            }
+        }
+        let response = req_builder.send().await?;
         // TAG: surface=blockchain owner=blockchain-team rule=BC-001
 
         if response.status().is_success() {
@@ -179,13 +194,71 @@ impl NomtClient {
         }
     }
 
+    /// Verify a hash against the `nomt-sidecar` `GET /verify/:hash` contract.
+    /// # Errors
+    ///
+    /// Returns an error if the request fails or the sidecar returns a non-success status.
+    pub async fn verify_sidecar_hash(&self, hash: &str) -> Result<serde_json::Value, ClientError> {
+        let mut url = self.base_url.clone();
+        url.path_segments_mut()
+            .map_err(|()| ClientError::InvalidUrl(self.base_url.to_string()))?
+            .extend(["verify", hash]);
+        let mut req_builder = self.http.get(url);
+        if let Some(ref key) = self.api_key {
+            if !key.is_empty() {
+                req_builder = req_builder.header("x-api-key", key);
+            }
+        }
+        let response = req_builder.send().await?;
+        if response.status().is_success() {
+            Ok(response.json().await?)
+        } else {
+            let error_text = response.text().await.unwrap_or_default();
+            Err(ClientError::Api(format!(
+                "Sidecar verify failed: {error_text}"
+            )))
+        }
+    }
+
+    /// Fetch a Merkle inclusion proof from the `nomt-sidecar` `GET /proof/:hash` contract.
+    /// # Errors
+    ///
+    /// Returns an error if the request fails or no proof is found.
+    pub async fn get_sidecar_proof(&self, hash: &str) -> Result<NomtProof, ClientError> {
+        let mut url = self.base_url.clone();
+        url.path_segments_mut()
+            .map_err(|()| ClientError::InvalidUrl(self.base_url.to_string()))?
+            .extend(["proof", hash]);
+        let mut req_builder = self.http.get(url);
+        if let Some(ref key) = self.api_key {
+            if !key.is_empty() {
+                req_builder = req_builder.header("x-api-key", key);
+            }
+        }
+        let response = req_builder.send().await?;
+        if response.status().is_success() {
+            Ok(response.json().await?)
+        } else {
+            let error_text = response.text().await.unwrap_or_default();
+            Err(ClientError::Api(format!(
+                "Sidecar proof failed: {error_text}"
+            )))
+        }
+    }
+
     /// Get storage statistics
     /// # Errors
     ///
     /// Returns an error if the operation fails.
     pub async fn stats(&self) -> Result<StorageStats, ClientError> {
         let url = self.base_url.join("/stats")?;
-        let response = self.http.get(url).send().await?;
+        let mut req_builder = self.http.get(url);
+        if let Some(ref key) = self.api_key {
+            if !key.is_empty() {
+                req_builder = req_builder.header("x-api-key", key);
+            }
+        }
+        let response = req_builder.send().await?;
 
         if response.status().is_success() {
             Ok(response.json().await?)
@@ -485,6 +558,16 @@ mod tests {
         let result = client.prepare_anchor("data", None).await;
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("No proof"));
+    }
+
+    #[test]
+    fn test_nomt_client_debug_redacts_api_key() {
+        let client = NomtClient::new("http://localhost:8081")
+            .unwrap()
+            .with_api_key("super-secret-sidecar-key");
+        let dbg = format!("{client:?}");
+        assert!(!dbg.contains("super-secret-sidecar-key"));
+        assert!(dbg.contains("[REDACTED]"));
     }
     // TAG: surface=blockchain owner=blockchain-team rule=BC-001
 }

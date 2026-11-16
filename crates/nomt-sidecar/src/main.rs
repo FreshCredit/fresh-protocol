@@ -535,5 +535,101 @@ mod tests {
         };
         assert!(verify_b.exists && verify_b.verified);
     }
+
+    #[tokio::test]
+    async fn test_verify_endpoint_redacts_user_id_when_unauthenticated() {
+        use axum::{
+            extract::{Path, State},
+            http::HeaderMap,
+            routing::{get, post},
+        };
+        use tokio::net::TcpListener;
+
+        let tmp = tempfile::tempdir().unwrap();
+        let storage = NomtStorage::new(tmp.path().to_str().unwrap())
+            .await
+            .unwrap();
+        let state = Arc::new(AppState {
+            storage: RwLock::new(StorageBackend::Legacy(storage)),
+            anchoring: AnchoringService::new(AnchoringConfig {
+                enabled: false,
+                ..Default::default()
+            }),
+            peer_sync: PeerSyncService::new(PeerSyncConfig::default()),
+        });
+
+        let secret = "sidecar-pii-guard-key".to_string();
+        let secret_for_route = secret.clone();
+
+        let app = Router::new()
+            .route("/store", post(crate::handlers::store_report))
+            .route(
+                "/verify/:hash",
+                get(
+                    move |State(st): State<Arc<AppState>>,
+                          headers: HeaderMap,
+                          Path(hash): Path<String>| {
+                        let expected = secret_for_route.clone();
+                        async move {
+                            crate::handlers::verify_hash_with_key(
+                                st,
+                                Some(&expected),
+                                &headers,
+                                &hash,
+                            )
+                            .await
+                        }
+                    },
+                ),
+            )
+            .with_state(state);
+
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+
+        let client = reqwest::Client::new();
+        let stored: crate::types::StoreResponse = client
+            .post(format!("http://{addr}/store"))
+            .json(&crate::types::StoreRequest {
+                user_id: "sensitive-user-123".to_string(),
+                report_type: "CreditReport".to_string(),
+                data: b"secret-report-bytes".to_vec(),
+            })
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+
+        // Unauthenticated GET /verify/:hash must confirm validity WITHOUT disclosing user_id
+        let public_verify: crate::types::VerifyResponse = client
+            .get(format!("http://{addr}/verify/{}", stored.hash))
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        assert!(public_verify.exists && public_verify.verified);
+        assert!(public_verify.user_id.is_none());
+        assert!(public_verify.report_type.is_none());
+
+        // Authenticated GET /verify/:hash receives full metadata
+        let auth_verify: crate::types::VerifyResponse = client
+            .get(format!("http://{addr}/verify/{}", stored.hash))
+            .header("x-api-key", &secret)
+            .send()
+            .await
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        assert_eq!(auth_verify.user_id.as_deref(), Some("sensitive-user-123"));
+        assert_eq!(auth_verify.report_type.as_deref(), Some("CreditReport"));
+    }
     // TAG: surface=blockchain owner=blockchain-team rule=BC-001
 }

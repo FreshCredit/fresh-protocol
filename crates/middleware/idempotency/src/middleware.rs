@@ -216,6 +216,9 @@ impl<S: ResponseStore> IdempotencyLayer<S> {
                         }
                     }
                 } else {
+                    if let Err(e) = self.store.release_claim(&scoped_key).await {
+                        warn!("Failed to release idempotency claim after non-2xx: {}", e);
+                    }
                     response
                 }
             }
@@ -465,6 +468,80 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(resp_a_mismatch.status(), StatusCode::UNPROCESSABLE_ENTITY);
+        assert_eq!(counter.load(Ordering::SeqCst), 2);
+    }
+
+    #[tokio::test]
+    async fn test_concurrent_same_key_returns_409_and_5xx_releases_claim() {
+        use axum::{routing::post, Router};
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use tokio::sync::Barrier;
+        use tower::ServiceExt;
+
+        let counter = Arc::new(AtomicUsize::new(0));
+        let barrier = Arc::new(Barrier::new(2));
+        let layer =
+            IdempotencyLayer::new(IdempotencyConfig::new(std::time::Duration::from_secs(60)));
+
+        let c1 = Arc::clone(&counter);
+        let b1 = Arc::clone(&barrier);
+        let l1 = layer.clone();
+        let app = Router::new()
+            .route(
+                "/slow",
+                post(move || {
+                    let c = Arc::clone(&c1);
+                    let b = Arc::clone(&b1);
+                    async move {
+                        let n = c.fetch_add(1, Ordering::SeqCst);
+                        if n == 0 {
+                            b.wait().await;
+                            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+                            (StatusCode::INTERNAL_SERVER_ERROR, "transient").into_response()
+                        } else {
+                            (StatusCode::OK, "ok").into_response()
+                        }
+                    }
+                }),
+            )
+            .layer(axum::middleware::from_fn(move |req, next| {
+                let l = l1.clone();
+                async move { l.handle(req, next).await }
+            }));
+
+        let req_1 = Request::builder()
+            .method("POST")
+            .uri("/slow")
+            .header("Authorization", "Bearer u1")
+            .header("Idempotency-Key", "race-k")
+            .body(Body::from("{}"))
+            .unwrap();
+        let req_2 = Request::builder()
+            .method("POST")
+            .uri("/slow")
+            .header("Authorization", "Bearer u1")
+            .header("Idempotency-Key", "race-k")
+            .body(Body::from("{}"))
+            .unwrap();
+
+        let app_clone = app.clone();
+        let h1 = tokio::spawn(async move { app_clone.oneshot(req_1).await.unwrap() });
+        barrier.wait().await;
+        let resp_2 = app.clone().oneshot(req_2).await.unwrap();
+        assert_eq!(resp_2.status(), StatusCode::CONFLICT);
+        let resp_1 = h1.await.unwrap();
+        assert_eq!(resp_1.status(), StatusCode::INTERNAL_SERVER_ERROR);
+
+        // After 5xx release_claim, retrying the same key must proceed and succeed (200 OK)
+        let req_3 = Request::builder()
+            .method("POST")
+            .uri("/slow")
+            .header("Authorization", "Bearer u1")
+            .header("Idempotency-Key", "race-k")
+            .body(Body::from("{}"))
+            .unwrap();
+        let resp_3 = app.oneshot(req_3).await.unwrap();
+        assert_eq!(resp_3.status(), StatusCode::OK);
         assert_eq!(counter.load(Ordering::SeqCst), 2);
     }
     // TAG: surface=security owner=platform-team rule=GENERAL-001

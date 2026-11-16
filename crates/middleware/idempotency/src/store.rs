@@ -108,8 +108,11 @@ pub struct IdempotencyStore {
     /// Configuration
     config: IdempotencyConfig,
 
-    /// Storage for idempotency keys and responses
+    /// Storage for completed idempotency keys and responses
     store: Arc<DashMap<String, StoredResponse>>,
+
+    /// In-flight claim timestamps for atomic single-execution concurrency control
+    in_flight: Arc<DashMap<String, DateTime<Utc>>>,
 
     /// Clock for time operations
     clock: Arc<dyn Clock>,
@@ -131,6 +134,7 @@ impl IdempotencyStore {
         Self {
             config,
             store: Arc::new(DashMap::new()),
+            in_flight: Arc::new(DashMap::new()),
             clock,
         }
     }
@@ -201,6 +205,7 @@ impl IdempotencyStore {
         );
 
         self.store.insert(key.to_string(), response);
+        self.in_flight.remove(key);
         info!(
             "Stored idempotency key: {} (TTL: {:?})",
             key, self.config.ttl
@@ -321,17 +326,51 @@ pub trait ResponseStore: Send + Sync + 'static {
     ) -> impl std::future::Future<Output = Result<StoredResponse, IdempotencyError>> + Send {
         self.store_response(key, status, headers, body)
     }
+
+    /// Release an `in_flight` claim when downstream execution fails transiently so clients may retry.
+    fn release_claim(
+        &self,
+        _key: &str,
+    ) -> impl std::future::Future<Output = Result<(), IdempotencyError>> + Send {
+        std::future::ready(Ok(()))
+    }
 }
 
 impl ResponseStore for IdempotencyStore {
     async fn lookup(&self, key: &str) -> Result<LookupOutcome, IdempotencyError> {
-        // In-memory semantics: only completed responses are visible; there is
-        // no in-progress state, so concurrent same-key requests both execute
-        // (preserved from the original middleware behavior).
-        let outcome = self
-            .get(key)
-            .map_or(LookupOutcome::Proceed, LookupOutcome::Replay);
-        Ok(outcome)
+        if let Some(resp) = self.get(key) {
+            return Ok(LookupOutcome::Replay(resp));
+        }
+
+        let now = self.clock.now();
+        let stale_window =
+            chrono::Duration::seconds(i64::try_from(self.config.stale_seconds).unwrap_or(300));
+
+        // Atomic DashMap shard lock prevents two concurrent callers from both proceeding.
+        let mut claimed = false;
+        self.in_flight
+            .entry(key.to_string())
+            .and_modify(|ts| {
+                if now - *ts > stale_window {
+                    *ts = now;
+                    claimed = true;
+                }
+            })
+            .or_insert_with(|| {
+                claimed = true;
+                now
+            });
+
+        if claimed {
+            Ok(LookupOutcome::Proceed)
+        } else {
+            Ok(LookupOutcome::Conflict)
+        }
+    }
+
+    async fn release_claim(&self, key: &str) -> Result<(), IdempotencyError> {
+        self.in_flight.remove(key);
+        Ok(())
     }
 
     async fn store_response(

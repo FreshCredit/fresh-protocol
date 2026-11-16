@@ -113,17 +113,54 @@ pub async fn discover_peers(State(state): State<Arc<AppState>>) -> Json<serde_js
     }))
 }
 
-/// Verify a hash exists in NOMT storage
-/// Uses write lock because verify reloads from shared NFS storage
+/// Verify a hash exists in NOMT storage.
+/// Public unauthenticated callers receive existence/root status without tenant `user_id` PII;
+/// callers presenting a matching `NOMT_SIDECAR_API_KEY` receive full metadata.
 pub async fn verify_hash(
     State(state): State<Arc<AppState>>,
+    headers: axum::http::HeaderMap,
     Path(hash): Path<String>,
 ) -> Result<Json<VerifyResponse>, StatusCode> {
+    let expected = std::env::var("NOMT_SIDECAR_API_KEY")
+        .ok()
+        .filter(|s| !s.is_empty());
+    verify_hash_with_key(state, expected.as_deref(), &headers, &hash).await
+}
+
+pub(crate) async fn verify_hash_with_key(
+    state: Arc<AppState>,
+    expected_api_key: Option<&str>,
+    headers: &axum::http::HeaderMap,
+    hash: &str,
+) -> Result<Json<VerifyResponse>, StatusCode> {
+    let is_authenticated = match expected_api_key.filter(|s| !s.is_empty()) {
+        Some(expected) => {
+            use sha2::{Digest, Sha256};
+            let provided = headers
+                .get("x-api-key")
+                .and_then(|v| v.to_str().ok())
+                .unwrap_or("");
+            let a: [u8; 32] = Sha256::digest(provided.as_bytes()).into();
+            let b: [u8; 32] = Sha256::digest(expected.as_bytes()).into();
+            a.iter()
+                .zip(b.iter())
+                .fold(0u8, |acc, (x, y)| acc | (x ^ y))
+                == 0
+        }
+        None => true,
+    };
+
     let mut storage = state.storage.write().await;
 
-    match storage.verify(&hash, None).await {
+    match storage.verify(hash, None).await {
         // TAG: surface=blockchain owner=blockchain-team rule=BC-001
-        Ok(result) => Ok(Json(result)),
+        Ok(mut result) => {
+            if !is_authenticated {
+                result.user_id = None;
+                result.report_type = None;
+            }
+            Ok(Json(result))
+        }
         Err(e) => {
             warn!(error = %e, hash = %hash, "Verification failed");
             Err(StatusCode::INTERNAL_SERVER_ERROR)
