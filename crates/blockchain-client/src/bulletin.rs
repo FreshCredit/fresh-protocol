@@ -36,8 +36,8 @@ pub const DEFAULT_IPFS_GATEWAYS: &[&str] = &[
 /// submitting huge blobs.
 pub const MAX_ENVELOPE_ANCHOR_BYTES: usize = 256 * 1024; // 256 KiB
 
-/// Configuration for the Bulletin Chain client.
-#[derive(Debug, Clone, Default)]
+/// Configuration for the Bulletin Chain client (`signer_suri`/`signer_mnemonic` redacted in `Debug`).
+#[derive(Clone, Default)]
 pub struct BulletinConfig {
     /// WebSocket RPC URL for the Bulletin devnet node.
     pub rpc_url: String,
@@ -49,6 +49,24 @@ pub struct BulletinConfig {
     pub ipfs_gateway: Option<String>,
     /// Whether on-chain anchoring is enabled.
     pub enabled: bool,
+}
+
+impl std::fmt::Debug for BulletinConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BulletinConfig")
+            .field("rpc_url", &self.rpc_url)
+            .field(
+                "signer_suri",
+                &self.signer_suri.as_ref().map(|_| "[REDACTED]"),
+            )
+            .field(
+                "signer_mnemonic",
+                &self.signer_mnemonic.as_ref().map(|_| "[REDACTED]"),
+            )
+            .field("ipfs_gateway", &self.ipfs_gateway)
+            .field("enabled", &self.enabled)
+            .finish()
+    }
 }
 
 impl BulletinConfig {
@@ -157,6 +175,21 @@ impl BulletinClient {
         }
     }
 
+    fn is_loopback_ws(url: &str) -> bool {
+        let rest = url.strip_prefix("ws://").unwrap_or("");
+        let host_port = rest.split('/').next().unwrap_or("");
+        let host = if host_port.starts_with('[') {
+            host_port
+                .split(']')
+                .next()
+                .unwrap_or("")
+                .trim_start_matches('[')
+        } else {
+            host_port.split(':').next().unwrap_or("")
+        };
+        host.eq_ignore_ascii_case("localhost") || host == "127.0.0.1" || host == "::1"
+    }
+
     async fn connect(
         rpc_url: &str,
     ) -> Result<(
@@ -164,6 +197,13 @@ impl BulletinClient {
         Arc<LegacyRpcMethods<subxt::config::RpcConfigFor<SubstrateConfig>>>,
     )> {
         let rpc_client = if rpc_url.starts_with("ws://") {
+            let allow_insecure = std::env::var("ALLOW_INSECURE_WS_RPC")
+                .is_ok_and(|v| v == "1" || v.eq_ignore_ascii_case("true"));
+            if !Self::is_loopback_ws(rpc_url) && !allow_insecure {
+                anyhow::bail!(
+                    "Refusing plaintext ws:// Bulletin RPC on non-loopback host; use wss:// or set ALLOW_INSECURE_WS_RPC=1"
+                );
+            }
             RpcClient::from_insecure_url(rpc_url)
                 .await
                 .map_err(|e| anyhow::anyhow!("Failed to connect to Bulletin RPC: {e}"))?

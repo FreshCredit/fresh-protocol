@@ -153,7 +153,15 @@ impl OAuthClient {
         )
     }
 
-    /// Legacy authorization URL helper (prefers [`Self::build_authorization_url`] for PKCE/CSRF).
+    /// Legacy authorization URL helper without PKCE/state.
+    ///
+    /// # Deprecated
+    /// RFC 9700 (OAuth 2.0 Security BCP) mandates `state` and `S256` PKCE; use
+    /// [`Self::build_authorization_url`] instead.
+    #[deprecated(
+        since = "0.1.0",
+        note = "RFC 9700 requires state and S256 PKCE; use build_authorization_url"
+    )]
     #[must_use]
     pub fn get_auth_url(&self) -> String {
         format!(

@@ -33,8 +33,8 @@ pub struct NomtAnchorResult {
     pub proof: NomtProof,
 }
 
-/// NOMT sidecar client for off-chain state storage
-#[derive(Clone, Debug)]
+/// NOMT sidecar client for off-chain state storage (`api_key` redacted in `Debug`).
+#[derive(Clone)]
 pub struct NomtClient {
     /// HTTP client for NOMT sidecar API
     http_client: reqwest::Client,
@@ -42,6 +42,35 @@ pub struct NomtClient {
     sidecar_url: String,
     /// Optional API key sent as `x-api-key` when `NOMT_SIDECAR_API_KEY` is configured
     api_key: Option<String>,
+}
+
+impl std::fmt::Debug for NomtClient {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("NomtClient")
+            .field("sidecar_url", &self.sidecar_url)
+            .field("api_key", &self.api_key.as_ref().map(|_| "[REDACTED]"))
+            .finish_non_exhaustive()
+    }
+}
+
+fn build_bounded_http_client() -> reqwest::Client {
+    reqwest::Client::builder()
+        .connect_timeout(std::time::Duration::from_secs(5))
+        .timeout(std::time::Duration::from_secs(15))
+        .build()
+        .unwrap_or_else(|_| reqwest::Client::new())
+}
+
+fn validate_path_segment(seg: &str) -> Result<()> {
+    if seg.is_empty()
+        || seg.len() > 128
+        || !seg
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
+    {
+        anyhow::bail!("Invalid NOMT hash path segment");
+    }
+    Ok(())
 }
 
 impl NomtClient {
@@ -52,8 +81,8 @@ impl NomtClient {
             .ok()
             .filter(|s| !s.is_empty());
         Self {
-            http_client: reqwest::Client::new(),
-            sidecar_url: sidecar_url.to_string(),
+            http_client: build_bounded_http_client(),
+            sidecar_url: sidecar_url.trim_end_matches('/').to_string(),
             api_key,
         }
     }
@@ -62,17 +91,18 @@ impl NomtClient {
     #[must_use]
     pub fn with_api_key(sidecar_url: &str, api_key: impl Into<String>) -> Self {
         Self {
-            http_client: reqwest::Client::new(),
-            sidecar_url: sidecar_url.to_string(),
+            http_client: build_bounded_http_client(),
+            sidecar_url: sidecar_url.trim_end_matches('/').to_string(),
             api_key: Some(api_key.into()),
         }
     }
 
     // TAG: surface=blockchain owner=blockchain-team rule=BLOCKCHAIN-001
-    /// Store report data in NOMT and return proof
+    /// Store report data in NOMT and cryptographically verify the returned RFC 6962
+    /// namespace-bound Merkle inclusion proof against `result.nomt_root`.
     /// # Errors
     ///
-    /// Returns an error if the operation fails.
+    /// Returns an error if the request fails or the returned Merkle proof is invalid.
     pub async fn store(
         &self,
         user_id: &str,
@@ -98,6 +128,14 @@ impl NomtClient {
         }
 
         let result: NomtAnchorResult = response.json().await?;
+        let namespace = format!("{user_id}:{report_type}");
+        let verified = result
+            .proof
+            .verify_bound_leaf(&namespace, data, &result.nomt_root, None)
+            .map_err(|e| anyhow::anyhow!("Invalid NOMT Merkle proof from sidecar: {e}"))?;
+        if !verified {
+            anyhow::bail!("NOMT sidecar returned Merkle proof failing bound leaf verification");
+        }
         Ok(result)
     }
 
@@ -105,8 +143,9 @@ impl NomtClient {
     /// Get Merkle proof for a hash
     /// # Errors
     ///
-    /// Returns an error if the operation fails.
+    /// Returns an error if the hash path segment is invalid or the request fails.
     pub async fn get_proof(&self, hash: &str) -> Result<Option<NomtProof>> {
+        validate_path_segment(hash)?;
         let url = format!("{}/proof/{}", self.sidecar_url, hash);
 
         let response = self.http_client.get(&url).send().await?;
@@ -126,8 +165,9 @@ impl NomtClient {
     /// Verify a hash exists in NOMT storage
     /// # Errors
     ///
-    /// Returns an error if the operation fails.
+    /// Returns an error if the hash path segment is invalid or the request fails.
     pub async fn verify(&self, hash: &str) -> Result<bool> {
+        validate_path_segment(hash)?;
         let url = format!("{}/verify/{}", self.sidecar_url, hash);
 
         let response = self.http_client.get(&url).send().await?;
@@ -170,17 +210,17 @@ mod tests {
     #[tokio::test]
     async fn test_store_success() {
         let mock_server = MockServer::start().await;
+        let leaf = freshcredit_nomt_core::compute_bound_leaf_hash("user-1:report", b"data");
+        let sib = freshcredit_nomt_core::compute_bound_leaf_hash("user-2:report", b"other");
+        let leaves = vec![leaf.clone(), sib];
+        let root = freshcredit_nomt_core::compute_merkle_root(&leaves);
+        let proof = freshcredit_nomt_core::build_merkle_proof(&leaves, &leaf).unwrap();
         let result = NomtAnchorResult {
-            hash: "abc123".to_string(),
+            hash: leaf.clone(),
             // TAG: surface=blockchain owner=platform-team rule=GENERAL-001
-            nomt_root: "root456".to_string(),
+            nomt_root: root,
             block_number: 42,
-            proof: NomtProof {
-                leaf_hash: "abc123".to_string(),
-                siblings: vec!["sib1".to_string()],
-                path: vec![false, true],
-                root: "root456".to_string(),
-            },
+            proof,
         };
 
         Mock::given(method("POST"))
@@ -191,8 +231,34 @@ mod tests {
 
         let client = NomtClient::new(&mock_server.uri());
         let resp = client.store("user-1", "report", b"data").await.unwrap();
-        assert_eq!(resp.hash, "abc123");
+        assert_eq!(resp.hash, leaf);
         assert_eq!(resp.block_number, 42);
+    }
+
+    #[tokio::test]
+    async fn test_store_rejects_tampered_merkle_proof_and_path_traversal() {
+        let mock_server = MockServer::start().await;
+        let result = NomtAnchorResult {
+            hash: "00".repeat(32),
+            nomt_root: "ff".repeat(32),
+            block_number: 42,
+            proof: NomtProof {
+                leaf_hash: "00".repeat(32),
+                siblings: vec!["11".repeat(32)],
+                path: vec![false],
+                root: "ff".repeat(32),
+            },
+        };
+        Mock::given(method("POST"))
+            .and(path("/store"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(&result))
+            .mount(&mock_server)
+            .await;
+
+        let client = NomtClient::with_api_key(&mock_server.uri(), "super-secret-nomt-key");
+        assert!(!format!("{client:?}").contains("super-secret-nomt-key"));
+        assert!(client.store("user-1", "report", b"data").await.is_err());
+        assert!(client.get_proof("../admin").await.is_err());
     }
 
     #[tokio::test]

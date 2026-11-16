@@ -188,6 +188,35 @@ impl NomtProof {
         self.verify(expected_root_hex)
     }
 
+    /// Verify inclusion of raw `(namespace, data)` against `expected_root_hex`, recomputing
+    /// the domain-separated RFC 6962 `0x00` bound leaf hash and validating binary tree depth
+    /// when `expected_leaf_count > 0` so internal `0x01` nodes cannot masquerade as leaves.
+    #[wasm_bindgen]
+    /// # Errors
+    ///
+    /// Returns an error if hex decoding or proof verification fails.
+    pub fn verify_bound_leaf(
+        &self,
+        namespace: &str,
+        data: &[u8],
+        expected_root_hex: &str,
+        expected_leaf_count: usize,
+    ) -> Result<bool, JsValue> {
+        if expected_leaf_count > 0 {
+            let min_depth = (usize::BITS - (expected_leaf_count - 1).leading_zeros()) as usize;
+            let depth = self.siblings.len();
+            if expected_leaf_count > 1 && (depth < min_depth.saturating_sub(1) || depth > min_depth)
+            {
+                return Ok(false);
+            }
+            if expected_leaf_count == 1 && depth != 0 {
+                return Ok(false);
+            }
+        }
+        let expected_leaf = blake3_bound_leaf_hash(namespace, data);
+        self.verify_against(expected_root_hex, &expected_leaf)
+    }
+
     /// Get the leaf hash as hex string
     #[wasm_bindgen(getter)]
     #[must_use]
@@ -382,6 +411,34 @@ mod tests {
         let leaf = blake3_leaf_hash(b"data");
         let result = verify_nomt_proof(&leaf, vec![], &[], &leaf);
         assert!(result.unwrap());
+    }
+
+    #[test]
+    fn test_wasm_verify_bound_leaf_rejects_cross_namespace_and_depth_forgery() {
+        let leaf1 = blake3_bound_leaf_hash("alice:report", b"payload-1");
+        let leaf2 = blake3_bound_leaf_hash("bob:report", b"payload-2");
+        let l1_bytes = hex::decode(&leaf1).unwrap();
+        let l2_bytes = hex::decode(&leaf2).unwrap();
+        let mut h = blake3::Hasher::new();
+        h.update(&[0x01]);
+        h.update(&l1_bytes);
+        h.update(&l2_bytes);
+        let root_hex = hex::encode(h.finalize().as_bytes());
+        let proof = NomtProof {
+            leaf_hash: l1_bytes,
+            siblings: vec![l2_bytes],
+            path: vec![false],
+            root: hex::decode(&root_hex).unwrap(),
+        };
+        assert!(proof
+            .verify_bound_leaf("alice:report", b"payload-1", &root_hex, 2)
+            .unwrap());
+        assert!(!proof
+            .verify_bound_leaf("eve:report", b"payload-1", &root_hex, 2)
+            .unwrap());
+        assert!(!proof
+            .verify_bound_leaf("alice:report", b"payload-1", &root_hex, 8)
+            .unwrap());
     }
     // TAG: surface=blockchain owner=blockchain-team rule=BC-001
 }

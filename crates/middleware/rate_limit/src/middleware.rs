@@ -66,9 +66,9 @@ impl RateLimitLayer {
     /// Middleware handler
     #[instrument(name = "rate_limit_middleware", skip(self, req, next), fields(path = %req.uri().path()))]
     pub async fn handle(&self, req: Request, next: Next) -> Response {
-        // Skip rate limiting for exempt routes
+        // Skip rate limiting for exempt routes (method-aware so POST /login etc. still hit auth_limiter)
         let path = req.uri().path();
-        if should_exempt_from_rate_limit(path) {
+        if should_exempt_from_rate_limit(req.method(), path) {
             return next.run(req).await;
         }
 
@@ -131,8 +131,11 @@ impl RateLimitLayer {
     }
 }
 
-/// Check if a route should be exempt from rate limiting
-fn should_exempt_from_rate_limit(path: &str) -> bool {
+/// Check if a route should be exempt from rate limiting.
+/// SECURITY: Only GET/HEAD render pages for auth paths are exempt; state-changing
+/// auth methods (POST/PUT/DELETE/PATCH) MUST route through `auth_limiter` in `handle()`.
+fn should_exempt_from_rate_limit(method: &Method, path: &str) -> bool {
+    let is_read_only = matches!(*method, Method::GET | Method::HEAD);
     // Exempt static assets (CSS, JS, fonts, icons, images)
     if path.starts_with("/static/") {
         return true;
@@ -215,30 +218,35 @@ fn should_exempt_from_rate_limit(path: &str) -> bool {
         return true;
     }
 
-    // Exempt public authentication render pages. These are GET-only landing pages
-    // protected by CSP/headers, not rate limiting. Shared NAT / mobile carrier IPs
-    // were hitting the anonymous tier here, causing legitimate invite links and
-    // first-time users to receive 429 errors.
-    if matches!(
-        path,
-        "/login"
-            | "/register"
-            | "/forgot-password"
-            | "/reset-password"
-            | "/test-signin"
-            | "/auth/callback"
-            | "/auth/verify"
-            | "/auth/login/start"
-            | "/logout"
-            | "/solutions"
-            | "/download"
-            | "/book"
-    ) {
+    // Exempt public authentication render pages (GET/HEAD ONLY).
+    // State-changing POST requests to /login, /register, /forgot-password, /reset-password,
+    // /auth/callback, /auth/verify, etc. MUST NOT be exempted here so `auth_limiter` enforces 429s.
+    if is_read_only
+        && matches!(
+            path,
+            "/login"
+                | "/register"
+                | "/forgot-password"
+                | "/reset-password"
+                | "/test-signin"
+                | "/auth/callback"
+                | "/auth/verify"
+                | "/auth/login/start"
+                | "/logout"
+                | "/solutions"
+                | "/download"
+                | "/book"
+        )
+    {
         return true;
     }
 
-    // Exempt debug routes (development and troubleshooting)
-    if path.starts_with("/debug") {
+    // Exempt debug routes ONLY when explicitly outside production
+    if path.starts_with("/debug")
+        && std::env::var("ENVIRONMENT").map_or(true, |v| v != "production")
+        && std::env::var("PRODUCTION").is_err()
+        && std::env::var("K_SERVICE").is_err()
+    {
         return true;
     }
 
@@ -358,15 +366,91 @@ mod tests {
 
     #[test]
     fn test_should_exempt_from_rate_limit() {
-        assert!(should_exempt_from_rate_limit("/static/main.css"));
-        assert!(should_exempt_from_rate_limit("/health"));
-        assert!(should_exempt_from_rate_limit("/favicon.ico"));
-        assert!(should_exempt_from_rate_limit("/api/webhooks/stripe"));
-        assert!(should_exempt_from_rate_limit("/dashboard"));
-        assert!(should_exempt_from_rate_limit("/help"));
-        assert!(should_exempt_from_rate_limit("/auth/login/start"));
-        assert!(!should_exempt_from_rate_limit("/api/users"));
-        assert!(!should_exempt_from_rate_limit("/api/auth/login"));
+        assert!(should_exempt_from_rate_limit(
+            &Method::GET,
+            "/static/main.css"
+        ));
+        assert!(should_exempt_from_rate_limit(&Method::GET, "/health"));
+        assert!(should_exempt_from_rate_limit(&Method::GET, "/favicon.ico"));
+        assert!(should_exempt_from_rate_limit(
+            &Method::POST,
+            "/api/webhooks/stripe"
+        ));
+        assert!(should_exempt_from_rate_limit(&Method::GET, "/dashboard"));
+        assert!(should_exempt_from_rate_limit(&Method::GET, "/help"));
+        assert!(should_exempt_from_rate_limit(
+            &Method::GET,
+            "/auth/login/start"
+        ));
+        assert!(should_exempt_from_rate_limit(&Method::GET, "/login"));
+        // CRITICAL SECURITY: State-changing auth endpoints MUST NOT bypass auth rate limiter
+        assert!(!should_exempt_from_rate_limit(&Method::POST, "/login"));
+        assert!(!should_exempt_from_rate_limit(&Method::POST, "/register"));
+        assert!(!should_exempt_from_rate_limit(
+            &Method::POST,
+            "/forgot-password"
+        ));
+        assert!(!should_exempt_from_rate_limit(
+            &Method::POST,
+            "/reset-password"
+        ));
+        assert!(!should_exempt_from_rate_limit(
+            &Method::POST,
+            "/auth/callback"
+        ));
+        assert!(!should_exempt_from_rate_limit(&Method::GET, "/api/users"));
+        assert!(!should_exempt_from_rate_limit(
+            &Method::GET,
+            "/api/auth/login"
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_post_login_enforces_auth_rate_limit_429() {
+        use axum::routing::post;
+        let layer = RateLimitLayer::anonymous();
+        let app = Router::new()
+            .route("/login", post(|| async { "ok" }))
+            .layer(axum::middleware::from_fn(move |req, next| {
+                let layer = layer.clone();
+                async move { layer.handle(req, next).await }
+            }));
+
+        let mut hit_429 = false;
+        let mut saw_auth_limit_100 = false;
+        for _ in 0..105 {
+            let resp = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .method(Method::POST)
+                        .uri("/login")
+                        .header("X-Forwarded-For", "198.51.100.77")
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            if resp
+                .headers()
+                .get("X-RateLimit-Limit")
+                .is_some_and(|v| v == "100")
+            {
+                saw_auth_limit_100 = true;
+            }
+            if resp.status() == StatusCode::TOO_MANY_REQUESTS {
+                hit_429 = true;
+                break;
+            }
+        }
+        assert!(
+            saw_auth_limit_100,
+            "POST /login must route through auth_limiter (limit=100)"
+        );
+        assert!(
+            hit_429,
+            "POST /login flood MUST trigger 429 via auth_limiter"
+        );
     }
 
     #[test]
@@ -567,39 +651,48 @@ mod tests {
     #[test]
     // TAG: surface=security owner=platform-team rule=GENERAL-001
     fn test_exempt_routes_comprehensive() {
-        assert!(should_exempt_from_rate_limit("/static/js/app.js"));
-        assert!(should_exempt_from_rate_limit("/static/css/style.css"));
-        assert!(should_exempt_from_rate_limit("/"));
+        let g = Method::GET;
+        let p = Method::POST;
+        assert!(should_exempt_from_rate_limit(&g, "/static/js/app.js"));
+        assert!(should_exempt_from_rate_limit(&g, "/static/css/style.css"));
+        assert!(should_exempt_from_rate_limit(&g, "/"));
         assert!(should_exempt_from_rate_limit(
+            &g,
             "/.well-known/did-configuration.json"
         ));
-        assert!(should_exempt_from_rate_limit("/api/database/token"));
+        assert!(should_exempt_from_rate_limit(&g, "/api/database/token"));
         assert!(should_exempt_from_rate_limit(
+            &g,
             "/api/notifications/unread-count"
         ));
-        assert!(should_exempt_from_rate_limit("/api/user/me"));
-        assert!(should_exempt_from_rate_limit("/api/session/status"));
-        assert!(should_exempt_from_rate_limit("/api/logo-proxy/google"));
-        assert!(should_exempt_from_rate_limit("/api/turso-sync/sync"));
-        assert!(should_exempt_from_rate_limit("/business/dashboard"));
-        assert!(should_exempt_from_rate_limit("/business/reports"));
-        assert!(should_exempt_from_rate_limit("/privacy"));
-        assert!(should_exempt_from_rate_limit("/terms"));
-        assert!(should_exempt_from_rate_limit("/about"));
-        assert!(should_exempt_from_rate_limit("/contact"));
-        assert!(should_exempt_from_rate_limit("/debug/info"));
-        // Public auth render pages are exempt from IP-based rate limiting.
-        assert!(should_exempt_from_rate_limit("/login"));
-        assert!(should_exempt_from_rate_limit("/register"));
-        assert!(should_exempt_from_rate_limit("/forgot-password"));
-        assert!(should_exempt_from_rate_limit("/reset-password"));
-        assert!(should_exempt_from_rate_limit("/solutions"));
-        assert!(should_exempt_from_rate_limit("/download"));
-        assert!(should_exempt_from_rate_limit("/book"));
-        assert!(!should_exempt_from_rate_limit("/api/transactions"));
-        assert!(!should_exempt_from_rate_limit("/api/payments"));
-        assert!(!should_exempt_from_rate_limit("/api/auth/login"));
-        assert!(!should_exempt_from_rate_limit("/api/auth/2fa/verify"));
+        assert!(should_exempt_from_rate_limit(&g, "/api/user/me"));
+        assert!(should_exempt_from_rate_limit(&g, "/api/session/status"));
+        assert!(should_exempt_from_rate_limit(&g, "/api/logo-proxy/google"));
+        assert!(should_exempt_from_rate_limit(&p, "/api/turso-sync/sync"));
+        assert!(should_exempt_from_rate_limit(&g, "/business/dashboard"));
+        assert!(should_exempt_from_rate_limit(&g, "/business/reports"));
+        assert!(should_exempt_from_rate_limit(&g, "/privacy"));
+        assert!(should_exempt_from_rate_limit(&g, "/terms"));
+        assert!(should_exempt_from_rate_limit(&g, "/about"));
+        assert!(should_exempt_from_rate_limit(&g, "/contact"));
+        assert!(should_exempt_from_rate_limit(&g, "/debug/info"));
+        // Public auth render pages (GET only) are exempt from IP-based rate limiting.
+        assert!(should_exempt_from_rate_limit(&g, "/login"));
+        assert!(should_exempt_from_rate_limit(&g, "/register"));
+        assert!(should_exempt_from_rate_limit(&g, "/forgot-password"));
+        assert!(should_exempt_from_rate_limit(&g, "/reset-password"));
+        assert!(should_exempt_from_rate_limit(&g, "/solutions"));
+        assert!(should_exempt_from_rate_limit(&g, "/download"));
+        assert!(should_exempt_from_rate_limit(&g, "/book"));
+        // State-changing auth requests MUST NOT bypass rate limiting
+        assert!(!should_exempt_from_rate_limit(&p, "/login"));
+        assert!(!should_exempt_from_rate_limit(&p, "/register"));
+        assert!(!should_exempt_from_rate_limit(&p, "/forgot-password"));
+        assert!(!should_exempt_from_rate_limit(&p, "/reset-password"));
+        assert!(!should_exempt_from_rate_limit(&g, "/api/transactions"));
+        assert!(!should_exempt_from_rate_limit(&g, "/api/payments"));
+        assert!(!should_exempt_from_rate_limit(&p, "/api/auth/login"));
+        assert!(!should_exempt_from_rate_limit(&p, "/api/auth/2fa/verify"));
     }
 
     #[test]
