@@ -39,6 +39,8 @@ pub struct AnchoringConfig {
     pub substrate_rpc_url: String,
     /// Blockchain API URL (for HTTP-based anchoring)
     pub blockchain_api_url: String,
+    /// Optional API key sent via `X-API-Key` to `blockchain-node /anchor`
+    pub blockchain_api_key: Option<String>,
     /// Anchor after this many new stores
     pub anchor_interval_stores: u64,
     /// Anchor after this many seconds (even if no new stores)
@@ -52,6 +54,7 @@ impl Default for AnchoringConfig {
         Self {
             substrate_rpc_url: "http://localhost:9944".to_string(),
             blockchain_api_url: "http://localhost:8080".to_string(),
+            blockchain_api_key: None,
             anchor_interval_stores: 10,
             anchor_interval_seconds: 300, // 5 minutes
             // TAG: surface=blockchain owner=blockchain-team rule=BC-001
@@ -140,16 +143,17 @@ impl AnchoringService {
         let anchor_url = format!("{}/anchor", self.config.blockchain_api_url);
         // TAG: surface=blockchain owner=blockchain-team rule=BC-001
 
-        let response = self
-            .http_client
-            .post(&anchor_url)
-            .json(&serde_json::json!({
-                "user_id": user_id,
-                "report_type": "nomt_root",
-                "report_data": current_root
-            }))
-            .send()
-            .await;
+        let mut req_builder = self.http_client.post(&anchor_url).json(&serde_json::json!({
+            "user_id": user_id,
+            "report_type": "nomt_root",
+            "report_data": current_root
+        }));
+        if let Some(ref key) = self.config.blockchain_api_key {
+            if !key.is_empty() {
+                req_builder = req_builder.header("X-API-Key", key);
+            }
+        }
+        let response = req_builder.send().await;
 
         // Record latency
         let latency_ms = u64::try_from(start.elapsed().as_millis()).unwrap_or(u64::MAX);
@@ -389,6 +393,67 @@ mod tests {
         let service = AnchoringService::new(config);
         let root = service.get_last_anchored_root().await;
         assert!(root.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_anchor_root_attaches_api_key_and_payload() {
+        use axum::{extract::Request, http::StatusCode, routing::post, Json, Router};
+        use tokio::net::TcpListener;
+
+        let expected_key = "test-blockchain-api-key".to_string();
+        let key_mw = expected_key.clone();
+        let app = Router::new().route(
+            "/anchor",
+            post(move |req: Request| {
+                let expected = key_mw.clone();
+                async move {
+                    let got = req
+                        .headers()
+                        .get("X-API-Key")
+                        .and_then(|v| v.to_str().ok())
+                        .unwrap_or("");
+                    if got != expected {
+                        return (
+                            StatusCode::UNAUTHORIZED,
+                            Json(serde_json::json!({"error": "unauthorized"})),
+                        );
+                    }
+                    let body_bytes = axum::body::to_bytes(req.into_body(), 64 * 1024)
+                        .await
+                        .unwrap_or_default();
+                    let val: serde_json::Value =
+                        serde_json::from_slice(&body_bytes).unwrap_or_default();
+                    if val.get("report_type").and_then(|v| v.as_str()) != Some("nomt_root") {
+                        return (
+                            StatusCode::BAD_REQUEST,
+                            Json(serde_json::json!({"error": "bad report_type"})),
+                        );
+                    }
+                    (
+                        StatusCode::OK,
+                        Json(serde_json::json!({"block_number": 7, "tx_hash": "0xabc"})),
+                    )
+                }
+            }),
+        );
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+
+        let service = AnchoringService::new(AnchoringConfig {
+            blockchain_api_url: format!("http://{addr}"),
+            blockchain_api_key: Some(expected_key),
+            enabled: true,
+            ..Default::default()
+        });
+        let res = service
+            .anchor_root(&"a".repeat(64), "system")
+            .await
+            .unwrap();
+        assert!(res.success, "anchor_root failed: {}", res.message);
+        assert_eq!(res.block_number, Some(7));
     }
     // TAG: surface=blockchain owner=blockchain-team rule=BC-001
 }

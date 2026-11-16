@@ -415,6 +415,10 @@ pub(super) async fn anchor_hash(
     let nomt_url = state.nomt_sidecar_url.clone();
     let nomt_client = state.http_client.clone();
     let store_via_nomt = move || {
+        // Never echo a NOMT Merkle root anchor back into nomt-sidecar /store (prevents recursive mutation loop)
+        if nomt_type.eq_ignore_ascii_case("nomt_root") {
+            return;
+        }
         if let (Some(url), Ok(bytes)) = (&nomt_url, &nomt_store_bytes) {
             crate::helpers::spawn_nomt_store(
                 &nomt_client,

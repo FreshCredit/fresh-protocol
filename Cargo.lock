@@ -2141,6 +2141,7 @@ dependencies = [
  "chrono",
  "freshcredit-libsql-common",
  "freshcredit-libsql-local",
+ "freshcredit-security",
  "freshcredit-types",
  "libsql",
  "serde_json",

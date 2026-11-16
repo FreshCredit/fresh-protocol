@@ -504,7 +504,7 @@ impl CloudClient {
     ///
     /// Returns an error if the operation fails.
     pub async fn get_plaid_access_token(&self, user_id: &str) -> FreshCreditResult<Option<String>> {
-        info!("Getting Plaid access token for user: {}", user_id);
+        tracing::debug!("Getting Plaid access token for user");
 
         let mut rows = self
             .query(
@@ -519,11 +519,30 @@ impl CloudClient {
             .await
             .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?
         {
-            let access_token: Option<String> = row.get(0).ok();
-            return Ok(access_token);
+            let raw: Option<String> = row.get(0).ok();
+            return raw
+                .map(|stored| {
+                    Self::decrypt_plaid_token(
+                        &format!("accounts:plaid_access_token:{user_id}"),
+                        &stored,
+                    )
+                })
+                .transpose();
         }
 
         Ok(None)
+    }
+
+    fn decrypt_plaid_token(aad_ctx: &str, stored: &str) -> FreshCreditResult<String> {
+        let cfg = freshcredit_security::get_encryption_config();
+        if let Some(ct) = stored.strip_prefix("enc:v2:") {
+            return cfg.decrypt_with_aad(ct, aad_ctx.as_bytes()).map_err(|_| {
+                freshcredit_types::FreshCreditError::DatabaseError(
+                    "Failed to decrypt Plaid access token (AEAD verification failed)".to_string(),
+                )
+            });
+        }
+        Ok(cfg.decrypt(stored).unwrap_or_else(|_| stored.to_string()))
     }
 
     // TAG: surface=database owner=platform-team rule=DB-001
@@ -538,7 +557,7 @@ impl CloudClient {
         &self,
         account_id: &str,
     ) -> FreshCreditResult<Option<String>> {
-        info!("Getting Plaid access token for account: {}", account_id);
+        tracing::debug!("Getting Plaid access token for account");
 
         let mut rows = self
             .query(
@@ -553,8 +572,15 @@ impl CloudClient {
             .await
             .map_err(|e| freshcredit_types::FreshCreditError::DatabaseError(e.to_string()))?
         {
-            let access_token: Option<String> = row.get(0).ok();
-            return Ok(access_token);
+            let raw: Option<String> = row.get(0).ok();
+            return raw
+                .map(|stored| {
+                    Self::decrypt_plaid_token(
+                        &format!("accounts:plaid_access_token:acct:{account_id}"),
+                        &stored,
+                    )
+                })
+                .transpose();
         }
 
         Ok(None)

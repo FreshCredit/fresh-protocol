@@ -1,6 +1,6 @@
 //! Shared helper functions.
 
-use crate::config::{API_KEY, CORS_MAX_AGE_SECS, JWT_SECRET, RATE_LIMIT_REQUESTS};
+use crate::config::{get_api_key, get_jwt_secret, CORS_MAX_AGE_SECS, RATE_LIMIT_REQUESTS};
 use crate::node::AppState;
 use axum::{
     extract::{Request, State},
@@ -25,10 +25,9 @@ pub fn extract_jwt(auth_header: &str) -> Option<&str> {
 // TAG: surface=blockchain owner=blockchain-team rule=BLOCKCHAIN-001
 /// Validate JWT token and return claims
 pub fn validate_jwt(token: &str) -> Result<crate::config::Claims, jsonwebtoken::errors::Error> {
-    assert!(
-        JWT_SECRET.len() >= 32,
-        "JWT_SECRET must be at least 32 bytes for HS256 security"
-    );
+    let secret = get_jwt_secret().ok_or_else(|| {
+        jsonwebtoken::errors::Error::from(jsonwebtoken::errors::ErrorKind::InvalidKeyFormat)
+    })?;
     let mut validation = Validation::new(Algorithm::HS256);
     validation.validate_nbf = true;
     validation.validate_aud = true;
@@ -40,7 +39,7 @@ pub fn validate_jwt(token: &str) -> Result<crate::config::Claims, jsonwebtoken::
     validation.leeway = 60;
     let claims = decode::<crate::config::Claims>(
         token,
-        &DecodingKey::from_secret(JWT_SECRET.as_bytes()),
+        &DecodingKey::from_secret(secret.as_bytes()),
         &validation,
     )?
     .claims;
@@ -53,9 +52,9 @@ pub fn validate_jwt(token: &str) -> Result<crate::config::Claims, jsonwebtoken::
     Ok(claims)
 }
 
-/// Validate API key (constant-time comparison to prevent timing attacks)
+/// Validate API key (constant-time comparison to prevent timing attacks; returns false if unconfigured)
 pub fn validate_api_key(api_key: &str) -> bool {
-    constant_time_compare(api_key, &API_KEY)
+    get_api_key().is_some_and(|expected| constant_time_compare(api_key, &expected))
 }
 
 /// Constant-time string comparison over fixed-length SHA-256 digests (no length oracle)
@@ -473,5 +472,56 @@ mod tests {
         let layer = build_cors_layer();
         // Just verify it builds without panicking
         let _ = layer;
+    }
+
+    #[test]
+    #[serial_test::serial]
+    fn test_validate_jwt_accepts_both_node_and_auth_claims_and_no_panic_unset() {
+        std::env::remove_var("API_KEY");
+        assert!(!validate_api_key("anything"));
+
+        let secret = "test-blockchain-node-secret-32-bytes!";
+        std::env::set_var("JWT_SECRET", secret);
+        let node_claims = crate::config::Claims::new_service("nomt-sidecar", 1);
+        let tok_node = jsonwebtoken::encode(
+            &jsonwebtoken::Header::new(Algorithm::HS256),
+            &node_claims,
+            &jsonwebtoken::EncodingKey::from_secret(secret.as_bytes()),
+        )
+        .unwrap();
+        let decoded = validate_jwt(&tok_node).expect("Claims::new_service must pass validate_jwt");
+        assert_eq!(decoded.sub, "nomt-sidecar");
+        assert_eq!(decoded.iss, "freshcredit");
+
+        // Auth-crate shaped JwtClaims payload (no token_type field, carries iss/aud)
+        let now = chrono::Utc::now().timestamp();
+        let auth_shape = serde_json::json!({
+            "sub": "user-42",
+            "email": "u@example.com",
+            "name": "User",
+            "iat": now,
+            "exp": now + 3600,
+            "iss": "freshcredit",
+            "aud": "freshcredit-api",
+            "entra_id": "e-42"
+        });
+        let tok_auth = jsonwebtoken::encode(
+            &jsonwebtoken::Header::new(Algorithm::HS256),
+            &auth_shape,
+            &jsonwebtoken::EncodingKey::from_secret(secret.as_bytes()),
+        )
+        .unwrap();
+        let decoded_auth =
+            validate_jwt(&tok_auth).expect("auth::JwtClaims shape must pass validate_jwt");
+        assert_eq!(decoded_auth.sub, "user-42");
+        std::env::remove_var("JWT_SECRET");
+
+        // Verify nomt_root report type passes AnchorRequest validation
+        let req = crate::config::AnchorRequest {
+            user_id: "system".to_string(),
+            report_type: "nomt_root".to_string(),
+            report_data: "a".repeat(64),
+        };
+        assert!(req.validate().is_ok());
     }
 }

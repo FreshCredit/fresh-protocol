@@ -43,29 +43,32 @@ pub const CORS_MAX_AGE_SECS: u32 = 3600;
 // Authentication & Authorization
 // ============================================================================
 
-// TAG: surface=blockchain owner=blockchain-team rule=BLOCKCHAIN-001
-/// JWT secret from environment (loaded once at startup)
-/// SECURITY: Panics in production if not set to prevent using default secrets
-pub static JWT_SECRET: std::sync::LazyLock<String> =
-    std::sync::LazyLock::new(|| match std::env::var("JWT_SECRET") {
-        Ok(secret) if !secret.is_empty() => secret,
-        _ => {
-            panic!("JWT_SECRET must be set in environment");
-        }
-    });
+/// Read JWT secret without panicking worker threads if unconfigured.
+#[must_use]
+pub fn get_jwt_secret() -> Option<String> {
+    std::env::var("JWT_SECRET").ok().filter(|s| s.len() >= 32)
+}
 
-/// API key for service-to-service authentication
-/// SECURITY: Panics in production if not set to prevent using default secrets
-pub static API_KEY: std::sync::LazyLock<String> =
-    std::sync::LazyLock::new(|| match std::env::var("API_KEY") {
-        Ok(key) if !key.is_empty() => key,
-        _ => {
-            panic!("API_KEY must be set in environment");
-        }
-    });
+/// Read service API key without panicking worker threads if unconfigured.
+#[must_use]
+pub fn get_api_key() -> Option<String> {
+    std::env::var("API_KEY").ok().filter(|s| !s.is_empty())
+}
+
+fn default_token_type() -> String {
+    "user".to_string()
+}
+
+fn default_issuer() -> String {
+    std::env::var("JWT_ISSUER").unwrap_or_else(|_| "freshcredit".to_string())
+}
+
+fn default_audience() -> String {
+    std::env::var("JWT_AUDIENCE").unwrap_or_else(|_| "freshcredit-api".to_string())
+}
 
 // TAG: surface=blockchain owner=blockchain-team rule=BLOCKCHAIN-001
-/// JWT Claims for authenticated requests
+/// JWT Claims for authenticated requests (wire-compatible with `auth::JwtClaims`)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Claims {
     /// Subject (`user_id` or `service_id`)
@@ -74,7 +77,17 @@ pub struct Claims {
     pub iat: i64,
     /// Expiration timestamp
     pub exp: i64,
+    /// Issuer
+    #[serde(default = "default_issuer")]
+    pub iss: String,
+    /// Audience
+    #[serde(default = "default_audience")]
+    pub aud: String,
+    /// Optional Not-Before timestamp
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub nbf: Option<i64>,
     /// Token type: "user" or "service"
+    #[serde(default = "default_token_type")]
     pub token_type: String,
 }
 
@@ -87,6 +100,9 @@ impl Claims {
             sub: user_id.to_string(),
             iat: now.timestamp(),
             exp: (now + chrono::Duration::hours(expiry_hours)).timestamp(),
+            iss: default_issuer(),
+            aud: default_audience(),
+            nbf: None,
             token_type: "user".to_string(),
         }
     }
@@ -98,6 +114,9 @@ impl Claims {
             sub: service_id.to_string(),
             iat: now.timestamp(),
             exp: (now + chrono::Duration::hours(expiry_hours)).timestamp(),
+            iss: default_issuer(),
+            aud: default_audience(),
+            nbf: None,
             token_type: "service".to_string(),
         }
     }
@@ -152,6 +171,7 @@ pub const VALID_REPORT_TYPES: &[&str] = &[
     "plaid_report",
     "consumer_report",
     "demo_report",
+    "nomt_root",
 ];
 
 // TAG: surface=blockchain owner=blockchain-team rule=BLOCKCHAIN-001

@@ -111,15 +111,15 @@ impl ReconnectingConnection {
                 return fresh;
             }
         }
-        // Without a parent database no writer can ever hold the lock
-        // (reconnecting is impossible), so the cached connection is always
-        // immediately available.
-        loop {
+        // Without a parent database we still avoid spinning indefinitely on single-thread runtimes:
+        // yield briefly across bounded attempts and fall back to blocking_read if on a multi-thread worker.
+        for _ in 0..1024 {
             if let Ok(guard) = self.connection.try_read() {
-                break guard.clone();
+                return guard.clone();
             }
-            std::hint::spin_loop();
+            std::thread::yield_now();
         }
+        tokio::task::block_in_place(|| self.connection.blocking_read().clone())
     }
 
     /// Drop the current connection and open a fresh one (new Hrana stream).

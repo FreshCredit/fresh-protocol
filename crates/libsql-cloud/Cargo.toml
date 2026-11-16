@@ -22,6 +22,7 @@ chrono = { workspace = true }
 freshcredit-types = { workspace = true }
 freshcredit-libsql-local = { workspace = true }
 freshcredit-libsql-common = { workspace = true }
+freshcredit-security = { workspace = true }
 
 [lints]
 workspace = true

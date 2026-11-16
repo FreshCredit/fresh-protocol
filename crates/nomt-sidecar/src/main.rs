@@ -285,10 +285,16 @@ fn build_anchoring_config() -> AnchoringConfig {
         .map(|s| s == "true" || s == "1")
         .unwrap_or(true);
 
+    let blockchain_api_key = std::env::var("BLOCKCHAIN_API_KEY")
+        .or_else(|_| std::env::var("API_KEY"))
+        .ok()
+        .filter(|s| !s.is_empty());
+
     AnchoringConfig {
         // HARDCODED_URL: Local Substrate RPC endpoint - production uses Kubernetes service DNS
         substrate_rpc_url: "http://localhost:9944".to_string(),
         blockchain_api_url,
+        blockchain_api_key,
         anchor_interval_stores,
         anchor_interval_seconds,
         enabled: anchoring_enabled,
