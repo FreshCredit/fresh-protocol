@@ -21,6 +21,8 @@ pub struct BlockchainClient {
     pub(crate) rpc: Arc<LegacyRpcMethods<subxt::config::RpcConfigFor<SubstrateConfig>>>,
     pub(crate) signer: Arc<Keypair>,
     pub(crate) rpc_url: String,
+    /// Serializes extrinsic signing & nonce submission (released before GRANDPA finality wait)
+    pub(crate) tx_submit_lock: Arc<tokio::sync::Mutex<()>>,
 }
 
 // TAG: surface=blockchain owner=blockchain-team rule=BLOCKCHAIN-001
@@ -64,18 +66,22 @@ impl BlockchainClient {
             rpc: Arc::new(rpc),
             signer: Arc::new(signer),
             rpc_url,
+            tx_submit_lock: Arc::new(tokio::sync::Mutex::new(())),
         })
     }
 
-    /// Load the service account signer from environment
+    /// Load the service account signer from environment (zeroizing raw key material on drop)
     /// # Errors
     ///
     /// Returns an error if the operation fails.
     pub(crate) fn load_signer() -> Result<Keypair> {
+        use zeroize::Zeroizing;
+
         // Try mnemonic first (production)
         if let Ok(mnemonic) = std::env::var("BLOCKCHAIN_SIGNER_MNEMONIC") {
-            let mnemonic = mnemonic.trim();
-            let keypair = Keypair::from_phrase(&mnemonic.parse()?, None)
+            let mnemonic = Zeroizing::new(mnemonic);
+            let trimmed = mnemonic.trim();
+            let keypair = Keypair::from_phrase(&trimmed.parse()?, None)
                 .map_err(|e| anyhow::anyhow!("Invalid mnemonic: {e:?}"))?;
             info!("Loaded signer from mnemonic");
             return Ok(keypair);
@@ -83,8 +89,9 @@ impl BlockchainClient {
 
         // Try SURI (development/testing)
         if let Ok(suri) = std::env::var("BLOCKCHAIN_SIGNER_SURI") {
-            let suri = suri.trim();
-            let keypair = Keypair::from_uri(&suri.parse()?)
+            let suri = Zeroizing::new(suri);
+            let trimmed = suri.trim();
+            let keypair = Keypair::from_uri(&trimmed.parse()?)
                 .map_err(|e| anyhow::anyhow!("Invalid SURI: {e:?}"))?;
             info!("Loaded signer from SURI");
             return Ok(keypair);

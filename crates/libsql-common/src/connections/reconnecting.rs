@@ -112,14 +112,27 @@ impl ReconnectingConnection {
             }
         }
         // Without a parent database we still avoid spinning indefinitely on single-thread runtimes:
-        // yield briefly across bounded attempts and fall back to blocking_read if on a multi-thread worker.
+        // yield briefly across bounded attempts, then use block_in_place ONLY on multi-thread runtimes
+        // (calling block_in_place on current_thread panics per Tokio docs); on current_thread fall back
+        // to a short scoped thread read so we never panic or deadlock.
         for _ in 0..1024 {
             if let Ok(guard) = self.connection.try_read() {
                 return guard.clone();
             }
             std::thread::yield_now();
         }
-        tokio::task::block_in_place(|| self.connection.blocking_read().clone())
+        let is_multi_thread = tokio::runtime::Handle::try_current()
+            .is_ok_and(|h| h.runtime_flavor() == tokio::runtime::RuntimeFlavor::MultiThread);
+        if is_multi_thread {
+            tokio::task::block_in_place(|| self.connection.blocking_read().clone())
+        } else {
+            let lock_ptr = &self.connection;
+            std::thread::scope(|s| {
+                s.spawn(|| lock_ptr.blocking_read().clone())
+                    .join()
+                    .expect("blocking_read helper thread")
+            })
+        }
     }
 
     /// Drop the current connection and open a fresh one (new Hrana stream).
@@ -448,5 +461,27 @@ mod tests {
             .await;
         assert!(result.is_err());
         assert_eq!(attempts.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn current_thread_runtime_connection_accessor_does_not_panic_under_contention() {
+        let db = libsql::Builder::new_local(":memory:")
+            .build()
+            .await
+            .expect("in-memory database builds");
+        let connection = db.connect().expect("connects");
+        let conn = Arc::new(ReconnectingConnection::new(None, connection));
+        let guard = conn.connection.write().await;
+        let c = std::thread::scope(|s| {
+            let releaser = s.spawn(|| {
+                std::thread::sleep(std::time::Duration::from_millis(10));
+                drop(guard);
+            });
+            let c = conn.connection();
+            releaser.join().unwrap();
+            c
+        });
+        let mut rows = c.query("SELECT 1", ()).await.unwrap();
+        assert!(rows.next().await.unwrap().is_some());
     }
 }

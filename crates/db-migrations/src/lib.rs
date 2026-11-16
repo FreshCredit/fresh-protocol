@@ -205,7 +205,19 @@ impl MigrationRunner {
     ///
     /// Returns an error if the operation fails.
     pub async fn run_pending_migrations(&self) -> Result<Vec<i64>> {
+        let _ = self
+            .connection
+            .execute_batch("PRAGMA busy_timeout = 5000;")
+            .await;
         self.ensure_migrations_table().await?;
+        let mismatches = self.check_checksum_mismatches().await?;
+        if !mismatches.is_empty() {
+            let versions: Vec<String> = mismatches.iter().map(|(v, _, _)| v.to_string()).collect();
+            anyhow::bail!(
+                "Refusing to run migrations: historical checksum mismatch detected for version(s): {}",
+                versions.join(", ")
+            );
+        }
         let applied = self.get_applied_migrations().await?;
         let applied_versions: std::collections::HashSet<i64> =
             applied.iter().map(|m| m.version).collect();
@@ -836,6 +848,17 @@ mod async_tests {
         let mismatches = runner.check_checksum_mismatches().await.unwrap();
         assert_eq!(mismatches.len(), 1);
         assert_eq!(mismatches[0].0, 1);
+
+        // run_pending_migrations must abort before applying v2 if v1 checksum was tampered
+        let v2 = Migration {
+            version: 2,
+            name: "second".to_string(),
+            up_sql: "CREATE TABLE v2_table (id INTEGER PRIMARY KEY)".to_string(),
+            down_sql: None,
+            checksum: compute_checksum("CREATE TABLE v2_table (id INTEGER PRIMARY KEY)"),
+        };
+        runner.migrations.insert(2, v2);
+        assert!(runner.run_pending_migrations().await.is_err());
     }
 
     #[tokio::test]

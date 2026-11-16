@@ -39,14 +39,17 @@ impl BlockchainClient {
             .fresh_credit()
             .anchor_report_hash(report_id, hash_bytes, report_type.as_runtime_type());
 
-        // Submit and wait for finalization
-        let tx_progress = self
-            .api
-            .tx()
-            .await?
-            .sign_and_submit_then_watch_default(&tx, &*self.signer)
-            .await
-            .map_err(|e| anyhow::anyhow!("Failed to submit transaction: {e}"))?;
+        // Serialize sign-and-submit under tx_submit_lock to prevent account nonce collisions across
+        // concurrent callers, then release immediately so GRANDPA finality awaits pipeline cleanly.
+        let tx_progress = {
+            let _submit_guard = self.tx_submit_lock.lock().await;
+            self.api
+                .tx()
+                .await?
+                .sign_and_submit_then_watch_default(&tx, &*self.signer)
+                .await
+                .map_err(|e| anyhow::anyhow!("Failed to submit transaction: {e}"))?
+        };
 
         let in_block = tokio::time::timeout(
             crate::helpers::finalize_timeout(),

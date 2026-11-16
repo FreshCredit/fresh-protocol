@@ -948,6 +948,7 @@ dependencies = [
  "tokio-test",
  "tracing",
  "wiremock",
+ "zeroize",
 ]
 
 [[package]]
