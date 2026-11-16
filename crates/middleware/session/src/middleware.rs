@@ -65,6 +65,22 @@ impl<S: SessionStorage> SessionMiddleware<S> {
         self.storage.create(session.clone()).await?;
         Ok(session)
     }
+
+    /// Regenerate session ID on login or privilege change (OWASP Session Fixation defense):
+    /// creates a fresh CSPRNG session before deleting the prior session ID.
+    /// # Errors
+    ///
+    /// Returns an error if session creation fails.
+    pub async fn rotate_session(
+        &self,
+        old_session_id: &str,
+        user_id: String,
+    ) -> Result<Session, SessionError> {
+        let new_session = Session::new(user_id, self.config.timeout, self.config.max_age);
+        self.storage.create(new_session.clone()).await?;
+        let _ = self.storage.delete(old_session_id).await;
+        Ok(new_session)
+    }
     // TAG: surface=security owner=platform-team rule=GENERAL-001
 
     /// Delete a session
@@ -173,20 +189,30 @@ fn extract_session_cookie(request: &Request, cookie_name: &str) -> Option<String
         })
 }
 
+fn sanitize_cookie_token(val: &str, allow_equals: bool) -> String {
+    val.chars()
+        .filter(|c| !c.is_control() && *c != ';' && (allow_equals || (*c != '=' && *c != ' ')))
+        .collect()
+}
+
 /// Create a Set-Cookie header value
 // TAG: surface=security owner=platform-team rule=MID-001
 #[must_use]
 pub fn create_session_cookie(session_id: &str, config: &SessionConfig) -> String {
-    let cookie_name = &config.cookie_name;
-    let cookie_path = &config.cookie_path;
-    let mut cookie = format!("{cookie_name}={session_id}");
+    let cookie_name = sanitize_cookie_token(&config.cookie_name, false);
+    let safe_sid = sanitize_cookie_token(session_id, false);
+    let cookie_path = sanitize_cookie_token(&config.cookie_path, true);
+    let mut cookie = format!("{cookie_name}={safe_sid}");
 
     cookie.push_str("; Path=");
-    cookie.push_str(cookie_path);
+    cookie.push_str(&cookie_path);
 
     if let Some(domain) = &config.cookie_domain {
-        cookie.push_str("; Domain=");
-        cookie.push_str(domain);
+        let safe_domain = sanitize_cookie_token(domain, false);
+        if !safe_domain.is_empty() {
+            cookie.push_str("; Domain=");
+            cookie.push_str(&safe_domain);
+        }
     }
 
     let max_age_secs = config.max_age.num_seconds().max(0);

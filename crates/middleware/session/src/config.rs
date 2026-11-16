@@ -132,6 +132,21 @@ impl SessionConfig {
             return Err("Cleanup interval must be positive".to_string());
         }
 
+        let bad_attr = |s: &str| s.chars().any(|c| c.is_control() || c == ';');
+        if self.cookie_name.is_empty() || bad_attr(&self.cookie_name) || bad_attr(&self.cookie_path)
+        {
+            return Err(
+                "Cookie name/path contains invalid delimiter or control characters".to_string(),
+            );
+        }
+        if let Some(ref dom) = self.cookie_domain {
+            if bad_attr(dom) {
+                return Err(
+                    "Cookie domain contains invalid delimiter or control characters".to_string(),
+                );
+            }
+        }
+
         Ok(())
     }
 }

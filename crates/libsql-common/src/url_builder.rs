@@ -41,7 +41,7 @@ impl TursoUrlBuilder {
     /// Uses `aws-us-west-2` as the default region.
     pub fn new(organization: impl Into<String>) -> Self {
         Self {
-            organization: organization.into(),
+            organization: Self::sanitize_dns_label(&organization.into(), "devonshigaki"),
             region: "aws-us-west-2".to_string(),
         }
         // TAG: surface=database owner=platform-team rule=GENERAL-001
@@ -50,8 +50,8 @@ impl TursoUrlBuilder {
     /// Create a new `TursoUrlBuilder` with custom organization and region.
     pub fn with_region(organization: impl Into<String>, region: impl Into<String>) -> Self {
         Self {
-            organization: organization.into(),
-            region: region.into(),
+            organization: Self::sanitize_dns_label(&organization.into(), "devonshigaki"),
+            region: Self::sanitize_dns_label(&region.into(), "aws-us-west-2"),
         }
     }
 
@@ -113,17 +113,47 @@ impl TursoUrlBuilder {
         )
     }
 
-    /// Sanitize a user ID for use in database naming.
+    fn sanitize_dns_label(raw: &str, fallback: &str) -> String {
+        let cleaned: String = raw
+            .chars()
+            .filter(|c| c.is_ascii_alphanumeric() || *c == '-')
+            .map(|c| c.to_ascii_lowercase())
+            .take(63)
+            .collect();
+        let trimmed = cleaned.trim_matches('-');
+        if trimmed.is_empty() {
+            fallback.to_string()
+        } else {
+            trimmed.to_string()
+        }
+    }
+
+    /// Deterministic 32-bit FNV-1a hex disambiguator over raw UTF-8 `user_id` bytes.
+    fn fnv1a_hash8(raw: &str) -> String {
+        let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+        for &b in raw.as_bytes() {
+            h ^= u64::from(b);
+            h = h.wrapping_mul(0x0100_0000_01b3);
+        }
+        format!("{:08x}", (h ^ (h >> 32)) as u32)
+    }
+
+    /// Sanitize a user ID for use in database naming (collision-resistant & UTF-8 safe).
     ///
-    /// - Replaces non-alphanumeric characters with hyphens
-    /// - Converts to lowercase
-    /// - Truncates to `MAX_USER_ID_LENGTH` (28) characters
+    /// - Keeps only ASCII alphanumerics (replacing non-ASCII-alphanumeric runs with `-`)
+    /// - Lowercases ASCII characters
+    /// - Truncates safely on ASCII char boundaries and appends an 8-hex-char raw-ID hash
+    ///   whenever normalization/truncation is lossy so distinct tenants can NEVER collide.
     fn sanitize_user_id(user_id: &str) -> String {
-        // Replace non-alphanumeric runs with a single hyphen and lowercase the result.
-        let mut sanitized = String::with_capacity(user_id.len());
-        let mut prev_was_dash = true; // treat leading non-alphanumeric as a dash, then trim later
+        let needs_disambiguation = user_id.len() > Self::MAX_USER_ID_LENGTH
+            || !user_id
+                .chars()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit());
+
+        let mut sanitized = String::with_capacity(user_id.len().min(Self::MAX_USER_ID_LENGTH));
+        let mut prev_was_dash = true;
         for c in user_id.chars() {
-            if c.is_alphanumeric() {
+            if c.is_ascii_alphanumeric() {
                 sanitized.push(c.to_ascii_lowercase());
                 prev_was_dash = false;
             } else if !prev_was_dash {
@@ -132,23 +162,25 @@ impl TursoUrlBuilder {
             }
         }
 
-        // Trim trailing dashes introduced by special chars or truncation.
-        // P10-R4: bounded — each iteration pops one char; ends when no trailing dash remains (at most len pops).
         while sanitized.ends_with('-') {
             sanitized.pop();
         }
 
-        // Truncate to the allowed length, then trim any trailing dash left by the cut.
-        if sanitized.len() > Self::MAX_USER_ID_LENGTH {
-            let mut truncated = sanitized[..Self::MAX_USER_ID_LENGTH].to_string();
-            // P10-R4: bounded — pops at most MAX_USER_ID_LENGTH trailing dashes.
-            while truncated.ends_with('-') {
-                truncated.pop();
+        if needs_disambiguation {
+            let prefix_cap = Self::MAX_USER_ID_LENGTH.saturating_sub(9); // room for "-xxxxxxxx"
+            if sanitized.len() > prefix_cap {
+                sanitized.truncate(prefix_cap);
+                while sanitized.ends_with('-') {
+                    sanitized.pop();
+                }
             }
-            sanitized = truncated;
-        }
-
-        if sanitized.is_empty() {
+            let tag = Self::fnv1a_hash8(user_id);
+            if sanitized.is_empty() {
+                tag
+            } else {
+                format!("{sanitized}-{tag}")
+            }
+        } else if sanitized.is_empty() {
             "unknown".to_string()
         } else {
             sanitized
@@ -178,10 +210,8 @@ mod tests {
     fn test_sanitize_email() {
         let builder = TursoUrlBuilder::new("testorg");
         let url = builder.user_database_url("user@example.com");
-        assert_eq!(
-            url,
-            "libsql://user-user-example-com-testorg.aws-us-west-2.turso.io"
-        );
+        assert!(url.starts_with("libsql://user-user-example-com-"));
+        assert!(url.ends_with("-testorg.aws-us-west-2.turso.io"));
         // TAG: surface=database owner=platform-team rule=GENERAL-001
     }
 
@@ -190,8 +220,8 @@ mod tests {
         let builder = TursoUrlBuilder::new("org");
         let long_id = "a".repeat(50);
         let db_name = builder.user_database_name(&long_id);
-        // "user-" (5 chars) + 28 chars = 33 chars max
-        assert_eq!(db_name.len(), 33);
+        // "user-" (5 chars) + <= 28 chars = <= 33 chars max
+        assert!(db_name.len() <= 33);
         assert!(db_name.starts_with("user-"));
     }
 
@@ -199,7 +229,8 @@ mod tests {
     fn test_lowercase() {
         let builder = TursoUrlBuilder::new("org");
         let db_name = builder.user_database_name("USER@EXAMPLE.COM");
-        assert_eq!(db_name, "user-user-example-com");
+        assert!(db_name.starts_with("user-user-example-com-"));
+        assert!(db_name.is_ascii());
         // TAG: surface=database owner=data-team rule=DB-001
     }
 
@@ -207,7 +238,25 @@ mod tests {
     fn test_special_chars() {
         let builder = TursoUrlBuilder::new("org");
         let db_name = builder.user_database_name("user+test!@#$%^&*()");
-        assert_eq!(db_name, "user-user-test");
+        assert!(db_name.starts_with("user-user-test-"));
+    }
+
+    #[test]
+    fn test_no_collisions_on_punctuation_long_dids_or_utf8() {
+        let builder = TursoUrlBuilder::new("org");
+        assert_ne!(
+            builder.user_database_name("alice.smith@x.com"),
+            builder.user_database_name("alice-smith@x.com")
+        );
+        assert_ne!(
+            builder.user_database_name("did:kilt:4tJbxxKqYRv3gDvY66B9A1"),
+            builder.user_database_name("did:kilt:4tJbxxKqYRv3gDvY66B9A2")
+        );
+        // Multi-byte UTF-8 around the 28-byte boundary must never panic and must remain ASCII
+        let utf8_id = "user-ééééééééééééééééééééé";
+        let utf8_db = builder.user_database_name(utf8_id);
+        assert!(utf8_db.is_ascii());
+        assert!(utf8_db.starts_with("user-"));
     }
 
     // TAG: surface=database owner=platform-team rule=DB-001

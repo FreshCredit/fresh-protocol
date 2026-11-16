@@ -541,3 +541,24 @@ async fn test_session_extractor_no_session() {
     let extractor = result.unwrap();
     assert!(extractor.session.is_none());
 }
+
+#[tokio::test]
+async fn test_rotate_session_replaces_old_sid_and_sanitizes_cookie_attrs() {
+    let storage = Arc::new(MockStorage::with_session(valid_session()));
+    let mut cfg = test_config();
+    cfg.cookie_path = "/; Admin=1\r\n".to_string();
+    let mw = SessionMiddleware::new(Arc::clone(&storage), cfg.clone());
+
+    let rotated = mw
+        .rotate_session("session_123", "user_456".to_string())
+        .await
+        .unwrap();
+    assert_ne!(rotated.id, "session_123");
+    assert!(*storage.create_called.lock().unwrap());
+    assert!(*storage.delete_called.lock().unwrap());
+
+    let cookie = create_session_cookie("sid;Evil=1\r\n", &cfg);
+    assert!(!cookie.contains('\r') && !cookie.contains('\n'));
+    assert!(!cookie.contains("Evil=1"));
+    assert!(!cookie.contains("; Admin=1"));
+}
