@@ -237,11 +237,12 @@ impl NomtProof {
             if n == 0 {
                 return Ok(false);
             }
-            let min_depth = (usize::BITS - (n - 1).leading_zeros()) as usize;
-            if n > 1 && (self.depth() < min_depth.saturating_sub(1) || self.depth() > min_depth) {
+            let max_depth = (usize::BITS - (n - 1).leading_zeros()) as usize;
+            if n == 1 && self.depth() != 0 {
                 return Ok(false);
             }
-            if n == 1 && self.depth() != 0 {
+            // Unpaired rightmost leaves in promoted binary trees can have depth down to 1 (e.g., n=2^k+1)
+            if n > 1 && (self.depth() == 0 || self.depth() > max_depth) {
                 return Ok(false);
             }
         }
@@ -779,6 +780,33 @@ mod tests {
         let err2 = ProofError::InvalidPath(2, 1);
         assert!(err2.to_string().contains('2'));
         assert!(err2.to_string().contains('1'));
+    }
+
+    #[test]
+    fn test_verify_bound_leaf_exhaustive_odd_and_even_trees() {
+        for n in 1..=32 {
+            let entries: Vec<(String, Vec<u8>)> = (0..n)
+                .map(|i| (format!("ns:{i}"), format!("payload-{i}").into_bytes()))
+                .collect();
+            let leaves: Vec<String> = entries
+                .iter()
+                .map(|(ns, data)| compute_bound_leaf_hash(ns, data))
+                .collect();
+            let root = compute_merkle_root(&leaves);
+            for (idx, (ns, data)) in entries.iter().enumerate() {
+                let proof = build_merkle_proof(&leaves, &leaves[idx]).expect("proof exists");
+                assert!(
+                    proof.verify_bound_leaf(ns, data, &root, Some(n)).unwrap(),
+                    "failed odd/even inclusion for n={n}, idx={idx}, depth={}",
+                    proof.depth()
+                );
+                assert!(
+                    !proof
+                        .verify_bound_leaf("ns:wrong", data, &root, Some(n))
+                        .unwrap()
+                );
+            }
+        }
     }
     // TAG: surface=blockchain owner=blockchain-team rule=BC-001
 }
